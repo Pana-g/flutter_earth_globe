@@ -3,8 +3,13 @@ import 'package:flutter/material.dart';
 
 /// Represents a visible point on the Earth's globe.
 class VisiblePoint {
+  final GlobalKey key;
+
+  /// The size of the widget to render.
+  final Size? size;
+
   /// The position of the visible point.
-  final Offset position;
+  final Offset? position;
 
   /// Indicates whether the visible point is being hovered over.
   final bool isHovering;
@@ -19,6 +24,7 @@ class VisiblePoint {
   ///
   /// [id] is the unique identifier of the visible point.
   /// [position] is the position of the visible point.
+  /// [size] is the size of the widget to render.
   /// [isHovering] indicates whether the visible point is being hovered over.
   /// [isVisible] indicates whether the visible point is currently visible.
   ///
@@ -32,8 +38,10 @@ class VisiblePoint {
   /// );
   /// ```
   VisiblePoint({
+    required this.key,
+    this.size,
     required this.id,
-    required this.position,
+    this.position,
     required this.isHovering,
     required this.isVisible,
   });
@@ -41,6 +49,7 @@ class VisiblePoint {
   /// Creates a copy of the [VisiblePoint] with optional modifications.
   ///
   /// [position] (optional) specifies a new position for the visible point.
+  /// [size] specifies the size of the widget to render.
   /// [isHovering] (optional) specifies whether the visible point is being hovered over.
   /// [isVisible] (optional) specifies whether the visible point is currently visible.
   ///
@@ -49,9 +58,12 @@ class VisiblePoint {
     Offset? position,
     bool? isHovering,
     bool? isVisible,
+    Size? size,
   }) {
     return VisiblePoint(
+      key: key,
       id: id,
+      size: size ?? this.size,
       position: position ?? this.position,
       isHovering: isHovering ?? this.isHovering,
       isVisible: isVisible ?? this.isVisible,

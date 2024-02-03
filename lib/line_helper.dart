@@ -16,8 +16,8 @@ import 'point_connection.dart';
 /// The [size] parameter represents the size of the canvas.
 /// The [hoverPoint] parameter is an optional offset representing the position of a hover point.
 ///
-/// Returns a [Path] object representing the drawn line, or null if the line is not visible.
-Path? drawAnimatedLine(
+/// Returns a [Map] with a path and a Offset representing the drawn line, or null if the line is not visible.
+Map? drawAnimatedLine(
     Canvas canvas,
     AnimatedPointConnection connection,
     double radius,
@@ -152,22 +152,23 @@ Path? drawAnimatedLine(
       }
     }
 
+    double t = 0.5;
+    Offset realMidPoint = Offset(
+      pow(1 - t, 2) * startCartesian2D.dx +
+          2 * (1 - t) * t * midPoint2D.dx +
+          pow(t, 2) * endCartesian2D.dx,
+      pow(1 - t, 2) * startCartesian2D.dy +
+          2 * (1 - t) * t * midPoint2D.dy +
+          pow(t, 2) * endCartesian2D.dy,
+    );
     // paint text on the midpoint
     if ((connection.isLabelVisible &&
-        (connection.label?.isNotEmpty ?? false))) {
-      double t = 0.5;
-      Offset realMidPoint = Offset(
-        pow(1 - t, 2) * startCartesian2D.dx +
-            2 * (1 - t) * t * midPoint2D.dx +
-            pow(t, 2) * endCartesian2D.dx,
-        pow(1 - t, 2) * startCartesian2D.dy +
-            2 * (1 - t) * t * midPoint2D.dy +
-            pow(t, 2) * endCartesian2D.dy,
-      );
+            (connection.label?.isNotEmpty ?? false)) &&
+        connection.labelBuilder == null) {
       paintText(connection.label ?? '', connection.labelTextStyle, realMidPoint,
           size, canvas);
     }
-    return extractPath;
+    return {'path': extractPath, 'midPoint': realMidPoint};
   }
   return null;
 }

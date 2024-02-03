@@ -63,10 +63,13 @@ class ForegroundPainter extends CustomPainter {
     this.clickPoint,
     this.onPointClicked,
     required this.hoverOverPoint,
+    required this.hoverOverConnection,
   });
 
-  Function(String pointId, Offset cartesian2D, bool isHovering, bool isVisible)
+  Function(String pointId, Offset? hoverPoint, bool isHovering, bool isVisible)
       hoverOverPoint;
+  Function(String connectionId, Offset? hoverPoint, bool isHovering,
+      bool isVisible) hoverOverConnection;
   VoidCallback? onPointClicked;
   final List<AnimatedPointConnection> connections;
   final Offset? hoverPoint;
@@ -114,8 +117,8 @@ class ForegroundPainter extends CustomPainter {
 
         if ((point.isLabelVisible &&
                 point.label != null &&
-                point.label != '') ||
-            point.labelBuilder != null) {
+                point.label != '') &&
+            point.labelBuilder == null) {
           paintText(point.label ?? '', point.labelTextStyle, cartesian2D, size,
               canvas);
         }
@@ -124,21 +127,26 @@ class ForegroundPainter extends CustomPainter {
       }
     }
     for (var connection in connections) {
-      Path? path = drawAnimatedLine(canvas, connection, radius, rotationY,
+      Map? info = drawAnimatedLine(canvas, connection, radius, rotationY,
           rotationZ, connection.animationProgress, size, hoverPoint);
 
-      if (path != null) {
-        if (localHover != null && isPointOnPath(path, localHover)) {
+      if (info?['path'] != null) {
+        if (localHover != null && isPointOnPath(info?['path'], localHover)) {
           Future.delayed(Duration.zero, () {
             connection.onHover?.call();
+            hoverOverConnection(connection.id, info?['midPoint'], true, true);
           });
+        } else {
+          hoverOverConnection(connection.id, info?['midPoint'], false, true);
         }
-        if (localClick != null && isPointOnPath(path, localClick)) {
+        if (localClick != null && isPointOnPath(info?['path'], localClick)) {
           Future.delayed(Duration.zero, () {
             connection.onTap?.call();
             onPointClicked?.call();
           });
         }
+      } else {
+        hoverOverConnection(connection.id, info?['midPoint'], false, false);
       }
     }
   }

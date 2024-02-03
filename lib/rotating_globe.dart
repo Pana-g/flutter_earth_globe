@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
+import 'package:flutter_earth_globe/visible_connection.dart';
 import 'package:flutter_earth_globe/visible_point.dart';
 
 import 'foreground_painter.dart';
@@ -85,6 +86,8 @@ class _SphereState extends State<Sphere> with TickerProviderStateMixin {
 
   Map<String, VisiblePoint> visiblePoints =
       {}; // The map of visible points on the sphere.
+  Map<String, VisibleConnection> visibleConnections =
+      {}; // The map of visible connections on the sphere.
 
   @override
   void initState() {
@@ -455,15 +458,54 @@ class _SphereState extends State<Sphere> with TickerProviderStateMixin {
                         onPointerHover: onHover,
                         child: CustomPaint(
                           foregroundPainter: ForegroundPainter(
+                            hoverOverConnection: (connectionId, cartesian2D,
+                                isHovering, isVisible) {
+                              if (!mounted) return;
+                              bool changed = false;
+                              if (isVisible) {
+                                if (!visibleConnections
+                                    .containsKey(connectionId)) {
+                                  visibleConnections.putIfAbsent(
+                                      connectionId,
+                                      () => VisibleConnection(
+                                          key: GlobalKey(),
+                                          id: connectionId,
+                                          position: cartesian2D,
+                                          isVisible: isVisible,
+                                          isHovering: isHovering));
+                                  changed = true;
+                                } else {
+                                  visibleConnections.update(
+                                      connectionId,
+                                      (value) => value.copyWith(
+                                          position: cartesian2D,
+                                          isVisible: isVisible,
+                                          isHovering: isHovering));
+                                  changed = true;
+                                }
+                              } else {
+                                if (visibleConnections
+                                    .containsKey(connectionId)) {
+                                  visibleConnections.remove(connectionId);
+                                  changed = true;
+                                }
+                              }
+                              if (changed) {
+                                Future.delayed(Duration.zero, () {
+                                  setState(() {});
+                                });
+                              }
+                            },
                             hoverOverPoint:
                                 (pointId, cartesian2D, isHovering, isVisisble) {
                               if (!mounted) return;
                               bool changed = false;
-                              if (isHovering) {
+                              if (isVisisble) {
                                 if (!visiblePoints.containsKey(pointId)) {
                                   visiblePoints.putIfAbsent(
                                       pointId,
                                       () => VisiblePoint(
+                                          key: GlobalKey(),
                                           id: pointId,
                                           position: cartesian2D,
                                           isVisible: isVisisble,
@@ -528,13 +570,81 @@ class _SphereState extends State<Sphere> with TickerProviderStateMixin {
                               (element) => element.id == e.key,
                             )
                             .firstOrNull;
-                        if (point == null || point.labelBuilder == null) {
+                        final pos = e.value.position;
+                        if (point == null ||
+                            point.labelBuilder == null ||
+                            pos == null) {
                           return null;
                         }
+
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          final box = e.value.key.currentContext
+                              ?.findRenderObject() as RenderBox?;
+                          if ((e.value.size?.height != box?.size.height ||
+                                  e.value.size?.width != box?.size.width) &&
+                              box?.size != null) {
+                            visiblePoints.update(
+                                e.key,
+                                (value) => value.copyWith(
+                                      size: box?.size,
+                                    ));
+                            setState(() {});
+                          }
+                        });
+
+                        double width = e.value.size?.width ?? 0;
+                        double height = e.value.size?.height ?? 0;
                         return Positioned(
-                            left: e.value.position.dx - point.labelOffset.dx,
-                            top: e.value.position.dy - point.labelOffset.dy,
+                            key: e.value.key,
+                            left: pos.dx - point.labelOffset.dx - (width / 2),
+                            top: pos.dy - point.labelOffset.dy - height,
                             child: point.labelBuilder!(context, point,
+                                    e.value.isHovering, e.value.isVisible) ??
+                                Container());
+                      },
+                    )
+                    .whereType<Widget>()
+                    .toList(),
+              if (visibleConnections.isNotEmpty)
+                ...visibleConnections.entries
+                    .map(
+                      (e) {
+                        final connection = widget.controller.connections
+                            .where(
+                              (element) => element.id == e.key,
+                            )
+                            .firstOrNull;
+                        final pos = e.value.position;
+                        if (connection == null ||
+                            connection.labelBuilder == null ||
+                            pos == null) {
+                          return null;
+                        }
+
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          final box = e.value.key.currentContext
+                              ?.findRenderObject() as RenderBox?;
+                          if ((e.value.size?.height != box?.size.height ||
+                                  e.value.size?.width != box?.size.width) &&
+                              box?.size != null) {
+                            visibleConnections.update(
+                                e.key,
+                                (value) => value.copyWith(
+                                      size: box?.size,
+                                    ));
+                            setState(() {});
+                          }
+                        });
+
+                        double width = e.value.size?.width ?? 0;
+                        double height = e.value.size?.height ?? 0;
+                        return Positioned(
+                            key: e.value.key,
+                            left: pos.dx -
+                                connection.labelOffset.dx -
+                                (width / 2),
+                            top: pos.dy - connection.labelOffset.dy - height,
+                            child: connection.labelBuilder!(context, connection,
                                     e.value.isHovering, e.value.isVisible) ??
                                 Container());
                       },
