@@ -1,175 +1,200 @@
-import 'dart:convert';
-import 'dart:ui';
 import 'package:flutter/material.dart' as material;
+import 'package:flutter/widgets.dart';
 
 import 'globe_coordinates.dart';
+
 import 'point_connection_style.dart';
 
 /// This class defines the [connection] between two [points].
+/// Represents a connection between two points on a globe.
 class PointConnection {
   final GlobeCoordinates start;
   final GlobeCoordinates end;
-  final String? title;
-  final material.TextStyle? textStyle;
+  final String? label;
+  final material.Widget? Function(
+      material.BuildContext context,
+      PointConnection pointConnection,
+      bool isHovering,
+      bool isVisible)? labelBuilder;
+  final material.TextStyle? labelTextStyle;
   final String id;
   bool isMoving;
-  bool showTitleOnHover;
-  bool isTitleVisible;
+  bool isLabelVisible;
+  final Offset labelOffset;
   final PointConnectionStyle style;
   final VoidCallback? onTap;
   final VoidCallback? onHover;
 
-  PointConnection(
-      {required this.start,
-      required this.end,
-      required this.id,
-      this.onHover,
-      this.textStyle,
-      this.onTap,
-      this.isMoving = false,
-      this.showTitleOnHover = false,
-      this.isTitleVisible = true,
-      this.title,
-      this.style = const PointConnectionStyle()});
+  /// Creates a new [PointConnection] instance.
+  ///
+  /// The [start] and [end] parameters represent the coordinates of the start and end points of the connection.
+  /// The [id] parameter is a unique identifier for the connection.
+  /// The [label] parameter is an optional label for the connection.
+  /// The [labelOffset] parameter represents the offset of the label from the connection line.
+  /// The [labelBuilder] parameter is a function that builds the label widget for the connection.
+  /// The [labelTextStyle] parameter represents the style of the label text.
+  /// The [isMoving] parameter indicates whether the connection is currently moving.
+  /// The [isLabelVisible] parameter indicates whether the label is currently visible.
+  /// The [style] parameter represents the style of the connection line.
+  /// The [onTap] parameter is a callback function that is called when the connection is tapped.
+  /// The [onHover] parameter is a callback function that is called when the connection is hovered over.
+  PointConnection({
+    required this.start,
+    required this.end,
+    required this.id,
+    this.label,
+    this.labelOffset = const Offset(0, 0),
+    this.labelBuilder,
+    this.labelTextStyle,
+    this.isMoving = false,
+    this.isLabelVisible = false,
+    this.style = const PointConnectionStyle(),
+    this.onTap,
+    this.onHover,
+  });
 
-  Map<String, dynamic> toMap() {
-    return <String, dynamic>{
-      'start': start.toMap(),
-      'end': end.toMap(),
-      'title': title,
-      'isTitleVisible': isTitleVisible,
-      'showTitleOnHover': showTitleOnHover,
-      'id': id,
-      'isMoving': isMoving,
-      'style': style.toMap(),
-    };
-  }
-
-  factory PointConnection.fromMap(Map<String, dynamic> map) {
-    return PointConnection(
-      start: GlobeCoordinates.fromMap(map['start'] as Map<String, dynamic>),
-      end: GlobeCoordinates.fromMap(map['end'] as Map<String, dynamic>),
-      title: map['title'] != null ? map['title'] as String : null,
-      id: map['id'],
-      isTitleVisible: map['isTitleVisible'] as bool,
-      showTitleOnHover: map['showTitleOnHover'] as bool,
-      isMoving: map['isMoving'] as bool,
-      style: PointConnectionStyle.fromMap(map['style'] as Map<String, dynamic>),
-    );
-  }
-
-  String toJson() => json.encode(toMap());
-
-  factory PointConnection.fromJson(String source) =>
-      PointConnection.fromMap(json.decode(source) as Map<String, dynamic>);
-
+  /// Creates a new [PointConnection] instance with updated properties.
+  ///
+  /// The [start], [end], [label], [labelTextStyle], [id], [labelBuilder], [isMoving], [isLabelVisible],
+  /// [labelOffset], [style], [onTap], and [onHover] parameters represent the updated properties of the connection.
   PointConnection copyWith({
     GlobeCoordinates? start,
     GlobeCoordinates? end,
-    String? title,
+    String? label,
+    material.TextStyle? labelTextStyle,
     String? id,
+    material.Widget? Function(material.BuildContext context,
+            PointConnection pointConnection, bool isHovering, bool isVisible)?
+        labelBuilder,
     bool? isMoving,
-    bool? isTitleVisible,
-    bool? showTitleOnHover,
-    material.TextStyle? textStyle,
+    bool? isLabelVisible,
+    Offset? labelOffset,
     PointConnectionStyle? style,
+    VoidCallback? onTap,
+    VoidCallback? onHover,
   }) {
     return PointConnection(
       start: start ?? this.start,
       end: end ?? this.end,
-      title: title ?? this.title,
+      label: label ?? this.label,
+      labelOffset: labelOffset ?? this.labelOffset,
+      labelBuilder: labelBuilder ?? this.labelBuilder,
+      labelTextStyle: labelTextStyle ?? this.labelTextStyle,
       id: id ?? this.id,
-      textStyle: textStyle ?? this.textStyle,
       isMoving: isMoving ?? this.isMoving,
-      isTitleVisible: isTitleVisible ?? this.isTitleVisible,
-      showTitleOnHover: showTitleOnHover ?? this.showTitleOnHover,
+      isLabelVisible: isLabelVisible ?? this.isLabelVisible,
       style: style ?? this.style,
+      onTap: onTap ?? this.onTap,
+      onHover: onHover ?? this.onHover,
     );
   }
 }
 
+/// Represents an animated point connection between two points on a globe.
+///
 /// This class extends [PointConnection] and adds the [animationOffset] and [animationProgress] properties.
-/// The [animationOffset] is used to animate the [PointConnection]s in a staggered way.
-/// The [animationProgress] is used to animate the [PointConnection]s from the start to the end.
 class AnimatedPointConnection extends PointConnection {
   double animationOffset;
   double animationProgress;
+
+  /// Creates a new [AnimatedPointConnection] instance.
+  ///
+  /// The [start] and [end] parameters represent the coordinates of the start and end points of the connection.
+  /// The [id] parameter is a unique identifier for the connection.
+  /// The [label] parameter is an optional label for the connection.
+  /// The [labelOffset] parameter represents the offset of the label from the connection line.
+  /// The [labelBuilder] parameter is a function that builds the label widget for the connection.
+  /// The [labelTextStyle] parameter represents the style of the label text.
+  /// The [isMoving] parameter indicates whether the connection is currently moving.
+  /// The [isLabelVisible] parameter indicates whether the label is currently visible.
+  /// The [style] parameter represents the style of the connection line.
+  /// The [onTap] parameter is a callback function that is called when the connection is tapped.
+  /// The [onHover] parameter is a callback function that is called when the connection is hovered over.
+  /// The [animationProgress] parameter represents the progress of the animation.
+  /// The [animationOffset] parameter represents the offset of the animation.
   AnimatedPointConnection(
-      {super.title,
-      required super.start,
+      {required super.start,
       required super.end,
       required super.id,
-      super.style,
+      super.label,
+      super.labelTextStyle,
       super.isMoving,
       super.onTap,
       super.onHover,
-      super.textStyle,
-      super.isTitleVisible,
-      super.showTitleOnHover,
+      super.style,
+      super.labelOffset,
+      super.isLabelVisible,
+      super.labelBuilder,
       this.animationProgress = 0.0,
       this.animationOffset = 0.0});
 
-  @override
-  Map<String, dynamic> toMap() {
-    return <String, dynamic>{
-      ...super.toMap(),
-      'animationOffset': animationOffset,
-      'animationProgress': animationProgress,
-    };
-  }
+  /// Creates a new [AnimatedPointConnection] instance from an existing [PointConnection].
+  ///
+  /// The [pointConnection] parameter represents the existing [PointConnection] to be converted to an [AnimatedPointConnection].
+  /// The [animationOffset] parameter represents the offset of the animation.
+  /// The [animationProgress] parameter represents the progress of the animation.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// AnimatedPointConnection.fromPointConnection(
+  ///  pointConnection: pointConnection,
+  /// animationOffset: 0.0,
+  /// animationProgress: 0.0,
+  /// );
+  /// ```
+  AnimatedPointConnection.fromPointConnection({
+    required PointConnection pointConnection,
+    this.animationOffset = 0.0,
+    this.animationProgress = 0.0,
+  }) : super(
+          start: pointConnection.start,
+          labelOffset: pointConnection.labelOffset,
+          end: pointConnection.end,
+          id: pointConnection.id,
+          label: pointConnection.label,
+          labelTextStyle: pointConnection.labelTextStyle,
+          isMoving: pointConnection.isMoving,
+          isLabelVisible: pointConnection.isLabelVisible,
+          style: pointConnection.style,
+          onTap: pointConnection.onTap,
+          onHover: pointConnection.onHover,
+          labelBuilder: pointConnection.labelBuilder,
+        );
 
-  factory AnimatedPointConnection.fromMap(
-      Map<String, dynamic> map, VoidCallback? onTap, VoidCallback? onHover) {
-    return AnimatedPointConnection(
-      animationOffset: map['animationOffset'] != null
-          ? map['animationOffset'] as double
-          : 0.0,
-      start: GlobeCoordinates.fromMap(map['start'] as Map<String, dynamic>),
-      end: GlobeCoordinates.fromMap(map['end'] as Map<String, dynamic>),
-      title: map['title'] != null ? map['title'] as String : null,
-      id: map['id'],
-      isTitleVisible: map['isTitleVisible'],
-      animationProgress: map['animationProgress'] != null
-          ? map['animationProgress'] as double
-          : 0.0,
-      isMoving: map['isMoving'] as bool,
-      showTitleOnHover: map['showTitleOnHover'] as bool,
-      onHover: onHover,
-      onTap: onTap,
-      style: PointConnectionStyle.fromMap(map['style'] as Map<String, dynamic>),
-    );
-  }
-
   @override
-  AnimatedPointConnection copyWith({
+  PointConnection copyWith({
+    GlobeCoordinates? start,
+    GlobeCoordinates? end,
+    Offset? labelOffset,
+    String? label,
+    material.TextStyle? labelTextStyle,
+    String? id,
+    material.Widget? Function(material.BuildContext context,
+            PointConnection pointConnection, bool isHovering, bool isVisible)?
+        labelBuilder,
+    bool? isMoving,
+    bool? isLabelVisible,
+    PointConnectionStyle? style,
+    VoidCallback? onTap,
+    VoidCallback? onHover,
     double? animationOffset,
     double? animationProgress,
-    GlobeCoordinates? start,
-    VoidCallback? onHover,
-    VoidCallback? onTap,
-    GlobeCoordinates? end,
-    String? title,
-    material.TextStyle? textStyle,
-    String? id,
-    bool? isMoving,
-    bool? isTitleVisible,
-    bool? showTitleOnHover,
-    PointConnectionStyle? style,
   }) {
     return AnimatedPointConnection(
-      animationOffset: animationOffset ?? this.animationOffset,
-      animationProgress: animationProgress ?? this.animationProgress,
       start: start ?? this.start,
       end: end ?? this.end,
-      onHover: onHover ?? this.onHover,
-      onTap: onTap ?? this.onTap,
-      title: title ?? this.title,
-      textStyle: textStyle ?? this.textStyle,
+      label: label ?? this.label,
+      labelTextStyle: labelTextStyle ?? this.labelTextStyle,
       id: id ?? this.id,
+      labelBuilder: labelBuilder ?? this.labelBuilder,
+      labelOffset: labelOffset ?? this.labelOffset,
       isMoving: isMoving ?? this.isMoving,
-      isTitleVisible: isTitleVisible ?? this.isTitleVisible,
-      showTitleOnHover: showTitleOnHover ?? this.showTitleOnHover,
+      isLabelVisible: isLabelVisible ?? this.isLabelVisible,
       style: style ?? this.style,
+      onTap: onTap ?? this.onTap,
+      onHover: onHover ?? this.onHover,
+      animationOffset: animationOffset ?? this.animationOffset,
+      animationProgress: animationProgress ?? this.animationProgress,
     );
   }
 }

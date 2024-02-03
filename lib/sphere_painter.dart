@@ -3,11 +3,50 @@ import 'package:flutter/material.dart';
 import 'sphere_image.dart';
 import 'sphere_style.dart';
 
+/// A custom painter for drawing a sphere with various styles.
+///
+/// The [SpherePainter] class extends the [CustomPainter] class and provides
+/// methods for painting a sphere on a canvas. It supports features such as
+/// shadow, clipping, image drawing, and gradient overlay.
 class SpherePainter extends CustomPainter {
   final SphereStyle style;
-  SpherePainter({required this.sphereImage, required this.style});
-
   final SphereImage sphereImage;
+
+  /// Creates a [SpherePainter] with the specified [sphereImage] and [style].
+  ///
+  /// The [sphereImage] represents the image of the sphere to be drawn, along
+  /// with its position and size.
+  /// The [style] defines the appearance of the sphere, including shadow and gradient overlay settings.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// final painter = SpherePainter(
+  ///   sphereImage: SphereImage(
+  ///     image: myImage,
+  ///     offset: Offset(100, 100),
+  ///     radius: 50,
+  ///     origin: Offset(25, 25),
+  ///   ),
+  ///   style: SphereStyle(
+  ///     showShadow: true,
+  ///     shadowColor: Colors.blue,
+  ///     shadowBlurStyle: BlurStyle.normal,
+  ///     shadowBlurSigma: 5.0,
+  ///     showGradientOverlay: true,
+  ///     gradientOverlay: LinearGradient(
+  ///       colors: [Colors.red, Colors.yellow],
+  ///       begin: Alignment.topLeft,
+  ///       end: Alignment.bottomRight,
+  ///     ),
+  ///   ),
+  /// );
+  ///
+  /// final customPaint = CustomPaint(
+  ///   painter: painter,
+  ///   size: Size(200, 200),
+  /// );
+  /// ```
+  SpherePainter({required this.sphereImage, required this.style});
 
   @override
   void paint(Canvas canvas, Size size) {

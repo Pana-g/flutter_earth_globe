@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+/// Represents the style configuration for a sphere.
 class SphereStyle {
   final Color shadowColor;
   final BlurStyle shadowBlurStyle;
@@ -8,6 +9,34 @@ class SphereStyle {
   final Gradient gradientOverlay;
   final bool showGradientOverlay;
 
+  /// The [SphereStyle] class defines various properties that can be used to customize the appearance of a sphere.
+  ///
+  /// The [shadowColor] parameter specifies the color of the shadow. The default value is `Color.fromARGB(185, 33, 149, 243)`.
+  /// The [shadowBlurStyle] parameter specifies the style of the shadow blur. The default value is `BlurStyle.normal`.
+  /// The [shadowBlurSigma] parameter specifies the sigma value of the shadow blur. The default value is `20`.
+  /// The [showShadow] parameter specifies whether the shadow should be shown. The default value is `true`.
+  /// The [gradientOverlay] parameter specifies the gradient overlay to be applied to the sphere. The default value is a radial gradient with transparent, white, and black colors.
+  /// The [showGradientOverlay] parameter specifies whether the gradient overlay should be shown. The default value is `true`.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// SphereStyle style = SphereStyle(
+  ///   shadowColor: Colors.blue,
+  ///   shadowBlurStyle: BlurStyle.inner,
+  ///   shadowBlurSigma: 10,
+  ///   showShadow: true,
+  ///   showGradientOverlay: true,
+  ///   gradientOverlay: RadialGradient(
+  ///     center: Alignment.center,
+  ///     colors: [
+  ///       Colors.transparent,
+  ///       Colors.white,
+  ///       Colors.black,
+  ///     ],
+  ///     stops: [0.1, 0.5, 1.0],
+  ///   ),
+  /// );
+  /// ```
   SphereStyle({
     this.shadowColor = const Color.fromARGB(185, 33, 149, 243),
     this.shadowBlurStyle = BlurStyle.normal,

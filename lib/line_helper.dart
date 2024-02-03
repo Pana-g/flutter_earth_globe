@@ -8,10 +8,15 @@ import 'package:vector_math/vector_math.dart';
 
 import 'point_connection.dart';
 
-/// This class is responsible for painting the foreground of the globe.
-/// It paints the points and the connections between them.
+/// Draws an animated line on the canvas connecting two points on a sphere.
 ///
-/// Returns the path of the connection if it is visible, otherwise returns null.
+/// The line is drawn using the provided [canvas] object and is animated based on the [animationValue].
+/// The [radius] parameter specifies the radius of the sphere.
+/// The [rotationY] and [rotationZ] parameters control the rotation of the sphere.
+/// The [size] parameter represents the size of the canvas.
+/// The [hoverPoint] parameter is an optional offset representing the position of a hover point.
+///
+/// Returns a [Path] object representing the drawn line, or null if the line is not visible.
 Path? drawAnimatedLine(
     Canvas canvas,
     AnimatedPointConnection connection,
@@ -148,11 +153,8 @@ Path? drawAnimatedLine(
     }
 
     // paint text on the midpoint
-    if ((connection.isTitleVisible &&
-            (connection.title?.isNotEmpty ?? false)) ||
-        (connection.showTitleOnHover &&
-            hoverPoint != null &&
-            isPointOnPath(extractPath, hoverPoint))) {
+    if ((connection.isLabelVisible &&
+        (connection.label?.isNotEmpty ?? false))) {
       double t = 0.5;
       Offset realMidPoint = Offset(
         pow(1 - t, 2) * startCartesian2D.dx +
@@ -162,7 +164,7 @@ Path? drawAnimatedLine(
             2 * (1 - t) * t * midPoint2D.dy +
             pow(t, 2) * endCartesian2D.dy,
       );
-      paintText(connection.title ?? '', connection.textStyle, realMidPoint,
+      paintText(connection.label ?? '', connection.labelTextStyle, realMidPoint,
           size, canvas);
     }
     return extractPath;
@@ -170,9 +172,12 @@ Path? drawAnimatedLine(
   return null;
 }
 
-/// Calculates the length of the path up to the intersection with the sphere.
+/// Calculates the lengths of the path up to the given intersection point.
 ///
-/// Returns a list of lengths up to the intersection.
+/// The [path] parameter represents the path to calculate the lengths from.
+/// The [intersection] parameter is the intersection point.
+///
+/// Returns a list of lengths representing the distances along the path up to the intersection point.
 List<double> getPathLengthsUpToIntersection(Path path, Offset intersection) {
   PathMetric pathMetric = path.computeMetrics().first;
   double totalLength = pathMetric.length;
@@ -189,9 +194,13 @@ List<double> getPathLengthsUpToIntersection(Path path, Offset intersection) {
   return lengths;
 }
 
-/// Calculates the percentage of the path that is drawn up to the intersection
+/// Calculates the draw percentage of the path up to the given intersection point.
 ///
-/// Returns the percentage of the path that is drawn up to the intersection.
+/// The [path] parameter represents the path to calculate the draw percentage from.
+/// The [intersection] parameter is the intersection point.
+/// The [first] parameter specifies whether to calculate the draw percentage up to the first or last intersection.
+///
+/// Returns the draw percentage as a double value between 0 and 100.
 double getDrawPercentage(Path path, Offset intersection, {bool first = true}) {
   List<double> lengthsUpToIntersections =
       getPathLengthsUpToIntersection(path, intersection);
@@ -206,9 +215,14 @@ double getDrawPercentage(Path path, Offset intersection, {bool first = true}) {
   return (nearestIntersectionLength / totalLength) * 100;
 }
 
-/// Calculates the curvature of the path at the given distance.
+/// Calculates the curvature at a given distance along the path.
 ///
-/// Returns the curvature as [double].
+/// The [currentTangent] parameter represents the tangent at the current distance.
+/// The [pathMetric] parameter represents the path metric of the path.
+/// The [distance] parameter specifies the distance along the path.
+/// The [step] parameter specifies the step size for calculating the next tangent.
+///
+/// Returns the curvature as a double value.
 double calculateCurvature(Tangent currentTangent, PathMetric pathMetric,
     double distance, double step) {
   // Calculate the next tangent in the path
@@ -233,9 +247,12 @@ double calculateCurvature(Tangent currentTangent, PathMetric pathMetric,
   return angleDifference;
 }
 
-/// Calculates the points on the path with a given tolerance.
+/// Converts a path into a list of points with adaptive spacing.
 ///
-/// Returns a list of points as [List<Offset>] on the path with a given tolerance.
+/// The [path] parameter represents the path to convert.
+/// The [maxTolerance] parameter specifies the maximum tolerance for spacing between points.
+///
+/// Returns a list of points representing the path with adaptive spacing.
 List<Offset> adaptivePathToPoints(Path path, double maxTolerance) {
   List<Offset> points = [];
   PathMetric pathMetric = path.computeMetrics().first;
@@ -259,9 +276,13 @@ List<Offset> adaptivePathToPoints(Path path, double maxTolerance) {
   return points;
 }
 
-/// Refines the intersection between the path and the sphere.
+/// Refines the intersection point between a line segment and a sphere.
 ///
-/// Returns the refined intersection between the path and the sphere as an [Offset].
+/// The [start] and [end] parameters represent the endpoints of the line segment.
+/// The [center] parameter represents the center of the sphere.
+/// The [radius] parameter specifies the radius of the sphere.
+///
+/// Returns the refined intersection point as an [Offset].
 Offset refineIntersection(
     Offset start, Offset end, Offset center, double radius) {
   double startDistance = (start - center).distance - radius;
@@ -287,9 +308,15 @@ Offset refineIntersection(
   return (start + end) / 2;
 }
 
-/// Finds the intersection between the path and the sphere.
+/// Finds the intersection point between a curved path and a sphere.
 ///
-/// Returns the intersection between the path and the sphere as an [Offset].
+/// The [path] parameter represents the curved path.
+/// The [center] parameter represents the center of the sphere.
+/// The [radius] parameter specifies the radius of the sphere.
+/// The [maxTolerance] parameter specifies the maximum tolerance for spacing between points on the path.
+/// The [firstIntersection] parameter specifies whether to find the first or last intersection.
+///
+/// Returns the intersection point as an [Offset], or null if no intersection is found.
 Offset? findCurveSphereIntersection(Path path, Offset center, double radius,
     double maxTolerance, bool firstIntersection) {
   List<Offset> points = adaptivePathToPoints(path, maxTolerance);

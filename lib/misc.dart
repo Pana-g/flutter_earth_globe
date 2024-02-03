@@ -2,12 +2,15 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
-/// Paints a text on the canvas at the given position
-paintText(String title, TextStyle? textStyle, Offset cartesian2D, Size size,
-    Canvas canvas) {
+/// Paints the specified [title] on the [canvas] at the given [cartesian2D] position.
+///
+/// The [textStyle] parameter is optional and can be used to customize the text style.
+/// The [size] parameter represents the size of the canvas.
+void paintText(String title, TextStyle? textStyle, Offset cartesian2D,
+    Size size, Canvas canvas) {
   final defaultTextPaint = Paint()
-    ..color = Colors.blue
-    ..strokeWidth = 16
+    ..color = Colors.blue.withOpacity(0.7)
+    ..strokeWidth = 25
     ..strokeCap = StrokeCap.round
     ..strokeJoin = StrokeJoin.round
     ..style = PaintingStyle.stroke;
@@ -41,7 +44,8 @@ paintText(String title, TextStyle? textStyle, Offset cartesian2D, Size size,
   textPainter.paint(canvas, offset);
 }
 
-/// Returns true if the given [point] is on the given [path]
+/// Checks if the given [point] lies on the specified [path].
+/// Returns true if the point is on the path, otherwise returns false.
 bool isPointOnPath(Path path, Offset point) {
   PathMetric? pathMetric = path.computeMetrics().firstOrNull;
   if (pathMetric == null) return false;

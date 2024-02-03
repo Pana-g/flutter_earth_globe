@@ -11,30 +11,21 @@ import 'point_connection_style.dart';
 /// It is also used to control the rotation of the globe.
 /// It is also used to load the surface and background images.
 /// It is also used to change the style of the sphere.
+/// It is also used to listen to the events of the globe.
 class RotatingGlobeController {
   bool _isRotating = false;
   bool _isReady = false;
   List<Point> points = [];
-  List<PointConnection> connections = [];
+  List<AnimatedPointConnection> connections = [];
   SphereStyle sphereStyle = SphereStyle();
 
   // internal calls
-  Function(PointConnection connection,
+  Function(AnimatedPointConnection connection,
       {required bool animateDraw,
       required Duration animateDrawDuration})? onPointConnectionAdded;
-  Function(
-    String id,
-  )? onPointConnectionRemoved;
+  Function()? onPointConnectionRemoved;
 
-  Function(
-    String id, {
-    String? title,
-    TextStyle? textStyle,
-    bool? isTitleVisible,
-    bool? showTitleOnHover,
-    bool? isMoving,
-    PointConnectionStyle? style,
-  })? onPointConnectionUpdated;
+  Function()? onPointConnectionUpdated;
 
   Function()? onPointAdded;
 
@@ -78,6 +69,11 @@ class RotatingGlobeController {
 
   /// Adds a [connection] between two [points] to the globe.
   ///
+  /// The [connection] parameter represents the connection to be added to the globe.
+  /// The [animateDraw] parameter represents whether the connection should be animated when drawn.
+  /// The [animateDrawDuration] parameter represents the duration of the animation when drawing the connection.
+  ///
+  /// Example usage:
   /// ```dart
   /// controller.addPointConnection(PointConnection(
   ///   start: GlobeCoordinates(0, 0),
@@ -93,14 +89,27 @@ class RotatingGlobeController {
   void addPointConnection(PointConnection connection,
       {bool animateDraw = false,
       Duration animateDrawDuration = const Duration(seconds: 2)}) {
-    onPointConnectionAdded?.call(connection,
+    final animatedConnection = AnimatedPointConnection.fromPointConnection(
+        pointConnection: connection);
+    connections.add(animatedConnection);
+    onPointConnectionAdded?.call(animatedConnection,
         animateDraw: animateDraw, animateDrawDuration: animateDrawDuration);
-
-    connections.add(connection);
   }
 
   /// Updates the [connection] between two [points] on the globe.
   ///
+  /// The [id] parameter represents the id of the connection to be updated.
+  /// The [label] parameter represents the label of the connection.
+  /// The [labelBuilder] parameter represents the builder of the label of the connection.
+  /// The [isLabelVisible] parameter represents the visibility of the label of the connection.
+  /// The [labelOffset] parameter represents the offset of the label from the connection line.
+  /// The [isMoving] parameter represents whether the connection is currently moving.
+  /// The [style] parameter represents the style of the connection line.
+  /// The [labelTextStyle] parameter represents the text style of the label.
+  /// The [onTap] parameter is a callback function that is called when the connection is tapped.
+  /// The [onHover] parameter is a callback function that is called when the connection is hovered over.
+  ///
+  /// Example usage:
   /// ```dart
   /// controller.updatePointConnection('id',
   ///   title: 'title',
@@ -112,38 +121,49 @@ class RotatingGlobeController {
   /// ```
   void updatePointConnection(
     String id, {
-    String? title,
-    TextStyle? textStyle,
-    bool? isTitleVisible,
+    String? label,
+    Widget? Function(BuildContext context, PointConnection pointConnection,
+            bool isHovering, bool isVisible)?
+        labelBuilder,
+    bool? isLabelVisible,
+    Offset? labelOffset,
     bool? isMoving,
     PointConnectionStyle? style,
+    TextStyle? labelTextStyle,
+    VoidCallback? onTap,
+    VoidCallback? onHover,
   }) {
-    onPointConnectionUpdated?.call(id,
-        title: title,
-        textStyle: textStyle,
-        isTitleVisible: isTitleVisible,
-        isMoving: isMoving,
-        style: style);
     connections.firstWhere((element) => element.id == id).copyWith(
-        title: title,
-        textStyle: textStyle,
-        isTitleVisible: isTitleVisible,
+        label: label,
         isMoving: isMoving,
-        style: style);
+        labelBuilder: labelBuilder,
+        isLabelVisible: isLabelVisible,
+        labelOffset: labelOffset,
+        style: style,
+        labelTextStyle: labelTextStyle,
+        onTap: onTap,
+        onHover: onHover);
+    onPointConnectionUpdated?.call();
   }
 
   /// Removes the [connection] between two [points] from the globe.
   ///
+  /// The [id] parameter represents the id of the connection to be removed.
+  ///
+  /// Example usage:
   /// ```dart
   ///  controller.removePointConnection('id');
   /// ```
   void removePointConnection(String id) {
-    onPointConnectionRemoved?.call(id);
     connections.removeWhere((element) => element.id == id);
+    onPointConnectionRemoved?.call();
   }
 
   /// Adds a [point] to the globe.
   ///
+  /// The [point] parameter represents the point to be added to the globe.
+  ///
+  /// Example usage:
   /// ```dart
   /// controller.addPoint(Point(
   ///  coordinates: GlobeCoordinates(0, 0),
@@ -158,12 +178,23 @@ class RotatingGlobeController {
   /// ));
   /// ```
   void addPoint(Point point) {
-    onPointAdded?.call();
     points.add(point);
+    onPointAdded?.call();
   }
 
   /// Updates the [point] on the globe.
   ///
+  /// The [id] parameter represents the id of the point to be updated.
+  /// The [label] parameter represents the label of the point.
+  /// The [labelBuilder] parameter represents the builder of the label of the point.
+  /// The [isLabelVisible] parameter represents the visibility of the label of the point.
+  /// The [labelOffset] parameter represents the offset of the label from the point.
+  /// The [style] parameter represents the style of the point.
+  /// The [labelTextStyle] parameter represents the text style of the label.
+  /// The [onTap] parameter is a callback function that is called when the point is tapped.
+  /// The [onHover] parameter is a callback function that is called when the point is hovered over.
+  ///
+  /// Example usage:
   /// ```dart
   ///  controller.updatePoint('id',
   ///  title: 'title',
@@ -175,26 +206,53 @@ class RotatingGlobeController {
   /// ```
   void updatePoint(
     String id, {
-    String? title,
-    bool? isTitleVisible,
-    bool? showTitleOnHover,
+    String? label,
+    Widget? Function(
+            BuildContext context, Point point, bool isHovering, bool isVisible)?
+        labelBuilder,
+    bool? isLabelVisible,
+    Offset? labelOffset,
     PointStyle? style,
-    TextStyle? textStyle,
+    TextStyle? labelTextStyle,
+    VoidCallback? onTap,
+    VoidCallback? onHover,
   }) {
-    onPointUpdated?.call();
     points.firstWhere((element) => element.id == id).copyWith(
-        title: title,
-        isTitleVisible: isTitleVisible,
-        showTitleOnHover: showTitleOnHover,
+        label: label,
+        labelBuilder: labelBuilder,
+        isLabelVisible: isLabelVisible,
+        labelOffset: labelOffset,
         style: style,
-        textStyle: textStyle);
+        labelTextStyle: labelTextStyle,
+        onTap: onTap,
+        onHover: onHover);
+    onPointUpdated?.call();
   }
 
+  /// Removes the [point] from the globe.
+  ///
+  /// The [id] parameter represents the id of the point to be removed.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// controller.removePoint('id');
+  /// ```
   void removePoint(String id) {
-    onPointRemoved?.call();
     points.removeWhere((element) => element.id == id);
+    onPointRemoved?.call();
   }
 
+  /// Loads the [image] as the surface of the globe.
+  ///
+  /// The [image] parameter represents the image to be loaded as the surface of the globe.
+  /// The [configuration] parameter is optional and can be used to customize the image configuration.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// controller.loadSurface(
+  ///  AssetImage('assets/earth.jpg'),
+  /// );
+  /// ```
   void loadSurface(
     ImageProvider image, {
     ImageConfiguration configuration = const ImageConfiguration(),
@@ -203,6 +261,18 @@ class RotatingGlobeController {
     onSurfaceLoaded?.call(image, configuration);
   }
 
+  /// Loads the background image for the rotating globe.
+  ///
+  /// The [image] parameter specifies the image to be loaded as the background.
+  /// The [configuration] parameter specifies the configuration for loading the image.
+  /// The [followsRotation] parameter indicates whether the background image should follow the rotation of the globe.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// controller.loadBackground(
+  /// AssetImage('assets/background.jpg'),
+  /// );
+  /// ```
   void loadBackground(
     ImageProvider image, {
     ImageConfiguration configuration = const ImageConfiguration(),
@@ -212,38 +282,88 @@ class RotatingGlobeController {
     onBackgroundLoaded?.call(image, configuration, followsRotation);
   }
 
+  /// Removes the background of the rotating globe.
+  ///
+  /// This method calls the [onBackgroundRemoved] callback if it is not null.
+  /// The [onBackgroundRemoved] callback is responsible for handling the removal
+  /// of the background.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// controller.removeBackground();
+  /// ```
+
   void removeBackground() {
     if (onBackgroundRemoved == null) return;
     onBackgroundRemoved?.call();
   }
 
+  /// Changes the style of the rotating globe's sphere.
+  ///
+  /// The [style] parameter specifies the new style for the sphere.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// RotatingGlobeController controller = RotatingGlobeController();
+  /// controller.changeSphereStyle(SphereStyle(color: Colors.blue, radius: 100));
+  /// ```
   void changeSphereStyle(SphereStyle style) {
     if (onChangeSphereStyle == null) return;
     sphereStyle = style;
     onChangeSphereStyle?.call();
   }
 
+  /// Starts the rotation of the globe.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// RotatingGlobeController controller = RotatingGlobeController();
+  /// controller.startRotation();
+  /// ```
   void startRotation() {
     onStartGlobeRotation?.call();
     _isRotating = true;
   }
 
+  /// Stops the rotation of the globe.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// RotatingGlobeController controller = RotatingGlobeController();
+  /// controller.stopRotation();
+  /// ```
   void stopRotation() {
     onStopGlobeRotation?.call();
     _isRotating = false;
   }
 
+  /// Toggles the rotation of the globe.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// RotatingGlobeController controller = RotatingGlobeController();
+  /// controller.toggleRotation();
+  /// ```
   void toggleRotation() {
     onToggleGlobeRotation?.call();
     _isRotating = !_isRotating;
   }
 
+  /// Resets the rotation of the globe.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// RotatingGlobeController controller = RotatingGlobeController();
+  /// controller.resetRotation();
+  /// ```
   void resetRotation() {
     onResetGlobeRotation?.call();
   }
 
+  /// A callback function that is called when the globe is loaded.
   VoidCallback? onLoaded;
 
+  /// Disposes the controller.
   void dispose() {
     onPointConnectionAdded = null;
     onPointConnectionRemoved = null;

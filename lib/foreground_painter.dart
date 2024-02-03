@@ -8,10 +8,49 @@ import 'package:vector_math/vector_math.dart' as vector;
 
 import 'misc.dart';
 
-/// This class is responsible for painting the foreground of the globe.
-/// It paints the points and the connections between them.
-/// It also handles the hover and click events.
+/// A custom painter that draws the foreground of the earth globe.
 class ForegroundPainter extends CustomPainter {
+  /// This painter is responsible for rendering the points, connections, and labels on the globe.
+  /// It takes various parameters such as the list of connections, radius, rotation angles,
+  /// zoom factor, points, hover point, click point, and callback functions for point interactions.
+  ///
+  /// The [hoverOverPoint] function is called when a point is being hovered over, providing the point ID,
+  /// the 2D cartesian coordinates, and the hover state.
+  ///
+  /// The [onPointClicked] function is called when a point is clicked.
+  ///
+  /// The [connections] list contains the animated connections between points.
+  ///
+  /// The [hoverPoint] and [clickPoint] represent the current hover and click positions on the canvas.
+  ///
+  /// The [radius] determines the size of the globe.
+  ///
+  /// The [rotationZ], [rotationY], and [rotationX] angles control the rotation of the globe.
+  ///
+  /// The [zoomFactor] determines the zoom level of the globe.
+
+  /// The [points] list contains the points to be rendered on the globe.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// ForegroundPainter(
+  ///  connections: connections,
+  /// radius: 200,
+  /// rotationZ: 0,
+  /// rotationY: 0,
+  /// rotationX: 0,
+  /// zoomFactor: 1,
+  /// points: points,
+  /// hoverPoint: hoverPoint,
+  /// clickPoint: clickPoint,
+  /// onPointClicked: () {
+  ///  print('Point clicked');
+  /// },
+  /// hoverOverPoint: (pointId, cartesian2D, isHovering, isVisible) {
+  /// print('Hovering over point with ID: $pointId');
+  /// },
+  /// )
+  /// ```
   ForegroundPainter({
     required this.connections,
     required this.radius,
@@ -23,8 +62,11 @@ class ForegroundPainter extends CustomPainter {
     this.hoverPoint,
     this.clickPoint,
     this.onPointClicked,
+    required this.hoverOverPoint,
   });
 
+  Function(String pointId, Offset cartesian2D, bool isHovering, bool isVisible)
+      hoverOverPoint;
   VoidCallback? onPointClicked;
   final List<AnimatedPointConnection> connections;
   final Offset? hoverPoint;
@@ -57,7 +99,10 @@ class ForegroundPainter extends CustomPainter {
         if (localHover != null && rect.contains(localHover)) {
           Future.delayed(Duration.zero, () {
             point.onHover?.call();
+            hoverOverPoint(point.id, cartesian2D, true, true);
           });
+        } else {
+          hoverOverPoint(point.id, cartesian2D, false, true);
         }
 
         if (localClick != null && rect.contains(localClick)) {
@@ -67,14 +112,15 @@ class ForegroundPainter extends CustomPainter {
           });
         }
 
-        if ((point.isTitleVisible &&
-                point.title != null &&
-                point.title!.isNotEmpty) ||
-            (point.showTitleOnHover &&
-                localHover != null &&
-                rect.contains(localHover))) {
-          paintText(point.title!, point.textStyle, cartesian2D, size, canvas);
+        if ((point.isLabelVisible &&
+                point.label != null &&
+                point.label != '') ||
+            point.labelBuilder != null) {
+          paintText(point.label ?? '', point.labelTextStyle, cartesian2D, size,
+              canvas);
         }
+      } else {
+        hoverOverPoint(point.id, cartesian2D, false, false);
       }
     }
     for (var connection in connections) {

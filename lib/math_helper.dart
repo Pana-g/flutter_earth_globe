@@ -6,24 +6,27 @@ import 'package:vector_math/vector_math.dart';
 
 import 'globe_coordinates.dart';
 
-/// Converts degrees to radians
+/// Converts degrees to radians.
+///
+/// Takes a [degrees] value and returns the equivalent value in radians.
 double degreesToRadians(double degrees) {
   return degrees * pi / 180;
 }
 
-/// Converts radians to degrees
+/// Converts radians to degrees.
+///
+/// Takes a [radians] value and returns the equivalent value in degrees.
 double radiansToDegrees(double radians) {
   return radians * 180 / pi;
 }
 
-/// Calculates the position of a point on the sphere
+/// Calculates the 3D position of a point on a sphere.
 ///
-/// [coordinates] - the coordinates of the point
-/// [radius] - the radius of the sphere
-/// [rotationY] - the rotation around the Y-axis
-/// [rotationZ] - the rotation around the Z-axis
-///
-/// Returns the position of the point on the sphere as a [Vector3]
+/// Takes [coordinates], [radius], [rotationY], and [rotationZ] as input parameters.
+/// [coordinates] is an instance of [GlobeCoordinates] containing the latitude and longitude of the point.
+/// [radius] is the radius of the sphere.
+/// [rotationY] and [rotationZ] are rotation angles around the Y and Z axes, respectively.
+/// Returns a [Vector3] representing the 3D position of the point on the sphere.
 Vector3 getSpherePosition3D(GlobeCoordinates coordinates, double radius,
     double rotationY, double rotationZ) {
   // radius += 10;
@@ -43,7 +46,16 @@ Vector3 getSpherePosition3D(GlobeCoordinates coordinates, double radius,
   return rotationMatrixY.multiplied(rotationMatrixZ).transform(cartesian);
 }
 
-/// Returns the scaling factor for a point on the sphere
+/// Calculates the scale factor for a point on the sphere.
+///
+/// Takes [point], [center], [radius], [isXAxis], [zCoord], and [zoomFactor] as input parameters.
+/// [point] is the 2D position of the point on the screen.
+/// [center] is the center of the screen.
+/// [radius] is the radius of the sphere.
+/// [isXAxis] indicates whether the point lies on the X-axis or Y-axis.
+/// [zCoord] is the Z-coordinate of the point in 3D space.
+/// [zoomFactor] is the zoom factor of the sphere.
+/// Returns the scale factor for the point.
 double getScaleFactor(Offset point, Offset center, double radius, bool isXAxis,
     double zCoord, double zoomFactor) {
   // Calculate distance from the point to the center for the specified axis
@@ -65,7 +77,16 @@ double getScaleFactor(Offset point, Offset center, double radius, bool isXAxis,
   return scaleFactor;
 }
 
-/// Returns the rectangle that represents a point on the sphere as [Rect]
+/// Calculates the rectangle on the sphere corresponding to a 3D point and its 2D position on the screen.
+///
+/// Takes [cartesian3D], [cartesian2D], [center], [radius], [zoomFactor], and [pointSize] as input parameters.
+/// [cartesian3D] is the 3D position of the point on the sphere.
+/// [cartesian2D] is the 2D position of the point on the screen.
+/// [center] is the center of the screen.
+/// [radius] is the radius of the sphere.
+/// [zoomFactor] is the zoom factor of the sphere.
+/// [pointSize] is the size of the point.
+/// Returns a [Rect] representing the rectangle on the sphere.
 Rect getRectOnSphere(Vector3 cartesian3D, Offset cartesian2D, Offset center,
     double radius, double zoomFactor, double pointSize) {
   // Calculate scale factors
@@ -88,7 +109,9 @@ Rect getRectOnSphere(Vector3 cartesian3D, Offset cartesian2D, Offset center,
   );
 }
 
-/// Returns the rotation around the Z-axis
+/// Adjusts the rotation angle to be within the range of 0 to 2π.
+///
+/// Takes a [rotation] angle in radians and returns the adjusted angle within the range of 0 to 2π.
 double adjustModRotation(double rotation) {
   double twoPi = 2 * pi;
   if (rotation < 0) {

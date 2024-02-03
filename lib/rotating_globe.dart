@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
+import 'package:flutter_earth_globe/visible_point.dart';
+
 import 'foreground_painter.dart';
 import 'math_helper.dart';
 import 'point_connection.dart';
@@ -13,6 +15,12 @@ import 'package:flutter/material.dart';
 import 'point_connection_style.dart';
 import 'starry_background_painter.dart';
 
+/// The [Sphere] widget represents a sphere in a rotating globe.
+///
+/// It takes a [controller], [radius], and [alignment] as required parameters.
+/// The [controller] is used to control the rotation and other actions of the sphere.
+/// The [radius] specifies the radius of the sphere.
+/// The [alignment] determines the alignment of the sphere within its container.
 class Sphere extends StatefulWidget {
   const Sphere({
     Key? key,
@@ -29,39 +37,54 @@ class Sphere extends StatefulWidget {
   _SphereState createState() => _SphereState();
 }
 
+/// The state class for the [Sphere] widget.
+/// It extends [State] and uses [TickerProviderStateMixin] for animation purposes.
 class _SphereState extends State<Sphere> with TickerProviderStateMixin {
-  late Uint32List surface;
-  ui.Image? backgroundImage;
-  bool backgroundFollowsRotation = false;
-  String? surfacePath;
-  double? surfaceWidth;
-  double? surfaceHeight;
-  late double zoom = 1;
-  late double rotationX = 0;
-  late double rotationZ = 0;
-  late double _lastZoom;
-  late double _lastRotationX;
-  late double _lastRotationZ;
-  late double rotationY = 0; // Add Y-axis rotation variable
-  late double _lastRotationY; // Add a variable to store the last Y rotation
-  final GlobalKey _futureBuilderKey = GlobalKey();
+  late Uint32List
+      surface; // The surface of the sphere represented as a list of 32-bit integers.
+  ui.Image? backgroundImage; // The background image of the sphere.
+  bool backgroundFollowsRotation =
+      false; // Indicates whether the background image follows the rotation of the sphere.
+  String? surfacePath; // The path to the surface image of the sphere.
+  double? surfaceWidth; // The width of the surface image.
+  double? surfaceHeight; // The height of the surface image.
+  late double zoom = 1; // The zoom level of the sphere.
+  late double rotationX =
+      0; // The rotation angle around the X-axis of the sphere.
+  late double rotationZ =
+      0; // The rotation angle around the Z-axis of the sphere.
+  late double _lastZoom; // The previous zoom level of the sphere.
+  late double
+      _lastRotationX; // The previous rotation angle around the X-axis of the sphere.
+  late double
+      _lastRotationZ; // The previous rotation angle around the Z-axis of the sphere.
+  late double rotationY =
+      0; // The rotation angle around the Y-axis of the sphere.
+  late double
+      _lastRotationY; // The previous rotation angle around the Y-axis of the sphere.
+  final GlobalKey _futureBuilderKey =
+      GlobalKey(); // The key for the FutureBuilder widget.
 
-  late Offset _lastFocalPoint;
-  late AnimationController _rotationController;
-  late AnimationController _lineMovingController;
+  late Offset _lastFocalPoint; // The previous focal point of the interaction.
+  late AnimationController
+      _rotationController; // The animation controller for sphere rotation.
+  late AnimationController
+      _lineMovingController; // The animation controller for line movement.
 
-  double _angularVelocityX = 0.0;
-  double _angularVelocityY = 0.0;
-  double _angularVelocityZ = 0.0;
-  late AnimationController _decelerationController;
+  double _angularVelocityX = 0.0; // The angular velocity around the X-axis.
+  double _angularVelocityY = 0.0; // The angular velocity around the Y-axis.
+  double _angularVelocityZ = 0.0; // The angular velocity around the Z-axis.
+  late AnimationController
+      _decelerationController; // The animation controller for deceleration.
 
-  List<AnimatedPointConnection> _connections = [];
-  // late MapTileProvider _mapTileProvider; // Provider for map tiles
+  double get radius =>
+      widget.radius * math.pow(2, zoom); // The radius of the sphere.
 
-  double get radius => widget.radius * math.pow(2, zoom);
+  Offset? hoveringPoint; // The current hovering point on the sphere.
+  Offset? clickPoint; // The current click point on the sphere.
 
-  Offset? hoveringPoint;
-  Offset? clickPoint;
+  Map<String, VisiblePoint> visiblePoints =
+      {}; // The map of visible points on the sphere.
 
   @override
   void initState() {
@@ -82,12 +105,12 @@ class _SphereState extends State<Sphere> with TickerProviderStateMixin {
 
     widget.controller.onPointConnectionAdded = _addConnection;
 
-    widget.controller.onPointConnectionRemoved = _removeConnection;
-    widget.controller.onPointConnectionUpdated = _updateConnection;
+    widget.controller.onPointConnectionRemoved = _update;
+    widget.controller.onPointConnectionUpdated = _update;
 
-    widget.controller.onPointAdded = _refresh;
-    widget.controller.onPointRemoved = _refresh;
-    widget.controller.onPointUpdated = _refresh;
+    widget.controller.onPointAdded = _update;
+    widget.controller.onPointRemoved = _update;
+    widget.controller.onPointUpdated = _update;
 
     widget.controller.onSurfaceLoaded = loadSurface;
     widget.controller.onBackgroundLoaded = loadBackground;
@@ -105,7 +128,7 @@ class _SphereState extends State<Sphere> with TickerProviderStateMixin {
       duration: const Duration(milliseconds: 500),
     )
       ..addListener(() {
-        for (var connection in _connections) {
+        for (var connection in widget.controller.connections) {
           if (connection.isMoving &&
               connection.style.type != PointConnectionType.solid) {
             double size = connection.style.type == PointConnectionType.dashed
@@ -150,6 +173,7 @@ class _SphereState extends State<Sphere> with TickerProviderStateMixin {
     });
   }
 
+  /// Start rotating the sphere
   void startRotation() {
     if (!widget.controller.isRotating) {
       widget.controller.isRotating = true;
@@ -158,6 +182,7 @@ class _SphereState extends State<Sphere> with TickerProviderStateMixin {
     }
   }
 
+  /// Stop rotating the sphere
   void stopRotation() {
     if (widget.controller.isRotating) {
       widget.controller.isRotating = false;
@@ -166,6 +191,7 @@ class _SphereState extends State<Sphere> with TickerProviderStateMixin {
     }
   }
 
+  /// Toggle the rotation of the sphere
   void toggleRotation() {
     if (widget.controller.isRotating) {
       stopRotation();
@@ -174,6 +200,7 @@ class _SphereState extends State<Sphere> with TickerProviderStateMixin {
     }
   }
 
+  /// Reset the rotation of the sphere
   void resetRotation() {
     rotationX = 0;
     rotationY = 0; // Reset rotationY
@@ -181,83 +208,10 @@ class _SphereState extends State<Sphere> with TickerProviderStateMixin {
     setState(() {});
   }
 
-  _refresh() {
-    setState(() {});
-  }
-
-  // _addPoint(Point point) {
-  //   Future.delayed(Duration.zero, () {
-  //     setState(() {
-  //       _points.add(point);
-  //     });
-  //   });
-  // }
-
-  // _removePoint(String id) {
-  //   // _points.removeWhere((element) => element.id == id);
-  //   setState(() {
-  //     _points = _points;
-  //   });
-  // }
-
-  // _updatePoint(String id,
-  //     {String? title,
-  //     bool? isTitleVisible,
-  //     PointStyle? style,
-  //     TextStyle? textStyle,
-  //     bool? showTitleOnHover}) {
-  //   final index = _points.indexWhere((element) => element.id == id);
-  //   if (index >= 0) {
-  //     Future.delayed(Duration.zero, () {
-  //       setState(() {
-  //         _points[index] = _points[index].copyWith(
-  //           title: title,
-  //           isTitleVisible: isTitleVisible,
-  //           style: style,
-  //           textStyle: textStyle,
-  //           showTitleOnHover: showTitleOnHover,
-  //         );
-  //       });
-  //     });
-  //   }
-  // }
-
-  _updateConnection(
-    String id, {
-    String? title,
-    TextStyle? textStyle,
-    bool? isTitleVisible,
-    bool? showTitleOnHover,
-    bool? isMoving,
-    PointConnectionStyle? style,
-  }) {
-    final index = _connections.indexWhere((element) => element.id == id);
-    if (index >= 0) {
-      Future.delayed(Duration.zero, () {
-        setState(() {
-          _connections[index] = _connections[index].copyWith(
-            title: title,
-            isTitleVisible: isTitleVisible,
-            textStyle: textStyle,
-            showTitleOnHover: showTitleOnHover,
-            isMoving: isMoving,
-            style: style,
-          );
-        });
-      });
-    }
-  }
-
-  _addConnection(PointConnection connection,
+  /// Add a connection to the sphere
+  _addConnection(AnimatedPointConnection connection,
       {required bool animateDraw, required Duration animateDrawDuration}) {
-    final animatedConnection = AnimatedPointConnection.fromMap({
-      ...connection.toMap(),
-      'animationProgress': animateDraw ? 0.0 : 1.0,
-    }, connection.onTap, connection.onHover);
-    setState(() {
-      _connections.add(animatedConnection);
-    });
-
+    _update();
     if (animateDraw) {
       final animation = AnimationController(
         vsync: this,
@@ -266,19 +220,13 @@ class _SphereState extends State<Sphere> with TickerProviderStateMixin {
 
       Tween<double>(begin: 0.0, end: 1.0).animate(animation).addListener(() {
         setState(() {
-          animatedConnection.animationProgress = animation.value;
+          connection.animationProgress = animation.value;
         });
       });
     }
   }
 
-  _removeConnection(String id) {
-    _connections.removeWhere((element) => element.id == id);
-    setState(() {
-      _connections = _connections;
-    });
-  }
-
+  /// Update the state of the sphere
   _update() {
     setState(() {});
   }
@@ -293,6 +241,7 @@ class _SphereState extends State<Sphere> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  /// Build the sphere image
   Future<SphereImage>? buildSphere(double maxWidth, double maxHeight) {
     final r = radius.roundToDouble();
     final minX = math.max(-r, (-1 - widget.alignment.x) * maxWidth / 2);
@@ -369,6 +318,7 @@ class _SphereState extends State<Sphere> with TickerProviderStateMixin {
     return c.future;
   }
 
+  /// Load the surface image
   void loadSurface(
     ImageProvider image,
     ImageConfiguration configuration,
@@ -389,18 +339,21 @@ class _SphereState extends State<Sphere> with TickerProviderStateMixin {
     );
   }
 
+  /// Handle tap event
   onTapEvent(TapDownDetails details) {
     setState(() {
       clickPoint = details.localPosition;
     });
   }
 
+  /// Handle hover event
   onHover(PointerEvent event) {
     setState(() {
       hoveringPoint = event.localPosition;
     });
   }
 
+  /// Load the background image
   void loadBackground(
     ImageProvider image,
     ImageConfiguration configuration,
@@ -418,6 +371,7 @@ class _SphereState extends State<Sphere> with TickerProviderStateMixin {
     );
   }
 
+  /// Remove the background image
   void removeBackground() {
     setState(() {
       backgroundImage = null;
@@ -501,7 +455,42 @@ class _SphereState extends State<Sphere> with TickerProviderStateMixin {
                         onPointerHover: onHover,
                         child: CustomPaint(
                           foregroundPainter: ForegroundPainter(
-                            connections: _connections,
+                            hoverOverPoint:
+                                (pointId, cartesian2D, isHovering, isVisisble) {
+                              if (!mounted) return;
+                              bool changed = false;
+                              if (isHovering) {
+                                if (!visiblePoints.containsKey(pointId)) {
+                                  visiblePoints.putIfAbsent(
+                                      pointId,
+                                      () => VisiblePoint(
+                                          id: pointId,
+                                          position: cartesian2D,
+                                          isVisible: isVisisble,
+                                          isHovering: isHovering));
+                                  changed = true;
+                                } else {
+                                  visiblePoints.update(
+                                      pointId,
+                                      (value) => value.copyWith(
+                                          position: cartesian2D,
+                                          isVisible: isVisisble,
+                                          isHovering: isHovering));
+                                  changed = true;
+                                }
+                              } else {
+                                if (visiblePoints.containsKey(pointId)) {
+                                  visiblePoints.remove(pointId);
+                                  changed = true;
+                                }
+                              }
+                              if (changed) {
+                                Future.delayed(Duration.zero, () {
+                                  setState(() {});
+                                });
+                              }
+                            },
+                            connections: widget.controller.connections,
                             radius: radius,
                             hoverPoint: hoveringPoint,
                             clickPoint: clickPoint,
@@ -530,6 +519,28 @@ class _SphereState extends State<Sphere> with TickerProviderStateMixin {
                   }
                 },
               ),
+              if (visiblePoints.isNotEmpty)
+                ...visiblePoints.entries
+                    .map(
+                      (e) {
+                        final point = widget.controller.points
+                            .where(
+                              (element) => element.id == e.key,
+                            )
+                            .firstOrNull;
+                        if (point == null || point.labelBuilder == null) {
+                          return null;
+                        }
+                        return Positioned(
+                            left: e.value.position.dx - point.labelOffset.dx,
+                            top: e.value.position.dy - point.labelOffset.dy,
+                            child: point.labelBuilder!(context, point,
+                                    e.value.isHovering, e.value.isVisible) ??
+                                Container());
+                      },
+                    )
+                    .whereType<Widget>()
+                    .toList(),
             ],
           );
         },

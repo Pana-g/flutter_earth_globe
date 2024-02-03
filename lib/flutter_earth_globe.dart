@@ -10,6 +10,20 @@ class FlutterEarthGlobe extends StatefulWidget {
   final double radius;
   final Alignment alignment;
   final RotatingGlobeController controller;
+
+  /// The [FlutterEarthGlobe] widget represents a 3D sphere that simulates the Earth globe. It can be rotated and animated using the provided [RotatingGlobeController].
+  ///
+  /// The [radius] parameter specifies the radius of the sphere.
+  /// The [alignment] parameter specifies the alignment of the sphere within its parent widget. By default, it is centered.
+  /// The [controller] parameter is responsible for controlling the rotation and animation of the globe.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// FlutterEarthGlobe(
+  ///  radius: 200,
+  /// controller: RotatingGlobeController(),
+  /// )
+  /// ```
   const FlutterEarthGlobe({
     Key? key,
     required this.radius,
