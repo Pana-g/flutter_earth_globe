@@ -5,6 +5,7 @@ import 'package:flutter_earth_globe/point_connection.dart';
 import 'package:flutter_earth_globe/point_connection_style.dart';
 import 'package:flutter_earth_globe/rotating_globe_controller.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_earth_globe/sphere_style.dart';
 
 class Home extends StatefulWidget {
   const Home({Key? key}) : super(key: key);
@@ -42,22 +43,29 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       Point(
           id: '1',
           coordinates: const GlobeCoordinates(51.5072, 0.1276),
-          title: 'London',
+          label: 'London',
+          isLabelVisible: true,
           style: const PointStyle(color: Colors.red, size: 6)),
       Point(
           id: '2',
-          showTitleOnHover: true,
+          // showTitleOnHover: true,
+          isLabelVisible: true,
           coordinates: const GlobeCoordinates(40.7128, -74.0060),
           style: const PointStyle(color: Colors.green),
           onHover: () {},
-          title: 'New York'),
-      Point(
-          id: '2',
-          coordinates: const GlobeCoordinates(35.6895, 139.6917),
-          style: const PointStyle(color: Colors.blue),
-          title: 'Tokyo'),
+          label: 'New York'),
       Point(
           id: '3',
+          isLabelVisible: true,
+          coordinates: const GlobeCoordinates(35.6895, 139.6917),
+          style: const PointStyle(color: Colors.blue),
+          onHover: () {
+            // print('EEEEEEEEE tokyo');
+          },
+          label: 'Tokyo'),
+      Point(
+          id: '4',
+          isLabelVisible: true,
           onTap: () {
             Future.delayed(Duration.zero, () {
               showDialog(
@@ -68,15 +76,13 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
                       ));
             });
           },
-          showTitleOnHover: true,
           coordinates: const GlobeCoordinates(0, 0),
           style: const PointStyle(color: Colors.yellow),
-          title: 'Center'),
+          label: 'Center'),
     ];
     connections = [
       PointConnection(
           id: '1',
-          showTitleOnHover: true,
           onTap: () {
             showDialog(
                 context: context,
@@ -89,23 +95,23 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
           start: points[0].coordinates,
           end: points[1].coordinates,
           isMoving: true,
-          isTitleVisible: false,
+          isLabelVisible: false,
           style: const PointConnectionStyle(
               type: PointConnectionType.dotted,
               color: Colors.red,
               lineWidth: 2,
               dashSize: 6,
               spacing: 10),
-          title: 'London to New York'),
+          label: 'London to New York'),
       PointConnection(
           start: points[1].coordinates,
           end: points[3].coordinates,
           isMoving: true,
           id: '2',
           style: const PointConnectionStyle(type: PointConnectionType.dashed),
-          title: 'New York to Center'),
+          label: 'New York to Center'),
       PointConnection(
-          title: 'Tokyo to Center',
+          label: 'Tokyo to Center',
           start: points[2].coordinates,
           end: points[3].coordinates,
           id: '3')
@@ -127,14 +133,37 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     //   controller.startRotation();
     //   setState(() {});
     // });
-    Future.delayed(const Duration(milliseconds: 100), () {
-      for (var i = 0; i < points.length; i++) {
-        controller.addPoint(points[i]);
-      }
-    });
 
     super.initState();
   }
+
+  Widget getDividerText(String text) => Card(
+        child: SizedBox(
+          width: 250,
+          child: Row(
+            children: [
+              Flexible(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                  color: Colors.black38,
+                  height: 2,
+                ),
+              ),
+              Text(
+                text,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              Flexible(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                  color: Colors.black38,
+                  height: 2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
 
   getTextures() {
     return ListView(
@@ -150,6 +179,16 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
                       controller.loadSurface(Image.asset(
                         texture,
                       ).image);
+
+                      if (texture.contains('sun') ||
+                          texture.contains('venus') ||
+                          texture.contains('mars')) {
+                        controller.changeSphereStyle(SphereStyle(
+                            shadowColor: Colors.orange.withOpacity(0.8),
+                            shadowBlurSigma: 20));
+                      } else {
+                        controller.changeSphereStyle(SphereStyle());
+                      }
                       setState(() {
                         _selectedSurface = texture;
                       });
@@ -183,19 +222,25 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
             .toList());
   }
 
-  getListAction(String label, Widget child) {
+  Widget getListAction(String label, Widget child, {Widget? secondary}) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
-        child: Row(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label),
-            const SizedBox(
-              width: 10,
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(label),
+                const SizedBox(
+                  width: 10,
+                ),
+                child
+              ],
             ),
-            child
+            secondary ?? const SizedBox(),
           ],
         ),
       ),
@@ -231,9 +276,45 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
                       icon: const Icon(Icons.refresh)),
                 ],
               )),
+          getDividerText('Points'),
+          ...points
+              .map((e) => getListAction(
+                  e.label ?? '',
+                  Checkbox(
+                    value: controller.points
+                        .where((element) => element.id == e.id)
+                        .isNotEmpty,
+                    onChanged: (value) {
+                      if (value == true) {
+                        controller.addPoint(e);
+                      } else {
+                        controller.removePoint(e.id);
+                      }
+                      setState(() {});
+                    },
+                  ),
+                  secondary: controller.points
+                          .where((element) => element.id == e.id)
+                          .isNotEmpty
+                      ? Row(
+                          children: [
+                            Slider(
+                                value: e.style.size / 30,
+                                onChanged: (value) {
+                                  value = value * 30;
+                                  controller.updatePoint(e.id,
+                                      style: e.style.copyWith(size: value));
+                                  e.style = e.style.copyWith(size: value);
+                                  setState(() {});
+                                }),
+                          ],
+                        )
+                      : null))
+              .toList(),
+          getDividerText('Connections'),
           ...connections
               .map((e) => getListAction(
-                  e.title ?? '',
+                  e.label ?? '',
                   Checkbox(
                     value: controller.connections
                         .where((element) => element.id == e.id)
