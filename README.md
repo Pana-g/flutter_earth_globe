@@ -3,7 +3,7 @@
 
 ## Overview
 
-Flutter Earth Globe is an interactive 3D earth globe widget for Flutter applications. This widget is designed to be easy to use and highly customizable, making it ideal for any application that requires a visually appealing representation of a planet. This package was inspired by [Globe.GL](https://globe.gl/) and [Sphere](https://pub.dev/packages/sphere).
+Flutter Earth Globe is an interactive 3D sphere widget for Flutter applications. This widget is designed to be easy to use and highly customizable, making it ideal for any application that requires a visually appealing representation of a planet. This package was inspired by [Globe.GL](https://globe.gl/) and [Sphere](https://pub.dev/packages/sphere).
 
 # [Live Demo](https://pana-g.github.io/flutter_earth_globe/)
 

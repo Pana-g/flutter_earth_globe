@@ -7,6 +7,7 @@ import 'point_connection.dart';
 import 'point_connection_style.dart';
 
 /// This class is the controller of the [RotatingGlobe] widget.
+///
 /// It is used to add/remove/update points and connections.
 /// It is also used to control the rotation of the globe.
 /// It is also used to load the surface and background images.

@@ -1,5 +1,4 @@
-import 'package:flutter/material.dart' as material;
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 
 import 'globe_coordinates.dart';
 
@@ -11,12 +10,9 @@ class PointConnection {
   final GlobeCoordinates start;
   final GlobeCoordinates end;
   final String? label;
-  final material.Widget? Function(
-      material.BuildContext context,
-      PointConnection pointConnection,
-      bool isHovering,
-      bool isVisible)? labelBuilder;
-  final material.TextStyle? labelTextStyle;
+  final Widget? Function(BuildContext context, PointConnection pointConnection,
+      bool isHovering, bool isVisible)? labelBuilder;
+  final TextStyle? labelTextStyle;
   final String id;
   bool isMoving;
   bool isLabelVisible;
@@ -61,10 +57,10 @@ class PointConnection {
     GlobeCoordinates? start,
     GlobeCoordinates? end,
     String? label,
-    material.TextStyle? labelTextStyle,
+    TextStyle? labelTextStyle,
     String? id,
-    material.Widget? Function(material.BuildContext context,
-            PointConnection pointConnection, bool isHovering, bool isVisible)?
+    Widget? Function(BuildContext context, PointConnection pointConnection,
+            bool isHovering, bool isVisible)?
         labelBuilder,
     bool? isMoving,
     bool? isLabelVisible,
@@ -167,10 +163,10 @@ class AnimatedPointConnection extends PointConnection {
     GlobeCoordinates? end,
     Offset? labelOffset,
     String? label,
-    material.TextStyle? labelTextStyle,
+    TextStyle? labelTextStyle,
     String? id,
-    material.Widget? Function(material.BuildContext context,
-            PointConnection pointConnection, bool isHovering, bool isVisible)?
+    Widget? Function(BuildContext context, PointConnection pointConnection,
+            bool isHovering, bool isVisible)?
         labelBuilder,
     bool? isMoving,
     bool? isLabelVisible,
