@@ -37,6 +37,50 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
 
   List<PointConnection> connections = [];
 
+  Widget pointLabelBuilder(
+      BuildContext context, Point point, bool isHovering, bool visible) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+          color: isHovering
+              ? Colors.blueAccent.withOpacity(0.8)
+              : Colors.blueAccent.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 10,
+                spreadRadius: 2)
+          ]),
+      child: Text(
+        point.label ?? '',
+        style: Theme.of(context).textTheme.titleMedium,
+      ),
+    );
+  }
+
+  Widget connectionLabelBuilder(BuildContext context,
+      PointConnection connection, bool isHovering, bool visible) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+          color: isHovering
+              ? Colors.blueAccent.withOpacity(0.8)
+              : Colors.blueAccent.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 10,
+                spreadRadius: 2)
+          ]),
+      child: Text(
+        connection.label ?? '',
+        style: Theme.of(context).textTheme.titleMedium,
+      ),
+    );
+  }
+
   @override
   initState() {
     points = [
@@ -44,19 +88,19 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
           id: '1',
           coordinates: const GlobeCoordinates(51.5072, 0.1276),
           label: 'London',
-          isLabelVisible: true,
+          labelBuilder: pointLabelBuilder,
           style: const PointStyle(color: Colors.red, size: 6)),
       Point(
           id: '2',
           // showTitleOnHover: true,
-          isLabelVisible: true,
+          labelBuilder: pointLabelBuilder,
           coordinates: const GlobeCoordinates(40.7128, -74.0060),
           style: const PointStyle(color: Colors.green),
           onHover: () {},
           label: 'New York'),
       Point(
           id: '3',
-          isLabelVisible: true,
+          labelBuilder: pointLabelBuilder,
           coordinates: const GlobeCoordinates(35.6895, 139.6917),
           style: const PointStyle(color: Colors.blue),
           onHover: () {
@@ -66,6 +110,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       Point(
           id: '4',
           isLabelVisible: true,
+          labelBuilder: pointLabelBuilder,
           onTap: () {
             Future.delayed(Duration.zero, () {
               showDialog(
@@ -95,6 +140,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
           start: points[0].coordinates,
           end: points[1].coordinates,
           isMoving: true,
+          labelBuilder: connectionLabelBuilder,
           isLabelVisible: false,
           style: const PointConnectionStyle(
               type: PointConnectionType.dotted,
@@ -107,11 +153,13 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
           start: points[1].coordinates,
           end: points[3].coordinates,
           isMoving: true,
+          labelBuilder: connectionLabelBuilder,
           id: '2',
           style: const PointConnectionStyle(type: PointConnectionType.dashed),
           label: 'New York to Center'),
       PointConnection(
           label: 'Tokyo to Center',
+          labelBuilder: connectionLabelBuilder,
           start: points[2].coordinates,
           end: points[3].coordinates,
           id: '3')
@@ -129,10 +177,10 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
         _selectedSurface = textures[0];
       });
     };
-    // Future.delayed(const Duration(seconds: 3), () {
-    //   controller.startRotation();
-    //   setState(() {});
-    // });
+
+    for (var point in points) {
+      controller.addPoint(point);
+    }
 
     super.initState();
   }
