@@ -13,13 +13,9 @@ jobs:
     - name: Flutter Doctor
       run: flutter doctor
       working-directory: ./
-    - name: Build Web
-      run: flutter build web --release
-      working-directory: ./example
-    - name: Deploy 🚀
+    - name: Build and Deploy 🚀
       uses: bluefireteam/flutter-gh-pages@v7
       with:
-        webRenderer: canvaskit
         baseHref: /flutter_earth_globe/
         targetBranch: gh-pages 
         workingDir: example
