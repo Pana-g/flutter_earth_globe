@@ -457,6 +457,8 @@ class _SphereState extends State<Sphere> with TickerProviderStateMixin {
                       child: Listener(
                         onPointerHover: onHover,
                         child: CustomPaint(
+                          willChange: true,
+                          isComplex: true,
                           foregroundPainter: ForegroundPainter(
                             hoverOverConnection: (connectionId, cartesian2D,
                                 isHovering, isVisible) {
