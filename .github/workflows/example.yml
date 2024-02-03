@@ -17,8 +17,9 @@ jobs:
       run: flutter build web --release
       working-directory: ./example
     - name: Deploy 🚀
-      uses: peaceiris/actions-gh-pages@v3
+      uses: bluefireteam/flutter-gh-pages@v7
       with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_branch: gh-pages 
-        publish_dir: ./example/build/web
+        webRenderer: canvaskit
+        baseHref: /flutter_earth_globe/
+        targetBranch: gh-pages 
+        workingDir: example
