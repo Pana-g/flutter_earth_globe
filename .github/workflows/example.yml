@@ -17,5 +17,6 @@ jobs:
       uses: bluefireteam/flutter-gh-pages@v7
       with:
         baseHref: /flutter_earth_globe/
+        webRenderer: canvaskit
         targetBranch: gh-pages 
         workingDir: example
