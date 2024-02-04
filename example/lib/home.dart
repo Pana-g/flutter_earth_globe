@@ -416,6 +416,9 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    double radius = MediaQuery.of(context).size.width < 500
+        ? ((MediaQuery.of(context).size.width / 3.8) - 20)
+        : 120;
     return Scaffold(
       key: _key,
       drawerEnableOpenDragGesture: true,
@@ -437,7 +440,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
           children: [
             FlutterEarthGlobe(
               controller: controller,
-              radius: 100,
+              radius: radius,
             ),
             Positioned(top: 10, left: 10, child: getLeftSide()),
             Positioned(top: 10, right: 10, child: getRightSide()),
