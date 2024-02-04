@@ -437,7 +437,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
           children: [
             FlutterEarthGlobe(
               controller: controller,
-              radius: 120,
+              radius: 100,
             ),
             Positioned(top: 10, left: 10, child: getLeftSide()),
             Positioned(top: 10, right: 10, child: getRightSide()),
