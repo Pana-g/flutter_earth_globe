@@ -7,13 +7,13 @@ Flutter Earth Globe is an interactive 3D sphere widget for Flutter applications.
 
 # [Live Demo](https://pana-g.github.io/flutter_earth_globe/)
 
-<img alt="image" src="https://raw.githubusercontent.com/Pana-g/flutter_earth_globe/master/screenshots/Screenshot%20at%202024-02-04%2001-23-25.png" width="350">
+<img alt="image" src="https://raw.githubusercontent.com/Pana-g/flutter_earth_globe/master/screenshots/screenshotEarthDay.png" width="350">
 
-<img alt="image" src="https://raw.githubusercontent.com/Pana-g/flutter_earth_globe/master/screenshots/Screenshot%20at%202024-02-04%2001-24-03.png" width="350">
+<img alt="image" src="https://raw.githubusercontent.com/Pana-g/flutter_earth_globe/master/screenshots/screenshotEarthNight.png" width="350">
 
-<img alt="image" src="https://raw.githubusercontent.com/Pana-g/flutter_earth_globe/master/screenshots/Screenshot%20at%202024-02-04%2001-24-21.png" width="350">
+<img alt="image" src="https://raw.githubusercontent.com/Pana-g/flutter_earth_globe/master/screenshots/screenshotMoon.png" width="350">
 
-<img alt="image" src="https://raw.githubusercontent.com/Pana-g/flutter_earth_globe/master/screenshots/Screenshot%20at%202024-02-04%2001-24-34.png" width="350">
+<img alt="image" src="https://raw.githubusercontent.com/Pana-g/flutter_earth_globe/master/screenshots/screenshotMars.png" width="350">
 
 ## Features
 
@@ -68,11 +68,7 @@ class MyApp extends StatelessWidget {
         body: SafeArea(
         child: FlutterEarthGlobe(
               controller: controller,
-              radius: (MediaQuery.of(context).size.width >
-                          MediaQuery.of(context).size.height
-                      ? MediaQuery.of(context).size.height / 3.8
-                      : MediaQuery.of(context).size.width / 3.8) -
-                  40,
+              radius: 120,
             )
         ),
       ),
@@ -105,7 +101,7 @@ List<Point> points = [
           coordinates: const GlobeCoordinates(35.6895, 139.6917),
           style: const PointStyle(color: Colors.blue),
           onHover: () {
-            print('EEEEEEEEE Tokyo');
+            print('Tokyo');
           },
           label: 'Tokyo'),
       Point(
