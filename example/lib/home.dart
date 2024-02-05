@@ -52,10 +52,10 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
                 blurRadius: 10,
                 spreadRadius: 2)
           ]),
-      child: Text(
-        point.label ?? '',
-        style: Theme.of(context).textTheme.titleMedium,
-      ),
+      child: Text(point.label ?? '',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: Colors.white,
+              )),
     );
   }
 
@@ -76,7 +76,9 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
           ]),
       child: Text(
         connection.label ?? '',
-        style: Theme.of(context).textTheme.titleMedium,
+        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: Colors.white,
+            ),
       ),
     );
   }
@@ -437,10 +439,22 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
           : null,
       body: SafeArea(
         child: Stack(
+          alignment: Alignment.topCenter,
           children: [
             FlutterEarthGlobe(
               controller: controller,
               radius: radius,
+            ),
+            Container(
+              padding: const EdgeInsets.all(12),
+              color: Colors.blue.withOpacity(0.5),
+              child: Text(
+                'Flutter Earth Globe',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(color: Colors.white),
+              ),
             ),
             Positioned(top: 10, left: 10, child: getLeftSide()),
             Positioned(top: 10, right: 10, child: getRightSide()),
