@@ -52,12 +52,24 @@ Here is a basic example of how to integrate the Flutter Earth Globe into your Fl
 ```dart
 import 'package:flutter/material.dart';
 import 'package:flutter_earth_globe/flutter_earth_globe.dart';
+import 'package:flutter_earth_globe/flutter_earth_globe_controller.dart';
 
 void main() {
   runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
+  final FlutterEarthGlobeController _controller = FlutterEarthGlobeController();
+
+   @override
+  initState() {
+    _controller.onLoaded = () {
+        _controller.loadBackground(Image.asset('assets/2k_stars.jpg').image,
+            followsRotation: true);
+        _controller.loadSurface(Image.asset('assets/2k_earth-day.jpg').image);
+      };
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -67,7 +79,7 @@ class MyApp extends StatelessWidget {
         ),
         body: SafeArea(
         child: FlutterEarthGlobe(
-              controller: controller,
+              controller: _controller,
               radius: 120,
             )
         ),
@@ -81,6 +93,7 @@ class MyApp extends StatelessWidget {
 
 #### Create a list of Points and add them to the globe
 ```dart
+final FlutterEarthGlobeController _controller = FlutterEarthGlobeController();
 List<Point> points = [
       Point(
           id: '1',
@@ -123,17 +136,18 @@ List<Point> points = [
     ];
 
     for (var point in points) {
-      controller.addPoint(point);
+      _controller.addPoint(point);
     }
 ```
 #### Load a background image that follows the rotation of the sphere and a sphere surface texture image
 ```dart
+final FlutterEarthGlobeController _controller = FlutterEarthGlobeController();
 @override
 initState(){
-    controller.onLoaded = () {
-        controller.loadBackground(Image.asset('assets/2k_stars.jpg').image,
+    _controller.onLoaded = () {
+        _controller.loadBackground(Image.asset('assets/2k_stars.jpg').image,
             followsRotation: true);
-        controller.loadSurface(Image.asset('assets/2k_earth-day.jpg',).image,
+        _controller.loadSurface(Image.asset('assets/2k_earth-day.jpg',).image,
         );
     };
 
@@ -141,7 +155,14 @@ initState(){
 }
 ```
 
-#### Change the 
+#### Change the style of the sphere
+```dart
+final FlutterEarthGlobeController _controller = FlutterEarthGlobeController();
+_controller.changeSphereStyle(SphereStyle(
+      shadowColor: Colors.orange.withOpacity(0.8),
+      shadowBlurSigma: 20));
+controller
+```
 
 ## Contributors
 

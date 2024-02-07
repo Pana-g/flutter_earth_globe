@@ -1,10 +1,12 @@
 import 'dart:math';
 import 'dart:ui';
 
+import 'package:flutter_earth_globe/globe_coordinates.dart';
+
 import 'misc.dart';
 import 'math_helper.dart';
 import 'point_connection_style.dart';
-import 'package:vector_math/vector_math.dart';
+import 'package:vector_math/vector_math_64.dart';
 
 import 'point_connection.dart';
 
@@ -57,13 +59,8 @@ Map? drawAnimatedLine(
     var midPoint = (startCartesian3D + endCartesian3D) / 2;
     midPoint.normalize();
 
-    if ((radius * 2) - startCartesian3D.distanceTo(endCartesian3D) < 100) {
-      final curvature =
-          (startCartesian3D.distanceTo(endCartesian3D) * 0.005).clamp(1.7, 2.5);
-      midPoint.scale(radius * curvature);
-    } else {
-      midPoint.scale(radius * 1.7);
-    }
+    final angle = calculateCentralAngle(connection.start, connection.end);
+    midPoint.scale((radius + (angle) * 10 * pi) * 1.5);
 
     final midPoint2D = Offset(center.dx + midPoint.y, center.dy - midPoint.z);
 
@@ -171,6 +168,26 @@ Map? drawAnimatedLine(
     return {'path': extractPath, 'midPoint': realMidPoint};
   }
   return null;
+}
+
+/// Calculates the central angle between two points on a sphere.
+///
+/// The [start] and [end] parameters represent the start and end points.
+///
+/// Returns the central angle as a double value in radians.
+double calculateCentralAngle(GlobeCoordinates start, GlobeCoordinates end) {
+  // Convert latitude and longitude from degrees to radians
+  double lat1 = degreesToRadians(start.latitude);
+  double lon1 = degreesToRadians(start.longitude);
+  double lat2 = degreesToRadians(end.latitude);
+  double lon2 = degreesToRadians(end.longitude);
+
+  // Apply the spherical law of cosines
+  double deltaLon = lon2 - lon1;
+  double centralAngle =
+      acos(sin(lat1) * sin(lat2) + cos(lat1) * cos(lat2) * cos(deltaLon));
+
+  return centralAngle; // Angle in radians
 }
 
 /// Calculates the lengths of the path up to the given intersection point.
