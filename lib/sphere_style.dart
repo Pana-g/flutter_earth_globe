@@ -37,7 +37,7 @@ class SphereStyle {
   ///   ),
   /// );
   /// ```
-  SphereStyle({
+  const SphereStyle({
     this.shadowColor = const Color.fromARGB(185, 33, 149, 243),
     this.shadowBlurStyle = BlurStyle.normal,
     this.shadowBlurSigma = 20,

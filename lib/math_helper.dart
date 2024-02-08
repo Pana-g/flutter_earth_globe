@@ -1,8 +1,7 @@
 import 'dart:math';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:vector_math/vector_math.dart';
+import 'package:vector_math/vector_math_64.dart';
 
 import 'globe_coordinates.dart';
 
@@ -44,6 +43,51 @@ Vector3 getSpherePosition3D(GlobeCoordinates coordinates, double radius,
 
   // Apply the rotations
   return rotationMatrixY.multiplied(rotationMatrixZ).transform(cartesian);
+}
+
+/// Converts the 2D offset to spherical coordinates.
+///
+/// Takes [hoverOffset], [sphereCenter], [radius], [rotationY], and [rotationZ] as input parameters.
+/// [hoverOffset] is the 2D position of the point on the screen.
+/// [sphereCenter] is the center of the sphere.
+/// [radius] is the radius of the sphere.
+/// [rotationY] and [rotationZ] are rotation angles around the Y and Z axes, respectively.
+///
+/// Returns a [GlobeCoordinates] object representing the spherical coordinates of the point.
+/// Returns null if the point is not on the sphere.
+GlobeCoordinates? convert2DPointToSphereCoordinates(Offset hoverOffset,
+    Offset sphereCenter, double radius, double rotationY, double rotationZ) {
+  // Convert the 2D offset back into 3D coordinates relative to the center
+  double x = hoverOffset.dx - sphereCenter.dx;
+  double y = hoverOffset.dy - sphereCenter.dy;
+  // Assuming z can be derived from x and y considering the radius and the spherical nature
+  double z = sqrt(radius * radius - x * x - y * y);
+
+  // Convert back to the original Cartesian coordinate system before rotations were applied
+  Vector3 cartesian = Vector3(z, x, -y);
+
+  // Inverse the rotations using rotation matrices
+  Matrix3 rotationMatrixY = Matrix3.rotationY(rotationY); // Inverse rotation
+  Matrix3 rotationMatrixZ = Matrix3.rotationZ(rotationZ); // Inverse rotation
+  Vector3 originalCartesian =
+      rotationMatrixZ.multiplied(rotationMatrixY).transform(cartesian);
+
+  // Convert Cartesian coordinates back to spherical coordinates
+  double lat = asin(originalCartesian.z / radius);
+  double lon;
+  if (radius * cos(lat) != 0) {
+    // Avoid division by zero
+    lon = atan2(originalCartesian.y, originalCartesian.x);
+  } else {
+    lon = 0;
+  }
+
+  // Convert radians back to degrees
+  double latitude = radiansToDegrees(lat);
+  double longitude = radiansToDegrees(lon);
+  if (latitude.isNaN || longitude.isNaN) return null;
+  // Return the GlobeCoordinates object
+  return GlobeCoordinates(latitude, longitude);
 }
 
 /// Calculates the scale factor for a point on the sphere.

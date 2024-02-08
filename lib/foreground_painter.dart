@@ -1,10 +1,12 @@
+import 'package:flutter_earth_globe/globe_coordinates.dart';
+
 import 'point.dart';
 import 'line_helper.dart';
 import 'math_helper.dart';
 import 'point_connection.dart';
 
 import 'package:flutter/material.dart';
-import 'package:vector_math/vector_math.dart' as vector;
+import 'package:vector_math/vector_math_64.dart' as vector;
 
 import 'misc.dart';
 
@@ -81,6 +83,10 @@ class ForegroundPainter extends CustomPainter {
   final double zoomFactor;
   final List<Point> points;
 
+  bool isSame(GlobeCoordinates c1, GlobeCoordinates c2) {
+    return c1.latitude == c2.latitude && c1.longitude == c2.longitude;
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
@@ -93,6 +99,17 @@ class ForegroundPainter extends CustomPainter {
           getSpherePosition3D(point.coordinates, radius, rotationY, rotationZ);
       Offset cartesian2D =
           Offset(center.dx + cartesian3D.y, center.dy - cartesian3D.z);
+
+      // final c2 = hoverOffsetToSphereCoordinates(
+      //     cartesian2D, center, radius, rotationY, rotationZ);
+      // if (c2 != null && cartesian3D.x > 0) {
+      //   print('${isSame(point.coordinates, c2)}');
+      // }
+
+      // print(
+      //     'new: $cartesian3D ---- converted: ${getVector3FromGlobeCoordinates(cartesian2D, center, radius, rotationZ)}');
+      // print(
+      //     'center: $center - point: ${point.coordinates} cartesian2D: $cartesian2D - cartesian3D: $cartesian3D');
 
       if (cartesian3D.x > 0) {
         final rect = getRectOnSphere(cartesian3D, cartesian2D, center, radius,
@@ -131,7 +148,8 @@ class ForegroundPainter extends CustomPainter {
           rotationZ, connection.animationProgress, size, hoverPoint);
 
       if (info?['path'] != null) {
-        if (localHover != null && isPointOnPath(info?['path'], localHover)) {
+        if (localHover != null &&
+            isPointOnPath(localHover, info?['path'], connection.strokeWidth)) {
           Future.delayed(Duration.zero, () {
             connection.onHover?.call();
             hoverOverConnection(connection.id, info?['midPoint'], true, true);
@@ -139,7 +157,8 @@ class ForegroundPainter extends CustomPainter {
         } else {
           hoverOverConnection(connection.id, info?['midPoint'], false, true);
         }
-        if (localClick != null && isPointOnPath(info?['path'], localClick)) {
+        if (localClick != null &&
+            isPointOnPath(localClick, info?['path'], connection.strokeWidth)) {
           Future.delayed(Duration.zero, () {
             connection.onTap?.call();
             onPointClicked?.call();

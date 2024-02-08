@@ -1,6 +1,11 @@
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
+import 'package:flutter/material.dart';
+import 'package:flutter_earth_globe/misc.dart';
+
 import 'point.dart';
 import 'sphere_style.dart';
-import 'package:flutter/material.dart';
 
 import 'point_connection.dart';
 
@@ -13,45 +18,64 @@ import 'point_connection_style.dart';
 /// It is also used to load the surface and background images.
 /// It is also used to change the style of the sphere.
 /// It is also used to listen to the events of the globe.
-class RotatingGlobeController {
-  bool _isRotating = false;
-  bool _isReady = false;
-  List<Point> points = [];
-  List<AnimatedPointConnection> connections = [];
-  SphereStyle sphereStyle = SphereStyle();
+class FlutterEarthGlobeController extends ChangeNotifier {
+  bool _isRotating = false; // Whether the globe is rotating.
+  bool _isReady = false; // Whether the globe is ready.
+  List<Point> points = []; // The points on the globe.
+  List<AnimatedPointConnection> connections =
+      []; // The connections between points.
+  SphereStyle sphereStyle; // The style of the sphere.
+  ui.Image? surface; // The surface image of the sphere.
+  ui.Image? background; // The background image of the sphere.
+  Uint32List? surfaceProcessed; // The processed surface image of the sphere.
+  bool
+      isBackgroundFollowingSphereRotation; // Whether the background follows the rotation of the sphere.
+  ImageConfiguration
+      surfaceConfiguration; // The configuration of the surface image.
+  ImageConfiguration
+      backgroundConfiguration; // The configuration of the background image.
+
+  late AnimationController
+      rotationController; // The animation controller for sphere rotation.
+
+  double rotationSpeed; // The speed of the rotation.
+
+  double zoom; // The zoom level of the globe.
+  double maxZoom; // The maximum zoom level of the globe.
+  double minZoom; // The minimum zoom level of the globe.
+
+  FlutterEarthGlobeController({
+    ImageProvider? surface,
+    ImageProvider? background,
+    this.rotationSpeed = 0.2,
+    this.zoom = 1,
+    this.maxZoom = 1.6,
+    this.minZoom = 0.1,
+    bool isRotating = false,
+    this.isBackgroundFollowingSphereRotation = false,
+    this.surfaceConfiguration = const ImageConfiguration(),
+    this.backgroundConfiguration = const ImageConfiguration(),
+    this.sphereStyle = const SphereStyle(),
+  }) {
+    if (isRotating) {
+      startRotation();
+    }
+    if (surface != null) {
+      loadSurface(surface);
+    }
+
+    if (background != null) {
+      loadBackground(background);
+    }
+  }
 
   // internal calls
   Function(AnimatedPointConnection connection,
       {required bool animateDraw,
       required Duration animateDrawDuration})? onPointConnectionAdded;
-  Function()? onPointConnectionRemoved;
 
-  Function()? onPointConnectionUpdated;
-
-  Function()? onPointAdded;
-
-  Function()? onPointUpdated;
-
-  Function()? onPointRemoved;
-
-  Function(
-    ImageProvider image,
-    ImageConfiguration configuration,
-  )? onSurfaceLoaded;
-
-  Function(
-    ImageProvider image,
-    ImageConfiguration configuration,
-    bool followsRotation,
-  )? onBackgroundLoaded;
-
-  Function()? onBackgroundRemoved;
-  Function()? onChangeSphereStyle;
-
-  Function()? onStartGlobeRotation;
-  Function()? onStopGlobeRotation;
-  Function()? onToggleGlobeRotation;
   Function()? onResetGlobeRotation;
+
   void load() {
     _isReady = true;
     onLoaded?.call();
@@ -93,6 +117,7 @@ class RotatingGlobeController {
     final animatedConnection = AnimatedPointConnection.fromPointConnection(
         pointConnection: connection);
     connections.add(animatedConnection);
+    notifyListeners();
     onPointConnectionAdded?.call(animatedConnection,
         animateDraw: animateDraw, animateDrawDuration: animateDrawDuration);
   }
@@ -144,7 +169,7 @@ class RotatingGlobeController {
         labelTextStyle: labelTextStyle,
         onTap: onTap,
         onHover: onHover);
-    onPointConnectionUpdated?.call();
+    notifyListeners();
   }
 
   /// Removes the [connection] between two [points] from the globe.
@@ -157,7 +182,7 @@ class RotatingGlobeController {
   /// ```
   void removePointConnection(String id) {
     connections.removeWhere((element) => element.id == id);
-    onPointConnectionRemoved?.call();
+    notifyListeners();
   }
 
   /// Adds a [point] to the globe.
@@ -180,7 +205,7 @@ class RotatingGlobeController {
   /// ```
   void addPoint(Point point) {
     points.add(point);
-    onPointAdded?.call();
+    notifyListeners();
   }
 
   /// Updates the [point] on the globe.
@@ -227,7 +252,7 @@ class RotatingGlobeController {
         labelTextStyle: labelTextStyle,
         onTap: onTap,
         onHover: onHover);
-    onPointUpdated?.call();
+    notifyListeners();
   }
 
   /// Removes the [point] from the globe.
@@ -240,7 +265,7 @@ class RotatingGlobeController {
   /// ```
   void removePoint(String id) {
     points.removeWhere((element) => element.id == id);
-    onPointRemoved?.call();
+    notifyListeners();
   }
 
   /// Loads the [image] as the surface of the globe.
@@ -258,8 +283,14 @@ class RotatingGlobeController {
     ImageProvider image, {
     ImageConfiguration configuration = const ImageConfiguration(),
   }) {
-    if (onSurfaceLoaded == null) return;
-    onSurfaceLoaded?.call(image, configuration);
+    image
+        .resolve(configuration)
+        .addListener(ImageStreamListener((info, _) async {
+      surface = info.image;
+      surfaceConfiguration = configuration;
+      surfaceProcessed = await convertImageToUint32List(info.image);
+      notifyListeners();
+    }));
   }
 
   /// Loads the background image for the rotating globe.
@@ -277,17 +308,17 @@ class RotatingGlobeController {
   void loadBackground(
     ImageProvider image, {
     ImageConfiguration configuration = const ImageConfiguration(),
-    bool followsRotation = false,
+    bool isBackgroundFollowingSphereRotation = false,
   }) {
-    if (onBackgroundLoaded == null) return;
-    onBackgroundLoaded?.call(image, configuration, followsRotation);
+    image.resolve(configuration).addListener(ImageStreamListener((info, _) {
+      background = info.image;
+      backgroundConfiguration = configuration;
+      isBackgroundFollowingSphereRotation = isBackgroundFollowingSphereRotation;
+      notifyListeners();
+    }));
   }
 
   /// Removes the background of the rotating globe.
-  ///
-  /// This method calls the [onBackgroundRemoved] callback if it is not null.
-  /// The [onBackgroundRemoved] callback is responsible for handling the removal
-  /// of the background.
   ///
   /// Example usage:
   /// ```dart
@@ -295,8 +326,8 @@ class RotatingGlobeController {
   /// ```
 
   void removeBackground() {
-    if (onBackgroundRemoved == null) return;
-    onBackgroundRemoved?.call();
+    background = null;
+    notifyListeners();
   }
 
   /// Changes the style of the rotating globe's sphere.
@@ -305,81 +336,107 @@ class RotatingGlobeController {
   ///
   /// Example usage:
   /// ```dart
-  /// RotatingGlobeController controller = RotatingGlobeController();
+  /// FlutterEarthGlobeController controller = FlutterEarthGlobeController();
   /// controller.changeSphereStyle(SphereStyle(color: Colors.blue, radius: 100));
   /// ```
   void changeSphereStyle(SphereStyle style) {
-    if (onChangeSphereStyle == null) return;
     sphereStyle = style;
-    onChangeSphereStyle?.call();
+    notifyListeners();
   }
 
   /// Starts the rotation of the globe.
   ///
   /// Example usage:
   /// ```dart
-  /// RotatingGlobeController controller = RotatingGlobeController();
+  /// FlutterEarthGlobeController controller = FlutterEarthGlobeController();
   /// controller.startRotation();
   /// ```
-  void startRotation() {
-    onStartGlobeRotation?.call();
+  void startRotation({double? rotationSpeed}) {
     _isRotating = true;
+    this.rotationSpeed = rotationSpeed ?? this.rotationSpeed;
+    rotationController.forward();
+    notifyListeners();
   }
 
   /// Stops the rotation of the globe.
   ///
   /// Example usage:
   /// ```dart
-  /// RotatingGlobeController controller = RotatingGlobeController();
+  /// FlutterEarthGlobeController controller = FlutterEarthGlobeController();
   /// controller.stopRotation();
   /// ```
   void stopRotation() {
-    onStopGlobeRotation?.call();
     _isRotating = false;
+    rotationController.stop();
+    notifyListeners();
   }
 
   /// Toggles the rotation of the globe.
   ///
   /// Example usage:
   /// ```dart
-  /// RotatingGlobeController controller = RotatingGlobeController();
+  /// FlutterEarthGlobeController controller = FlutterEarthGlobeController();
   /// controller.toggleRotation();
   /// ```
   void toggleRotation() {
-    onToggleGlobeRotation?.call();
     _isRotating = !_isRotating;
+    if (_isRotating) {
+      rotationController.forward();
+    } else {
+      rotationController.stop();
+    }
+    notifyListeners();
   }
 
   /// Resets the rotation of the globe.
   ///
   /// Example usage:
   /// ```dart
-  /// RotatingGlobeController controller = RotatingGlobeController();
+  /// FlutterEarthGlobeController controller = FlutterEarthGlobeController();
   /// controller.resetRotation();
   /// ```
   void resetRotation() {
     onResetGlobeRotation?.call();
   }
 
+  /// Changes the rotation speed of the globe.
+  ///
+  /// The [rotationSpeed] parameter specifies the new rotation speed of the globe.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// FlutterEarthGlobeController controller = FlutterEarthGlobeController();
+  /// controller.changeRotationSpeed(0.5);
+  /// ```
+  void changeRotationSpeed(double rotationSpeed) {
+    this.rotationSpeed = rotationSpeed;
+    notifyListeners();
+  }
+
+  /// Changes the zoom level of the globe.
+  ///
+  /// The [zoom] parameter specifies the new zoom level of the globe.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// FlutterEarthGlobeController controller = FlutterEarthGlobeController();
+  /// controller.changeZoom(2);
+  /// ```
+  void changeZoom(double zoom) {
+    this.zoom = zoom;
+    notifyListeners();
+  }
+
   /// A callback function that is called when the globe is loaded.
   VoidCallback? onLoaded;
 
   /// Disposes the controller.
+  @override
   void dispose() {
     onPointConnectionAdded = null;
-    onPointConnectionRemoved = null;
-    onPointConnectionUpdated = null;
-    onPointAdded = null;
-    onPointRemoved = null;
-    onPointUpdated = null;
-    onStartGlobeRotation = null;
-    onStopGlobeRotation = null;
-    onToggleGlobeRotation = null;
     onResetGlobeRotation = null;
-    onSurfaceLoaded = null;
-    onBackgroundLoaded = null;
-    onBackgroundRemoved = null;
-    onChangeSphereStyle = null;
     onLoaded = null;
+    rotationController.dispose();
+    super.dispose();
   }
 }

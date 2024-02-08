@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 /// A custom painter that draws a starry background using a star texture image.
 class StarryBackgroundPainter extends CustomPainter {
   final ui.Image starTexture;
-  final double rotationX, rotationY;
+  final double rotationZ, rotationY;
 
   /// The [StarryBackgroundPainter] takes in a star texture image, along with rotation
   /// values for the X and Y axes. It then paints the star texture repeatedly across
@@ -28,14 +28,14 @@ class StarryBackgroundPainter extends CustomPainter {
   /// ```
   StarryBackgroundPainter({
     required this.starTexture,
-    required this.rotationX,
+    required this.rotationZ,
     required this.rotationY,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint();
-    double offsetX = rotationX % starTexture.width;
+    double offsetX = rotationZ % starTexture.width;
     double offsetY = rotationY % starTexture.height;
 
     for (double i = offsetX - starTexture.width;
@@ -51,5 +51,5 @@ class StarryBackgroundPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant StarryBackgroundPainter oldDelegate) =>
-      rotationX != oldDelegate.rotationX || rotationY != oldDelegate.rotationY;
+      rotationZ != oldDelegate.rotationZ || rotationY != oldDelegate.rotationY;
 }
