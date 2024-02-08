@@ -26,6 +26,8 @@ class Home extends StatefulWidget {
 class _HomeState extends State<Home> with TickerProviderStateMixin {
   final GlobalKey<ScaffoldState> _key = GlobalKey();
   String? _selectedSurface;
+  GlobeCoordinates? _hoverCoordinates;
+  GlobeCoordinates? _clickCoordinates;
   late FlutterEarthGlobeController _controller;
   final List<String> _textures = [
     'assets/2k_earth-day.jpg',
@@ -471,15 +473,26 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
               onZoomChanged: (zoom) {
                 setState(() {});
               },
+              onTap: (coordinates) {
+                setState(() {
+                  _clickCoordinates = coordinates;
+                });
+              },
               onHover: (coordinates) {
-                print('Hovering over: $coordinates');
+                if (coordinates == null) return;
+
+                setState(() {
+                  _hoverCoordinates = coordinates;
+                });
               },
               controller: _controller,
               radius: radius,
             ),
             Container(
               padding: const EdgeInsets.all(12),
-              color: Colors.blue.withOpacity(0.5),
+              decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.blue.withOpacity(0.5)),
               child: Text(
                 'Flutter Earth Globe',
                 style: Theme.of(context)
@@ -490,6 +503,55 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
             ),
             Positioned(top: 10, left: 10, child: getLeftSide()),
             Positioned(top: 10, right: 10, child: getRightSide()),
+            Positioned(
+                bottom: 0,
+                width: MediaQuery.of(context).size.width,
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 10,
+                  children: [
+                    SizedBox(
+                      width: 250,
+                      child: Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Column(
+                            children: [
+                              Text(
+                                'Hover coordinates',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              Text(
+                                  'Latitude: ${_hoverCoordinates?.latitude ?? 0}'),
+                              Text(
+                                  'Longitude: ${_hoverCoordinates?.longitude ?? 0}'),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 250,
+                      child: Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Column(
+                            children: [
+                              Text(
+                                'Click coordinates',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              Text(
+                                  'Latitude: ${_clickCoordinates?.latitude ?? 0}'),
+                              Text(
+                                  'Longitude: ${_clickCoordinates?.longitude ?? 0}'),
+                            ],
+                          ),
+                        ),
+                      ),
+                    )
+                  ],
+                ))
           ],
         ),
       ),

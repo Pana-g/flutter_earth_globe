@@ -59,15 +59,15 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
-  final FlutterEarthGlobeController _controller = FlutterEarthGlobeController();
+  late FlutterEarthGlobeController _controller;
 
    @override
   initState() {
-    _controller.onLoaded = () {
-        _controller.loadBackground(Image.asset('assets/2k_stars.jpg').image,
-            followsRotation: true);
-        _controller.loadSurface(Image.asset('assets/2k_earth-day.jpg').image);
-      };
+    _controller = FlutterEarthGlobeController(
+        rotationSpeed: 0.05,
+        isBackgroundFollowingSphereRotation: true,
+        background: Image.asset('assets/2k_stars.jpg').image,
+        surface: Image.asset('assets/2k_earth-day.jpg').image);
   }
 
   @override
