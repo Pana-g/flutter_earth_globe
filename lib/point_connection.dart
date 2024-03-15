@@ -4,7 +4,7 @@ import 'globe_coordinates.dart';
 
 import 'point_connection_style.dart';
 
-/// This class defines the [connection] between two [points].
+/// This class defines the [PointConnection] between two [Point].
 /// Represents a connection between two points on a globe.
 class PointConnection {
   final GlobeCoordinates start;

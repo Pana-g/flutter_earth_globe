@@ -1,3 +1,4 @@
+/// The main file of the package. It contains the [FlutterEarthGlobe] widget, which is the main widget of the package.
 library flutter_earth_globe;
 
 import 'globe_coordinates.dart';
@@ -57,6 +58,7 @@ class _FlutterEarthGlobeState extends State<FlutterEarthGlobe> {
   @override
   Widget build(BuildContext context) {
     return RotatingGlobe(
+      key: widget.controller.globeKey,
       controller: widget.controller,
       radius: widget.radius,
       alignment: widget.alignment,

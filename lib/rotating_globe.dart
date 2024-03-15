@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
+import 'package:flutter/widgets.dart';
 import 'package:flutter_earth_globe/visible_connection.dart';
 import 'package:flutter_earth_globe/visible_point.dart';
 import 'package:vector_math/vector_math_64.dart';
@@ -46,18 +47,18 @@ class RotatingGlobe extends StatefulWidget {
   final void Function(GlobeCoordinates? coordinates)? onTap;
 
   @override
-  _RotatingGlobeState createState() => _RotatingGlobeState();
+  RotatingGlobeState createState() => RotatingGlobeState();
 }
 
 /// The state class for the [RotatingGlobe] widget.
 /// It extends [State] and uses [TickerProviderStateMixin] for animation purposes.
-class _RotatingGlobeState extends State<RotatingGlobe>
+class RotatingGlobeState extends State<RotatingGlobe>
     with TickerProviderStateMixin {
+  AnimationController? genericAnimationController;
   late double rotationX =
       0; // The rotation angle around the X-axis of the sphere.
   late double rotationZ =
       0; // The rotation angle around the Z-axis of the sphere.
-  late double _lastZoom; // The previous zoom level of the sphere.
   late double
       _lastRotationX; // The previous rotation angle around the X-axis of the sphere.
   late double
@@ -169,6 +170,44 @@ class _RotatingGlobeState extends State<RotatingGlobe>
     super.initState();
   }
 
+  /// Focus on the specified coordinates on the sphere.
+  void focusOnCoordinates(GlobeCoordinates coordinates,
+      {required bool animate, required Duration? duration}) {
+    double latRad = radians(coordinates.latitude);
+    double lonRad = radians(-coordinates.longitude);
+    final targetRotationZ = -lonRad;
+    final targetRotationY = latRad;
+    final targetRotationX = latRad;
+    if (animate) {
+      final initialRotationZ = rotationZ;
+      final initialRotationX = rotationX;
+      final initialRotationY = rotationY;
+
+      final rZ = targetRotationZ - initialRotationZ;
+      final rX = targetRotationX - initialRotationX;
+      final rY = targetRotationY - initialRotationY;
+
+      genericAnimationController = AnimationController(
+        vsync: this,
+        duration: duration,
+      )
+        ..addListener(() {
+          double animationFactor = genericAnimationController?.value ?? 1;
+          rotationX = initialRotationX + rX * animationFactor;
+          rotationY = initialRotationY + rY * animationFactor;
+          rotationZ = initialRotationZ + rZ * animationFactor;
+
+          setState(() {});
+        })
+        ..forward();
+    } else {
+      rotationX = targetRotationX;
+      rotationY = targetRotationY;
+      rotationZ = targetRotationZ;
+      setState(() {});
+    }
+  }
+
   /// Reset the rotation of the sphere
   void resetRotation() {
     rotationX = 0;
@@ -215,10 +254,10 @@ class _RotatingGlobeState extends State<RotatingGlobe>
       return Future.value(null);
     }
     final r = convertedRadius().roundToDouble();
-    final minX = math.max(-r, (-1 - widget.alignment.x) * maxWidth / 2);
-    final minY = math.max(-r, (-1 + widget.alignment.y) * maxHeight / 2);
-    final maxX = math.min(r, (1 - widget.alignment.x) * maxWidth / 2);
-    final maxY = math.min(r, (1 + widget.alignment.y) * maxHeight / 2);
+    final minX = math.max(-r, -maxWidth / 2);
+    final minY = math.max(-r, -maxHeight / 2);
+    final maxX = math.min(r, maxWidth / 2);
+    final maxY = math.min(r, maxHeight / 2);
     final width = maxX - minX;
     final height = maxY - minY;
 
@@ -268,8 +307,7 @@ class _RotatingGlobeState extends State<RotatingGlobe>
         image: image,
         radius: r,
         origin: Offset(-minX, -minY),
-        offset: Offset((widget.alignment.x + 1) * maxWidth / 2,
-            (widget.alignment.y + 1) * maxHeight / 2),
+        offset: Offset(maxWidth / 2, maxHeight / 2),
       );
       completer.complete(sphereImage);
     });
@@ -309,15 +347,9 @@ class _RotatingGlobeState extends State<RotatingGlobe>
   }
 
   _onZoomUpdated(double scale) {
-    final tempZoom = _lastZoom + math.log(scale) / math.ln2;
-    // print(zoom);
-    if (tempZoom <= widget.controller.minZoom) {
-      widget.controller.zoom = widget.controller.minZoom;
-    } else if (tempZoom >= widget.controller.maxZoom) {
-      widget.controller.zoom = widget.controller.maxZoom;
-    } else {
-      widget.controller.zoom = tempZoom;
-    }
+    final tempZoom = widget.controller.zoom + scale;
+    widget.controller.zoom =
+        tempZoom.clamp(widget.controller.minZoom, widget.controller.maxZoom);
     widget.onZoomChanged?.call(widget.controller.zoom);
     setState(() {});
   }
@@ -351,11 +383,11 @@ class _RotatingGlobeState extends State<RotatingGlobe>
         }),
         Positioned.fill(
           child: InteractiveViewer(
-            scaleFactor: 1000,
+            // scaleFactor: 100000000,
+            scaleEnabled: false,
             panEnabled: false,
             trackpadScrollCausesScale: true,
             onInteractionStart: (ScaleStartDetails details) {
-              _lastZoom = widget.controller.zoom;
               _lastRotationX = rotationX;
               _lastRotationZ = rotationZ;
               _lastRotationY = rotationY;
@@ -368,8 +400,10 @@ class _RotatingGlobeState extends State<RotatingGlobe>
               // _rotationController.stop();
             },
             onInteractionUpdate: (ScaleUpdateDetails details) {
-              // print('OOOOOOOOOOOO');
-              _onZoomUpdated(details.scale);
+              if (widget.controller.isZoomEnabled && details.scale != 1.0) {
+                final scaleFactor = (details.scale - 1) / 5;
+                _onZoomUpdated(scaleFactor);
+              }
               final offset = details.focalPoint - _lastFocalPoint;
               rotationX = adjustModRotation(
                   _lastRotationX + offset.dy / convertedRadius());
@@ -377,8 +411,6 @@ class _RotatingGlobeState extends State<RotatingGlobe>
                   _lastRotationZ - offset.dx / convertedRadius());
               rotationY = adjustModRotation(
                   _lastRotationY + offset.dy / convertedRadius());
-              // final offset = details.focalPoint - _lastFocalPoint;
-              // print(rotationY);
               setState(() {});
             },
             onInteractionEnd: (ScaleEndDetails details) {
@@ -410,118 +442,125 @@ class _RotatingGlobeState extends State<RotatingGlobe>
                     }
                     return Stack(
                       children: [
-                        FutureBuilder(
-                          key: _futureBuilderKey,
-                          future: buildSphere(
-                              constraints.maxWidth, constraints.maxHeight),
-                          builder: (BuildContext context,
-                              AsyncSnapshot<SphereImage?> snapshot) {
-                            if (snapshot.hasData) {
-                              final data = snapshot.data!;
-                              return CustomPaint(
-                                willChange: true,
-                                isComplex: true,
-                                foregroundPainter: ForegroundPainter(
-                                  hoverOverConnection: (connectionId,
-                                      cartesian2D, isHovering, isVisible) {
-                                    if (!mounted) return;
-                                    bool changed = false;
-                                    if (isVisible) {
-                                      if (!visibleConnections
-                                          .containsKey(connectionId)) {
-                                        visibleConnections.putIfAbsent(
-                                            connectionId,
-                                            () => VisibleConnection(
-                                                key: GlobalKey(),
-                                                id: connectionId,
-                                                position: cartesian2D,
-                                                isVisible: isVisible,
-                                                isHovering: isHovering));
-                                        changed = true;
+                        Positioned(
+                          top: widget.alignment.y * constraints.maxHeight / 2,
+                          left: widget.alignment.x * constraints.maxWidth / 2,
+                          child: FutureBuilder(
+                            key: _futureBuilderKey,
+                            future: buildSphere(
+                                constraints.maxWidth, constraints.maxHeight),
+                            builder: (BuildContext context,
+                                AsyncSnapshot<SphereImage?> snapshot) {
+                              if (snapshot.hasData) {
+                                final data = snapshot.data!;
+                                return CustomPaint(
+                                  willChange: true,
+                                  isComplex: true,
+                                  foregroundPainter: ForegroundPainter(
+                                    hoverOverConnection: (connectionId,
+                                        cartesian2D, isHovering, isVisible) {
+                                      if (!mounted) return;
+                                      bool changed = false;
+                                      if (isVisible) {
+                                        if (!visibleConnections
+                                            .containsKey(connectionId)) {
+                                          visibleConnections.putIfAbsent(
+                                              connectionId,
+                                              () => VisibleConnection(
+                                                  key: GlobalKey(),
+                                                  id: connectionId,
+                                                  position: cartesian2D,
+                                                  isVisible: isVisible,
+                                                  isHovering: isHovering));
+                                          changed = true;
+                                        } else {
+                                          visibleConnections.update(
+                                              connectionId,
+                                              (value) => value.copyWith(
+                                                  position: cartesian2D,
+                                                  isVisible: isVisible,
+                                                  isHovering: isHovering));
+                                          changed = true;
+                                        }
                                       } else {
-                                        visibleConnections.update(
-                                            connectionId,
-                                            (value) => value.copyWith(
-                                                position: cartesian2D,
-                                                isVisible: isVisible,
-                                                isHovering: isHovering));
-                                        changed = true;
+                                        if (visibleConnections
+                                            .containsKey(connectionId)) {
+                                          visibleConnections
+                                              .remove(connectionId);
+                                          changed = true;
+                                        }
                                       }
-                                    } else {
-                                      if (visibleConnections
-                                          .containsKey(connectionId)) {
-                                        visibleConnections.remove(connectionId);
-                                        changed = true;
+                                      if (changed) {
+                                        Future.delayed(Duration.zero, () {
+                                          setState(() {});
+                                        });
                                       }
-                                    }
-                                    if (changed) {
-                                      Future.delayed(Duration.zero, () {
-                                        setState(() {});
-                                      });
-                                    }
-                                  },
-                                  hoverOverPoint: (pointId, cartesian2D,
-                                      isHovering, isVisisble) {
-                                    if (!mounted) return;
-                                    bool changed = false;
-                                    if (isVisisble) {
-                                      if (!visiblePoints.containsKey(pointId)) {
-                                        visiblePoints.putIfAbsent(
-                                            pointId,
-                                            () => VisiblePoint(
-                                                key: GlobalKey(),
-                                                id: pointId,
-                                                position: cartesian2D,
-                                                isVisible: isVisisble,
-                                                isHovering: isHovering));
-                                        changed = true;
+                                    },
+                                    hoverOverPoint: (pointId, cartesian2D,
+                                        isHovering, isVisisble) {
+                                      if (!mounted) return;
+                                      bool changed = false;
+                                      if (isVisisble) {
+                                        if (!visiblePoints
+                                            .containsKey(pointId)) {
+                                          visiblePoints.putIfAbsent(
+                                              pointId,
+                                              () => VisiblePoint(
+                                                  key: GlobalKey(),
+                                                  id: pointId,
+                                                  position: cartesian2D,
+                                                  isVisible: isVisisble,
+                                                  isHovering: isHovering));
+                                          changed = true;
+                                        } else {
+                                          visiblePoints.update(
+                                              pointId,
+                                              (value) => value.copyWith(
+                                                  position: cartesian2D,
+                                                  isVisible: isVisisble,
+                                                  isHovering: isHovering));
+                                          changed = true;
+                                        }
                                       } else {
-                                        visiblePoints.update(
-                                            pointId,
-                                            (value) => value.copyWith(
-                                                position: cartesian2D,
-                                                isVisible: isVisisble,
-                                                isHovering: isHovering));
-                                        changed = true;
+                                        if (visiblePoints
+                                            .containsKey(pointId)) {
+                                          visiblePoints.remove(pointId);
+                                          changed = true;
+                                        }
                                       }
-                                    } else {
-                                      if (visiblePoints.containsKey(pointId)) {
-                                        visiblePoints.remove(pointId);
-                                        changed = true;
+                                      if (changed) {
+                                        Future.delayed(Duration.zero, () {
+                                          setState(() {});
+                                        });
                                       }
-                                    }
-                                    if (changed) {
-                                      Future.delayed(Duration.zero, () {
-                                        setState(() {});
+                                    },
+                                    connections: widget.controller.connections,
+                                    radius: convertedRadius(),
+                                    hoverPoint: hoveringPoint,
+                                    clickPoint: clickPoint,
+                                    onPointClicked: () {
+                                      setState(() {
+                                        clickPoint = null;
                                       });
-                                    }
-                                  },
-                                  connections: widget.controller.connections,
-                                  radius: convertedRadius(),
-                                  hoverPoint: hoveringPoint,
-                                  clickPoint: clickPoint,
-                                  onPointClicked: () {
-                                    setState(() {
-                                      clickPoint = null;
-                                    });
-                                  },
-                                  rotationZ: rotationZ,
-                                  rotationY: rotationY,
-                                  rotationX: rotationX,
-                                  zoomFactor: widget.controller.zoom,
-                                  points: widget.controller.points,
-                                ),
-                                painter: SpherePainter(
-                                  style: widget.controller.sphereStyle,
-                                  sphereImage: data,
-                                ),
-                                size: Size(constraints.maxWidth,
-                                    constraints.maxHeight),
-                              );
-                            } else {
-                              return Container();
-                            }
-                          },
+                                    },
+                                    rotationZ: rotationZ,
+                                    rotationY: rotationY,
+                                    rotationX: rotationX,
+                                    zoomFactor: widget.controller.zoom,
+                                    points: widget.controller.points,
+                                  ),
+                                  painter: SpherePainter(
+                                    style: widget.controller.sphereStyle,
+                                    sphereImage: data,
+                                  ),
+                                  size: Size(constraints.maxWidth,
+                                      constraints.maxHeight),
+                                );
+                              } else {
+                                return Container();
+                              }
+                            },
+                          ),
                         ),
                         if (visiblePoints.isNotEmpty)
                           ...visiblePoints.entries
@@ -645,7 +684,7 @@ class _RotatingGlobeState extends State<RotatingGlobe>
               ),
             ),
           ),
-        ),
+        )
       ],
     );
   }

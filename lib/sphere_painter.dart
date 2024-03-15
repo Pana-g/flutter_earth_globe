@@ -82,6 +82,7 @@ class SpherePainter extends CustomPainter {
       paint.shader = style.gradientOverlay.createShader(rect);
       canvas.drawRect(rect, paint);
     }
+    // sphereImage.image.dispose();
   }
 
   @override

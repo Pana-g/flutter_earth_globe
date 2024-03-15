@@ -98,6 +98,8 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
   initState() {
     _controller = FlutterEarthGlobeController(
         rotationSpeed: 0.05,
+        zoom: 0.5,
+        isRotating: false,
         isBackgroundFollowingSphereRotation: true,
         background: Image.asset('assets/2k_stars.jpg').image,
         surface: Image.asset('assets/2k_earth-day.jpg').image);
@@ -121,9 +123,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
           // labelBuilder: pointLabelBuilder,
           coordinates: const GlobeCoordinates(35.6895, 139.6917),
           style: const PointStyle(color: Colors.blue),
-          onHover: () {
-            // print('EEEEEEEEE tokyo');
-          },
+          onHover: () {},
           label: 'Tokyo'),
       Point(
           id: '4',
@@ -241,11 +241,11 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
                       if (texture.contains('sun') ||
                           texture.contains('venus') ||
                           texture.contains('mars')) {
-                        _controller.changeSphereStyle(SphereStyle(
+                        _controller.setSphereStyle(SphereStyle(
                             shadowColor: Colors.orange.withOpacity(0.8),
                             shadowBlurSigma: 20));
                       } else {
-                        _controller.changeSphereStyle(const SphereStyle());
+                        _controller.setSphereStyle(const SphereStyle());
                       }
                       setState(() {
                         _selectedSurface = texture;
@@ -351,25 +351,39 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
                   value: _controller.zoom,
                   divisions: 8,
                   onChanged: (value) {
-                    _controller.zoom = value;
+                    _controller.setZoom(value);
                     setState(() {});
                   })),
           getDividerText('Points'),
           ...points
               .map((e) => getListAction(
                   e.label ?? '',
-                  Checkbox(
-                    value: _controller.points
-                        .where((element) => element.id == e.id)
-                        .isNotEmpty,
-                    onChanged: (value) {
-                      if (value == true) {
-                        _controller.addPoint(e);
-                      } else {
-                        _controller.removePoint(e.id);
-                      }
-                      setState(() {});
-                    },
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Checkbox(
+                        value: _controller.points
+                            .where((element) => element.id == e.id)
+                            .isNotEmpty,
+                        onChanged: (value) {
+                          if (value == true) {
+                            _controller.addPoint(e);
+                          } else {
+                            _controller.removePoint(e.id);
+                          }
+                          setState(() {});
+                        },
+                      ),
+                      const SizedBox(
+                        width: 10,
+                      ),
+                      IconButton(
+                          onPressed: () {
+                            _controller.focusOnCoordinates(e.coordinates,
+                                animate: true);
+                          },
+                          icon: const Icon(Icons.location_on))
+                    ],
                   ),
                   secondary: _controller.points
                           .where((element) => element.id == e.id)

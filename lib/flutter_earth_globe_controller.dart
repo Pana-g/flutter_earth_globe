@@ -3,7 +3,9 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_earth_globe/misc.dart';
+import 'package:flutter_earth_globe/rotating_globe.dart';
 
+import 'globe_coordinates.dart';
 import 'point.dart';
 import 'sphere_style.dart';
 
@@ -16,7 +18,7 @@ import 'point_connection_style.dart';
 /// It is used to add/remove/update points and connections.
 /// It is also used to control the rotation of the globe.
 /// It is also used to load the surface and background images.
-/// It is also used to change the style of the sphere.
+/// It is also used to set the style of the sphere.
 /// It is also used to listen to the events of the globe.
 class FlutterEarthGlobeController extends ChangeNotifier {
   bool _isRotating = false; // Whether the globe is rotating.
@@ -43,11 +45,15 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   double zoom; // The zoom level of the globe.
   double maxZoom; // The maximum zoom level of the globe.
   double minZoom; // The minimum zoom level of the globe.
+  bool isZoomEnabled; // Whether the zoom is enabled.
+
+  GlobalKey<RotatingGlobeState> globeKey = GlobalKey();
 
   FlutterEarthGlobeController({
     ImageProvider? surface,
     ImageProvider? background,
     this.rotationSpeed = 0.2,
+    this.isZoomEnabled = true,
     this.zoom = 1,
     this.maxZoom = 1.6,
     this.minZoom = 0.1,
@@ -57,9 +63,9 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     this.backgroundConfiguration = const ImageConfiguration(),
     this.sphereStyle = const SphereStyle(),
   }) {
-    if (isRotating) {
-      startRotation();
-    }
+    assert(minZoom < maxZoom);
+    assert(zoom >= minZoom && zoom <= maxZoom);
+    _isRotating = isRotating;
     if (surface != null) {
       loadSurface(surface);
     }
@@ -79,6 +85,9 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   void load() {
     _isReady = true;
     onLoaded?.call();
+    if (_isRotating) {
+      startRotation();
+    }
   }
 
   // external calls
@@ -120,6 +129,23 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     notifyListeners();
     onPointConnectionAdded?.call(animatedConnection,
         animateDraw: animateDraw, animateDrawDuration: animateDrawDuration);
+  }
+
+  /// Focuses on the [coordinates] on the globe.
+  ///
+  /// The [coordinates] parameter represents the coordinates to focus on.
+  /// The [animate] parameter represents whether the focus should be animated.
+  /// The [duration] parameter represents the duration of the animation.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// controller.focusOnCoordinates(GlobeCoordinates(0, 0), animate: true);
+  /// ```
+  void focusOnCoordinates(GlobeCoordinates coordinates,
+      {bool animate = false,
+      Duration? duration = const Duration(milliseconds: 500)}) {
+    globeKey.currentState
+        ?.focusOnCoordinates(coordinates, animate: animate, duration: duration);
   }
 
   /// Updates the [connection] between two [points] on the globe.
@@ -297,7 +323,7 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   ///
   /// The [image] parameter specifies the image to be loaded as the background.
   /// The [configuration] parameter specifies the configuration for loading the image.
-  /// The [followsRotation] parameter indicates whether the background image should follow the rotation of the globe.
+  /// The [isBackgroundFollowingSphereRotation] parameter specifies whether the background should follow the rotation of the sphere.
   ///
   /// Example usage:
   /// ```dart
@@ -330,16 +356,16 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Changes the style of the rotating globe's sphere.
+  /// Sets the style of the rotating globe's sphere.
   ///
   /// The [style] parameter specifies the new style for the sphere.
   ///
   /// Example usage:
   /// ```dart
   /// FlutterEarthGlobeController controller = FlutterEarthGlobeController();
-  /// controller.changeSphereStyle(SphereStyle(color: Colors.blue, radius: 100));
+  /// controller.setSphereStyle(SphereStyle(color: Colors.blue, radius: 100));
   /// ```
-  void changeSphereStyle(SphereStyle style) {
+  void setSphereStyle(SphereStyle style) {
     sphereStyle = style;
     notifyListeners();
   }
@@ -399,30 +425,31 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     onResetGlobeRotation?.call();
   }
 
-  /// Changes the rotation speed of the globe.
+  /// Sets the rotation speed of the globe.
   ///
   /// The [rotationSpeed] parameter specifies the new rotation speed of the globe.
   ///
   /// Example usage:
   /// ```dart
   /// FlutterEarthGlobeController controller = FlutterEarthGlobeController();
-  /// controller.changeRotationSpeed(0.5);
+  /// controller.setRotationSpeed(0.5);
   /// ```
-  void changeRotationSpeed(double rotationSpeed) {
+  void setRotationSpeed(double rotationSpeed) {
     this.rotationSpeed = rotationSpeed;
     notifyListeners();
   }
 
-  /// Changes the zoom level of the globe.
+  /// Sets the zoom level of the globe.
   ///
   /// The [zoom] parameter specifies the new zoom level of the globe.
   ///
   /// Example usage:
   /// ```dart
   /// FlutterEarthGlobeController controller = FlutterEarthGlobeController();
-  /// controller.changeZoom(2);
+  /// controller.setZoom(2);
   /// ```
-  void changeZoom(double zoom) {
+  void setZoom(double zoom) {
+    assert(zoom >= minZoom && zoom <= maxZoom);
     this.zoom = zoom;
     notifyListeners();
   }
