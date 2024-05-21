@@ -60,7 +60,7 @@ Map? drawAnimatedLine(
     midPoint.normalize();
 
     final angle = calculateCentralAngle(connection.start, connection.end);
-    midPoint.scale((radius + (angle) * 10 * pi) * 1.5);
+    midPoint.scale(((radius + (angle) * 10 * pi) * connection.curveScale));
 
     final midPoint2D = Offset(center.dx + midPoint.y, center.dy - midPoint.z);
 

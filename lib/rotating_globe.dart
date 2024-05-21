@@ -253,6 +253,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
         widget.controller.surfaceProcessed == null) {
       return Future.value(null);
     }
+
     final r = convertedRadius().roundToDouble();
     final minX = math.max(-r, -maxWidth / 2);
     final minY = math.max(-r, -maxHeight / 2);
@@ -356,6 +357,26 @@ class RotatingGlobeState extends State<RotatingGlobe>
 
   @override
   Widget build(BuildContext context) {
+    double screenWidth = MediaQuery.of(context).size.width;
+    double screenHeight = MediaQuery.of(context).size.height;
+
+    double maxWidth = screenWidth;
+    double maxHeight = screenHeight;
+    if (convertedRadius() * 2 > maxWidth) {
+      maxWidth = convertedRadius() * 2 + 50;
+    }
+    if (convertedRadius() * 2 > maxHeight) {
+      maxHeight = convertedRadius() * 2 + 50;
+    }
+
+    double left = 0;
+    if (screenWidth < maxWidth) {
+      left = (maxWidth - screenWidth) / 2;
+    }
+    double top = 0;
+    if (screenHeight < maxHeight) {
+      top = (maxHeight - screenHeight) / 2;
+    }
     return Stack(
       children: [
         LayoutBuilder(builder: (context, constraints) {
@@ -381,7 +402,11 @@ class RotatingGlobeState extends State<RotatingGlobe>
                   ),
                   size: Size(constraints.maxWidth, constraints.maxHeight));
         }),
-        Positioned.fill(
+        Positioned(
+          left: -left,
+          top: -top,
+          width: maxWidth,
+          height: maxHeight,
           child: InteractiveViewer(
             // scaleFactor: 100000000,
             scaleEnabled: false,

@@ -160,6 +160,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
           isMoving: true,
           labelBuilder: connectionLabelBuilder,
           isLabelVisible: false,
+          curveScale: 1.2,
           style: const PointConnectionStyle(
               type: PointConnectionType.dotted,
               color: Colors.red,
@@ -180,6 +181,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
           labelBuilder: connectionLabelBuilder,
           start: points[2].coordinates,
           end: points[3].coordinates,
+          curveScale: 1.6,
           id: '3')
     ];
     _controller.onLoaded = () {

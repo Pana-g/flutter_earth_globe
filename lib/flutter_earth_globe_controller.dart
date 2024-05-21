@@ -450,7 +450,13 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   /// ```
   void setZoom(double zoom) {
     assert(zoom >= minZoom && zoom <= maxZoom);
-    this.zoom = zoom;
+    if (zoom < minZoom) {
+      zoom = minZoom;
+    } else if (zoom > maxZoom) {
+      zoom = maxZoom;
+    } else {
+      this.zoom = zoom;
+    }
     notifyListeners();
   }
 

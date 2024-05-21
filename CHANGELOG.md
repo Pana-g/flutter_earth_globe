@@ -1,3 +1,8 @@
+## 1.0.4
+- Added ability to change the curve of a connection
+- Fixed issue with zoom in smaller screen sizes
+- Fixed known issues
+
 ## 1.0.3
 - Added ability to enable/disable zoom
 - Added ability to focus on specific coordinates

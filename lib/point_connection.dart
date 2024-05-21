@@ -17,6 +17,7 @@ class PointConnection {
   bool isMoving;
   bool isLabelVisible;
   final Offset labelOffset;
+  final double curveScale;
   final PointConnectionStyle style;
   final VoidCallback? onTap;
   final VoidCallback? onHover;
@@ -27,6 +28,7 @@ class PointConnection {
   /// The [id] parameter is a unique identifier for the connection.
   /// The [label] parameter is an optional label for the connection.
   /// The [labelOffset] parameter represents the offset of the label from the connection line.
+  /// The [curveScale] parameter represents the scale of the curve.
   /// The [labelBuilder] parameter is a function that builds the label widget for the connection.
   /// The [labelTextStyle] parameter represents the style of the label text.
   /// The [isMoving] parameter indicates whether the connection is currently moving.
@@ -41,6 +43,7 @@ class PointConnection {
     this.label,
     this.labelOffset = const Offset(0, 0),
     this.labelBuilder,
+    this.curveScale = 1.5,
     this.labelTextStyle,
     this.isMoving = false,
     this.isLabelVisible = false,
@@ -112,6 +115,7 @@ class AnimatedPointConnection extends PointConnection {
   /// The [id] parameter is a unique identifier for the connection.
   /// The [label] parameter is an optional label for the connection.
   /// The [labelOffset] parameter represents the offset of the label from the connection line.
+  /// The [curveScale] parameter represents the scale of the curve.
   /// The [labelBuilder] parameter is a function that builds the label widget for the connection.
   /// The [labelTextStyle] parameter represents the style of the label text.
   /// The [isMoving] parameter indicates whether the connection is currently moving.
@@ -132,6 +136,7 @@ class AnimatedPointConnection extends PointConnection {
       super.onHover,
       super.style,
       super.labelOffset,
+      super.curveScale = 1.5,
       super.isLabelVisible,
       super.labelBuilder,
       this.animationProgress = 0.0,
@@ -160,6 +165,7 @@ class AnimatedPointConnection extends PointConnection {
           labelOffset: pointConnection.labelOffset,
           end: pointConnection.end,
           id: pointConnection.id,
+          curveScale: pointConnection.curveScale,
           label: pointConnection.label,
           labelTextStyle: pointConnection.labelTextStyle,
           isMoving: pointConnection.isMoving,
@@ -175,6 +181,7 @@ class AnimatedPointConnection extends PointConnection {
     GlobeCoordinates? start,
     GlobeCoordinates? end,
     Offset? labelOffset,
+    double? curveScale,
     String? label,
     TextStyle? labelTextStyle,
     String? id,
@@ -197,6 +204,7 @@ class AnimatedPointConnection extends PointConnection {
       id: id ?? this.id,
       labelBuilder: labelBuilder ?? this.labelBuilder,
       labelOffset: labelOffset ?? this.labelOffset,
+      curveScale: curveScale ?? this.curveScale,
       isMoving: isMoving ?? this.isMoving,
       isLabelVisible: isLabelVisible ?? this.isLabelVisible,
       style: style ?? this.style,
