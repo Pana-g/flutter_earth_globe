@@ -1,3 +1,7 @@
+## 1.0.5
+- Fixed issue of PointConnection not showing when `animateDraw = false`
+- Fixed issue with FlutterEarthGlobeController not disposing correctly.
+
 ## 1.0.4
 - Added ability to change the curve of a connection
 - Fixed issue with zoom in smaller screen sizes

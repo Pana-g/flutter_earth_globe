@@ -101,15 +101,17 @@ class RotatingGlobeState extends State<RotatingGlobe>
       vsync: this,
       duration: const Duration(seconds: 1),
     )..addListener(() {
-        setState(() {
-          rotationZ = (rotationZ -
-                  (widget.controller.rotationSpeed *
-                      ((math.pow((2 * math.pi), 2) / 360)))) %
-              (2 * math.pi);
-        });
-        if (widget.controller.rotationController.isCompleted) {
-          if (widget.controller.isRotating) {
-            widget.controller.rotationController.repeat();
+        if (mounted) {
+          setState(() {
+            rotationZ = (rotationZ -
+                    (widget.controller.rotationSpeed *
+                        ((math.pow((2 * math.pi), 2) / 360)))) %
+                (2 * math.pi);
+          });
+          if (widget.controller.rotationController.isCompleted) {
+            if (widget.controller.isRotating) {
+              widget.controller.rotationController.repeat();
+            }
           }
         }
       });
@@ -123,17 +125,19 @@ class RotatingGlobeState extends State<RotatingGlobe>
       duration: const Duration(milliseconds: 500),
     )
       ..addListener(() {
-        for (var connection in widget.controller.connections) {
-          if (connection.isMoving &&
-              connection.style.type != PointConnectionType.solid) {
-            double size = connection.style.type == PointConnectionType.dashed
-                ? connection.style.dashSize
-                : connection.style.dotSize;
-            setState(() {
-              connection.animationOffset = (_lineMovingController.value *
-                      (size + connection.style.spacing)) %
-                  (size + connection.style.spacing);
-            });
+        if (mounted) {
+          for (var connection in widget.controller.connections) {
+            if (connection.isMoving &&
+                connection.style.type != PointConnectionType.solid) {
+              double size = connection.style.type == PointConnectionType.dashed
+                  ? connection.style.dashSize
+                  : connection.style.dotSize;
+              setState(() {
+                connection.animationOffset = (_lineMovingController.value *
+                        (size + connection.style.spacing)) %
+                    (size + connection.style.spacing);
+              });
+            }
           }
         }
       })
@@ -148,20 +152,22 @@ class RotatingGlobeState extends State<RotatingGlobe>
       duration: const Duration(
           milliseconds: 1000), // Adjust duration for smoother effect
     )..addListener(() {
-        // Decelerate rotation based on animation value
-        double decelerationFactor = (1 - _decelerationController.value);
-        rotationX += _angularVelocityX * decelerationFactor;
-        rotationY += _angularVelocityY * decelerationFactor;
-        rotationZ += _angularVelocityZ * decelerationFactor;
+        if (mounted) {
+          // Decelerate rotation based on animation value
+          double decelerationFactor = (1 - _decelerationController.value);
+          rotationX += _angularVelocityX * decelerationFactor;
+          rotationY += _angularVelocityY * decelerationFactor;
+          rotationZ += _angularVelocityZ * decelerationFactor;
 
-        // Reset angular velocity when animation is complete
-        if (_decelerationController.isCompleted) {
-          _angularVelocityX = 0.0;
-          _angularVelocityY = 0.0;
-          _angularVelocityZ = 0.0;
+          // Reset angular velocity when animation is complete
+          if (_decelerationController.isCompleted) {
+            _angularVelocityX = 0.0;
+            _angularVelocityY = 0.0;
+            _angularVelocityZ = 0.0;
+          }
+
+          setState(() {});
         }
-
-        setState(() {});
       });
     Future.delayed(Duration.zero, () {
       widget.controller.load();
@@ -230,18 +236,20 @@ class RotatingGlobeState extends State<RotatingGlobe>
           connection.animationProgress = animation.value;
         });
       });
+    } else {
+      connection.animationProgress = 1.0;
     }
   }
 
   /// Update the state of the sphere
   _update() {
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
     widget.controller.removeListener(_update);
-    widget.controller.dispose();
+    widget.controller.rotationController.dispose();
     _lineMovingController.stop();
     _lineMovingController.dispose();
     _decelerationController.dispose();
