@@ -50,7 +50,9 @@ class SpherePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint();
+    final paint = Paint()
+      ..isAntiAlias = true
+      ..filterQuality = FilterQuality.high;
     final rect =
         Rect.fromCircle(center: sphereImage.offset, radius: sphereImage.radius);
     final circlePath = Path()..addOval(rect);
@@ -58,6 +60,7 @@ class SpherePainter extends CustomPainter {
     // Blue shadow paint
     if (style.showShadow) {
       final shadowPaint = Paint()
+        ..isAntiAlias = true
         ..color = style.shadowColor // Shadow color
         ..maskFilter = MaskFilter.blur(
             style.shadowBlurStyle, style.shadowBlurSigma); // Shadow blur
@@ -71,16 +74,18 @@ class SpherePainter extends CustomPainter {
         PathOperation.intersect,
         Path()..addOval(rect),
         Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height)));
-    canvas.clipPath(clipPath);
+    canvas.clipPath(clipPath, doAntiAlias: true);
 
-    // Your existing image drawing logic
+    // Your existing image drawing logic with improved quality
     canvas.drawImage(
         sphereImage.image, sphereImage.offset - sphereImage.origin, paint);
 
     // Gradient paint logic
     if (style.showGradientOverlay) {
-      paint.shader = style.gradientOverlay.createShader(rect);
-      canvas.drawRect(rect, paint);
+      final gradientPaint = Paint()
+        ..isAntiAlias = true
+        ..shader = style.gradientOverlay.createShader(rect);
+      canvas.drawRect(rect, gradientPaint);
     }
     // sphereImage.image.dispose();
   }

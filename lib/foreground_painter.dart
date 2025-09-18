@@ -94,7 +94,9 @@ class ForegroundPainter extends CustomPainter {
     final localClick = clickPoint;
 
     for (var point in points) {
-      final pointPaint = Paint()..color = point.style.color;
+      final pointPaint = Paint()
+        ..color = point.style.color
+        ..isAntiAlias = true;
       vector.Vector3 cartesian3D =
           getSpherePosition3D(point.coordinates, radius, rotationY, rotationZ);
       Offset cartesian2D =

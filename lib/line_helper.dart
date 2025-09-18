@@ -51,7 +51,8 @@ Map? drawAnimatedLine(
       ..color = connection.style.color
       ..strokeWidth = connection.style.lineWidth
       ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
+      ..style = PaintingStyle.stroke
+      ..isAntiAlias = true;
 
     Path path = Path();
     path.moveTo(startCartesian2D.dx, startCartesian2D.dy);

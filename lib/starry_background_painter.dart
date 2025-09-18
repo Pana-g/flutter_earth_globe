@@ -34,7 +34,9 @@ class StarryBackgroundPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint();
+    final paint = Paint()
+      ..isAntiAlias = true
+      ..filterQuality = FilterQuality.high;
     double offsetX = rotationZ % starTexture.width;
     double offsetY = rotationY % starTexture.height;
 

@@ -14,7 +14,8 @@ void paintText(String title, material.TextStyle? textStyle, Offset cartesian2D,
     ..strokeWidth = 25
     ..strokeCap = StrokeCap.round
     ..strokeJoin = StrokeJoin.round
-    ..style = PaintingStyle.stroke;
+    ..style = PaintingStyle.stroke
+    ..isAntiAlias = true;
   final defaultTextStyle = material.TextStyle(
     background: defaultTextPaint,
     color: material.Colors.white,
