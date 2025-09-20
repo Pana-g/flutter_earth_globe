@@ -158,10 +158,10 @@ Rect getRectOnSphere(Vector3 cartesian3D, Offset cartesian2D, Offset center,
 /// Takes a [rotation] angle in radians and returns the adjusted angle within the range of 0 to 2π.
 double adjustModRotation(double rotation) {
   double twoPi = 2 * pi;
+  // Proper modulo that handles negative numbers correctly
+  rotation = rotation % twoPi;
   if (rotation < 0) {
-    rotation = -(rotation.abs() % twoPi);
-  } else {
-    rotation = rotation % twoPi;
+    rotation += twoPi;
   }
   return rotation;
 }

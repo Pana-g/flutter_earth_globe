@@ -150,14 +150,14 @@ class RotatingGlobeState extends State<RotatingGlobe>
     _decelerationController = AnimationController(
       vsync: this,
       duration: const Duration(
-          milliseconds: 1000), // Adjust duration for smoother effect
+          milliseconds: 600), // Reduced duration for smoother effect
     )..addListener(() {
         if (mounted) {
-          // Decelerate rotation based on animation value
-          double decelerationFactor = (1 - _decelerationController.value);
-          rotationX += _angularVelocityX * decelerationFactor;
-          rotationY += _angularVelocityY * decelerationFactor;
-          rotationZ += _angularVelocityZ * decelerationFactor;
+          // Decelerate rotation with improved easing curve
+          double decelerationFactor = Curves.easeOutCubic.transform(1 - _decelerationController.value);
+          rotationX += _angularVelocityX * decelerationFactor * 0.016; // Normalized for 60fps
+          rotationY += _angularVelocityY * decelerationFactor * 0.016;
+          rotationZ += _angularVelocityZ * decelerationFactor * 0.016;
 
           // Reset angular velocity when animation is complete
           if (_decelerationController.isCompleted) {
@@ -262,11 +262,11 @@ class RotatingGlobeState extends State<RotatingGlobe>
       return Future.value(null);
     }
 
-    final r = convertedRadius().roundToDouble();
-    final minX = math.max(-r, -maxWidth / 2);
-    final minY = math.max(-r, -maxHeight / 2);
-    final maxX = math.min(r, maxWidth / 2);
-    final maxY = math.min(r, maxHeight / 2);
+    final sphereRadius = convertedRadius().roundToDouble();
+    final minX = math.max(-sphereRadius, -maxWidth / 2);
+    final minY = math.max(-sphereRadius, -maxHeight / 2);
+    final maxX = math.min(sphereRadius, maxWidth / 2);
+    final maxY = math.min(sphereRadius, maxHeight / 2);
     final width = maxX - minX;
     final height = maxY - minY;
 
@@ -286,7 +286,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
     for (var y = minY; y < maxY; y++) {
       final sphereY = (height - y + minY - 1).toInt() * width;
       for (var x = minX; x < maxX; x++) {
-        var zSquared = r * r - x * x - y * y;
+        var zSquared = sphereRadius * sphereRadius - x * x - y * y;
         if (zSquared > 0) {
           var z = math.sqrt(zSquared);
           var vector = Vector3(x, y, z);
@@ -296,14 +296,64 @@ class RotatingGlobeState extends State<RotatingGlobe>
           // vector = rotationMatrixY.transform(vector);
           vector = rotationMatrixZ.transform(vector);
 
-          final lat = math.asin(vector.z / r);
+          final lat = math.asin(vector.z / sphereRadius);
           final lon = math.atan2(vector.y, vector.x);
 
           final x0 = (lon + math.pi) * surfaceXRate;
           final y0 = (math.pi / 2 - lat) * surfaceYRate;
 
-          final color = widget.controller.surfaceProcessed![
-              (y0.toInt() * surfaceWidth + x0.toInt()).toInt()];
+          // Bilinear interpolation for smoother texture mapping
+          final x0Floor = x0.floor();
+          final y0Floor = y0.floor();
+          final x0Ceil = (x0Floor + 1).clamp(0, surfaceWidth.toInt() - 1);
+          final y0Ceil = (y0Floor + 1).clamp(0, surfaceHeight.toInt() - 1);
+          final x0ClampedFloor = x0Floor.clamp(0, surfaceWidth.toInt() - 1);
+          final y0ClampedFloor = y0Floor.clamp(0, surfaceHeight.toInt() - 1);
+          
+          final fx = x0 - x0Floor;
+          final fy = y0 - y0Floor;
+          
+          final c00 = widget.controller.surfaceProcessed![
+              (y0ClampedFloor * surfaceWidth + x0ClampedFloor).toInt()];
+          final c10 = widget.controller.surfaceProcessed![
+              (y0ClampedFloor * surfaceWidth + x0Ceil).toInt()];
+          final c01 = widget.controller.surfaceProcessed![
+              (y0Ceil * surfaceWidth + x0ClampedFloor).toInt()];
+          final c11 = widget.controller.surfaceProcessed![
+              (y0Ceil * surfaceWidth + x0Ceil).toInt()];
+          
+          // Extract RGBA components and interpolate
+          final r00 = (c00 >> 0) & 0xFF;
+          final g00 = (c00 >> 8) & 0xFF;
+          final b00 = (c00 >> 16) & 0xFF;
+          final a00 = (c00 >> 24) & 0xFF;
+          
+          final r10 = (c10 >> 0) & 0xFF;
+          final g10 = (c10 >> 8) & 0xFF;
+          final b10 = (c10 >> 16) & 0xFF;
+          final a10 = (c10 >> 24) & 0xFF;
+          
+          final r01 = (c01 >> 0) & 0xFF;
+          final g01 = (c01 >> 8) & 0xFF;
+          final b01 = (c01 >> 16) & 0xFF;
+          final a01 = (c01 >> 24) & 0xFF;
+          
+          final r11 = (c11 >> 0) & 0xFF;
+          final g11 = (c11 >> 8) & 0xFF;
+          final b11 = (c11 >> 16) & 0xFF;
+          final a11 = (c11 >> 24) & 0xFF;
+          
+          // Bilinear interpolation
+          final r = ((r00 * (1 - fx) + r10 * fx) * (1 - fy) + 
+                    (r01 * (1 - fx) + r11 * fx) * fy).round().clamp(0, 255);
+          final g = ((g00 * (1 - fx) + g10 * fx) * (1 - fy) + 
+                    (g01 * (1 - fx) + g11 * fx) * fy).round().clamp(0, 255);
+          final b = ((b00 * (1 - fx) + b10 * fx) * (1 - fy) + 
+                    (b01 * (1 - fx) + b11 * fx) * fy).round().clamp(0, 255);
+          final a = ((a00 * (1 - fx) + a10 * fx) * (1 - fy) + 
+                    (a01 * (1 - fx) + a11 * fx) * fy).round().clamp(0, 255);
+          
+          final color = (a << 24) | (b << 16) | (g << 8) | r;
           spherePixels[(sphereY + x - minX).toInt()] = color;
         }
       }
@@ -314,7 +364,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
         height.toInt(), ui.PixelFormat.rgba8888, (image) {
       final sphereImage = SphereImage(
         image: image,
-        radius: r,
+        radius: sphereRadius,
         origin: Offset(-minX, -minY),
         offset: Offset(maxWidth / 2, maxHeight / 2),
       );
@@ -443,7 +493,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
               rotationZ = adjustModRotation(
                   _lastRotationZ - offset.dx / convertedRadius());
               rotationY = adjustModRotation(
-                  _lastRotationY + offset.dy / convertedRadius());
+                  _lastRotationY - offset.dy / convertedRadius());
               setState(() {});
             },
             onInteractionEnd: (ScaleEndDetails details) {
