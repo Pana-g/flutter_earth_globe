@@ -369,12 +369,16 @@ class RotatingGlobeState extends State<RotatingGlobe>
     double screenHeight = MediaQuery.of(context).size.height;
 
     double maxWidth = screenWidth;
-    double maxHeight = screenHeight;
+    double maxHeight = screenHeight * 0.4;
     if (convertedRadius() * 2 > maxWidth) {
       maxWidth = convertedRadius() * 2 + 50;
     }
+    // if (convertedRadius() * 2 > maxHeight) {
+    //   maxHeight = convertedRadius() * 2 + 50;
+    // }
+
     if (convertedRadius() * 2 > maxHeight) {
-      maxHeight = convertedRadius() * 2 + 50;
+      maxWidth = maxHeight / 2; // Keep it inside half height
     }
 
     double left = 0;
@@ -411,8 +415,8 @@ class RotatingGlobeState extends State<RotatingGlobe>
                   size: Size(constraints.maxWidth, constraints.maxHeight));
         }),
         Positioned(
-          left: -left,
-          top: -top,
+          left: left,
+          top: top,
           width: maxWidth,
           height: maxHeight,
           child: InteractiveViewer(
