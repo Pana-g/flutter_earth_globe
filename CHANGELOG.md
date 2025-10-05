@@ -1,4 +1,4 @@
-# Latest - 1.0.6
+## Latest - 1.0.6
 
 - Fixed issue with overlays (points/connections) drifting on vertical drag (issue #20)
 - Fixed deceleration animation direction for vertical rotation
