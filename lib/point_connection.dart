@@ -60,9 +60,7 @@ class PointConnection {
         return style.dashSize;
       case PointConnectionType.dotted:
         return style.dotSize;
-      default:
-        return 0;
-    }
+      }
   }
 
   /// Creates a new [PointConnection] instance with updated properties.

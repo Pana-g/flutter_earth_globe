@@ -31,16 +31,20 @@ Flutter Earth Globe is an interactive 3D sphere widget for Flutter applications.
 To install Flutter Earth Globe, follow these steps:
 
 1. Add the package to your Flutter project's `pubspec.yaml` file:
+
    ```yaml
    dependencies:
      flutter_earth_globe: ^[latest_version]
    ```
+
    or just run
+
    ```shell
     flutter pub add flutter_earth_globe
    ```
 
 2. Import the package in your Dart code:
+
    ```dart
    import 'package:flutter_earth_globe/flutter_earth_globe.dart';
    ```
@@ -92,6 +96,7 @@ class MyApp extends StatelessWidget {
 ## Customization
 
 #### Create a list of Points and add them to the globe
+
 ```dart
 final FlutterEarthGlobeController _controller = FlutterEarthGlobeController();
 List<Point> points = [
@@ -139,7 +144,9 @@ List<Point> points = [
       _controller.addPoint(point);
     }
 ```
+
 #### Load a background image that follows the rotation of the sphere and a sphere surface texture image
+
 ```dart
 final FlutterEarthGlobeController _controller = FlutterEarthGlobeController();
 @override
@@ -156,6 +163,7 @@ initState(){
 ```
 
 #### Change the style of the sphere
+
 ```dart
 final FlutterEarthGlobeController _controller = FlutterEarthGlobeController();
 _controller.changeSphereStyle(SphereStyle(
