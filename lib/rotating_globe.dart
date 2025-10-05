@@ -79,6 +79,14 @@ class RotatingGlobeState extends State<RotatingGlobe>
   double _angularVelocityZ = 0.0; // The angular velocity around the Z-axis.
   late AnimationController
       _decelerationController; // The animation controller for deceleration.
+  
+  double _targetRotationX = 0.0;
+  double _targetRotationY = 0.0;
+  double _targetRotationZ = 0.0;
+  
+  double _initialRotationX = 0.0;
+  double _initialRotationY = 0.0;
+  double _initialRotationZ = 0.0;
 
   double convertedRadius() =>
       widget.radius *
@@ -149,22 +157,14 @@ class RotatingGlobeState extends State<RotatingGlobe>
 
     _decelerationController = AnimationController(
       vsync: this,
-      duration: const Duration(
-          milliseconds: 600), // Reduced duration for smoother effect
+      duration: const Duration(milliseconds: 800),
     )..addListener(() {
         if (mounted) {
-          // Decelerate rotation with improved easing curve
-          double decelerationFactor = Curves.easeOutCubic.transform(1 - _decelerationController.value);
-          rotationX += _angularVelocityX * decelerationFactor * 0.016; // Normalized for 60fps
-          rotationY += _angularVelocityY * decelerationFactor * 0.016;
-          rotationZ += _angularVelocityZ * decelerationFactor * 0.016;
-
-          // Reset angular velocity when animation is complete
-          if (_decelerationController.isCompleted) {
-            _angularVelocityX = 0.0;
-            _angularVelocityY = 0.0;
-            _angularVelocityZ = 0.0;
-          }
+          final t = Curves.easeOutCubic.transform(_decelerationController.value);
+          
+          rotationX = _initialRotationX + (_targetRotationX - _initialRotationX) * t;
+          rotationY = _initialRotationY + (_targetRotationY - _initialRotationY) * t;
+          rotationZ = _initialRotationZ + (_targetRotationZ - _initialRotationZ) * t;
 
           setState(() {});
         }
@@ -476,11 +476,15 @@ class RotatingGlobeState extends State<RotatingGlobe>
               _lastRotationY = rotationY;
               _lastFocalPoint = details.focalPoint;
 
+              if (_decelerationController.isAnimating) {
+                _decelerationController.stop();
+                _decelerationController.reset();
+              }
+
               if (widget.controller.isRotating) {
                 widget.controller.rotationController.stop();
               }
               setState(() {});
-              // _rotationController.stop();
             },
             onInteractionUpdate: (ScaleUpdateDetails details) {
               if (widget.controller.isZoomEnabled && details.scale != 1.0) {
@@ -497,11 +501,26 @@ class RotatingGlobeState extends State<RotatingGlobe>
               setState(() {});
             },
             onInteractionEnd: (ScaleEndDetails details) {
-              final offset = details.velocity.pixelsPerSecond / 50;
-              _angularVelocityX = offset.dy / convertedRadius();
-              _angularVelocityY = offset.dy / convertedRadius();
-              _angularVelocityZ = -offset.dx / convertedRadius();
-              _decelerationController.forward(from: 0.0);
+              final velocity = details.velocity.pixelsPerSecond;
+              final velocityMagnitude = velocity.distance;
+              
+              if (velocityMagnitude > 50) {
+                final velocityFactor = velocityMagnitude / 6000.0;
+                
+                _angularVelocityX = velocity.dy / convertedRadius();
+                _angularVelocityY = -velocity.dy / convertedRadius();
+                _angularVelocityZ = -velocity.dx / convertedRadius();
+                
+                _initialRotationX = rotationX;
+                _initialRotationY = rotationY;
+                _initialRotationZ = rotationZ;
+                
+                _targetRotationX = rotationX + _angularVelocityX * velocityFactor;
+                _targetRotationY = rotationY + _angularVelocityY * velocityFactor;
+                _targetRotationZ = rotationZ + _angularVelocityZ * velocityFactor;
+                
+                _decelerationController.forward(from: 0.0);
+              }
 
               if (widget.controller.isRotating) {
                 widget.controller.rotationController
