@@ -182,7 +182,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
     double latRad = radians(coordinates.latitude);
     double lonRad = radians(-coordinates.longitude);
     final targetRotationZ = -lonRad;
-    final targetRotationY = latRad;
+    final targetRotationY = -latRad;
     final targetRotationX = latRad;
     if (animate) {
       final initialRotationZ = rotationZ;
