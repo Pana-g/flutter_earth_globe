@@ -23,6 +23,7 @@ import 'point_connection_style.dart';
 class FlutterEarthGlobeController extends ChangeNotifier {
   bool _isRotating = false; // Whether the globe is rotating.
   bool _isReady = false; // Whether the globe is ready.
+  bool _isDisposed = false; // Whether the controller has been disposed.
   List<Point> points = []; // The points on the globe.
   List<AnimatedPointConnection> connections =
       []; // The connections between points.
@@ -83,6 +84,7 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   Function()? onResetGlobeRotation;
 
   void load() {
+    if (_isDisposed) return;
     _isReady = true;
     onLoaded?.call();
     if (_isRotating) {
@@ -378,6 +380,7 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   /// controller.startRotation();
   /// ```
   void startRotation({double? rotationSpeed}) {
+    if (_isDisposed) return;
     _isRotating = true;
     this.rotationSpeed = rotationSpeed ?? this.rotationSpeed;
     rotationController.forward();
@@ -392,6 +395,7 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   /// controller.stopRotation();
   /// ```
   void stopRotation() {
+    if (_isDisposed) return;
     _isRotating = false;
     rotationController.stop();
     notifyListeners();
@@ -405,6 +409,7 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   /// controller.toggleRotation();
   /// ```
   void toggleRotation() {
+    if (_isDisposed) return;
     _isRotating = !_isRotating;
     if (_isRotating) {
       rotationController.forward();
@@ -466,6 +471,7 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   /// Disposes the controller.
   @override
   void dispose() {
+    _isDisposed = true;
     onPointConnectionAdded = null;
     onResetGlobeRotation = null;
     onLoaded = null;
