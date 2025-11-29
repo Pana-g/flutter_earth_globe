@@ -201,10 +201,12 @@ List<double> getPathLengthsUpToIntersection(Path path, Offset intersection) {
   double totalLength = pathMetric.length;
   List<double> lengths = [];
 
-  for (double d = 0.0; d <= totalLength; d += 1) {
+  // Use larger step size for better performance
+  final step = max(1.0, totalLength / 100);
+  for (double d = 0.0; d <= totalLength; d += step) {
     Tangent? tangent = pathMetric.getTangentForOffset(d);
     if (tangent == null) continue;
-    if ((tangent.position - intersection).distance < 1) {
+    if ((tangent.position - intersection).distance < step) {
       lengths.add(d);
     }
   }

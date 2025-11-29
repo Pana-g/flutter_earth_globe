@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/widgets.dart';
+import 'package:flutter_earth_globe/sphere_shader_painter.dart';
 import 'package:flutter_earth_globe/visible_connection.dart';
 import 'package:flutter_earth_globe/visible_point.dart';
 import 'package:vector_math/vector_math_64.dart';
@@ -90,6 +91,20 @@ class RotatingGlobeState extends State<RotatingGlobe>
   double _initialRotationX = 0.0;
   double _initialRotationY = 0.0;
   double _initialRotationZ = 0.0;
+
+  // Cached sphere image and parameters for performance
+  SphereImage? _cachedSphereImage;
+  double _cachedRotationX = double.nan;
+  double _cachedRotationZ = double.nan;
+  double _cachedZoom = double.nan;
+  double _cachedSunLongitude = double.nan;
+  double _cachedSunLatitude = double.nan;
+  Size _cachedSize = Size.zero;
+  bool _isBuildingSphere = false;
+
+  // GPU shader rendering support
+  final SphereShaderManager _shaderManager = SphereShaderManager();
+  bool _useGpuRendering = true; // Whether to use GPU shader rendering
 
   double convertedRadius() =>
       widget.radius *
@@ -184,11 +199,31 @@ class RotatingGlobeState extends State<RotatingGlobe>
     // Initialize day/night cycle animation controller
     _initDayNightCycleController();
 
+    // Initialize GPU shader rendering
+    _initShaderRendering();
+
     Future.delayed(Duration.zero, () {
       widget.controller.load();
     });
 
     super.initState();
+  }
+
+  /// Initialize GPU shader rendering
+  void _initShaderRendering() async {
+    final success = await _shaderManager.loadShader();
+    if (mounted) {
+      setState(() {
+        _useGpuRendering = success;
+      });
+      if (!success) {
+        debugPrint(
+            'GPU shader rendering not available, falling back to CPU rendering');
+        if (_shaderManager.loadError != null) {
+          debugPrint('Shader load error: ${_shaderManager.loadError}');
+        }
+      }
+    }
   }
 
   /// Initialize the day/night cycle animation controller
@@ -355,9 +390,52 @@ class RotatingGlobeState extends State<RotatingGlobe>
     return factor;
   }
 
+  /// Check if cached sphere image is still valid
+  bool _isCacheValid(double maxWidth, double maxHeight) {
+    if (_cachedSphereImage == null || _isBuildingSphere) return false;
+
+    final hasDayNightCycle = widget.controller.isDayNightCycleEnabled &&
+        widget.controller.nightSurface != null;
+
+    // If day/night cycle is enabled, check sun position
+    if (hasDayNightCycle) {
+      if (_cachedSunLongitude != widget.controller.sunLongitude ||
+          _cachedSunLatitude != widget.controller.sunLatitude) {
+        return false;
+      }
+    }
+
+    return _cachedRotationX == rotationX &&
+        _cachedRotationZ == rotationZ &&
+        _cachedZoom == widget.controller.zoom &&
+        _cachedSize == Size(maxWidth, maxHeight);
+  }
+
+  /// Update cache parameters after building sphere
+  void _updateCacheParams(double maxWidth, double maxHeight) {
+    _cachedRotationX = rotationX;
+    _cachedRotationZ = rotationZ;
+    _cachedZoom = widget.controller.zoom;
+    _cachedSunLongitude = widget.controller.sunLongitude;
+    _cachedSunLatitude = widget.controller.sunLatitude;
+    _cachedSize = Size(maxWidth, maxHeight);
+  }
+
   Future<SphereImage?> buildSphere(double maxWidth, double maxHeight) async {
+    // Return cached image if still valid
+    if (_isCacheValid(maxWidth, maxHeight)) {
+      return _cachedSphereImage;
+    }
+
+    // Prevent concurrent builds
+    if (_isBuildingSphere) {
+      return _cachedSphereImage;
+    }
+    _isBuildingSphere = true;
+
     if (widget.controller.surface == null ||
         widget.controller.surfaceProcessed == null) {
+      _isBuildingSphere = false;
       return Future.value(null);
     }
 
@@ -367,40 +445,47 @@ class RotatingGlobeState extends State<RotatingGlobe>
         widget.controller.nightSurfaceProcessed != null;
 
     final sphereRadius = convertedRadius().roundToDouble();
+    final sphereRadiusSquared = sphereRadius * sphereRadius;
     final minX = math.max(-sphereRadius, -maxWidth / 2);
     final minY = math.max(-sphereRadius, -maxHeight / 2);
     final maxX = math.min(sphereRadius, maxWidth / 2);
     final maxY = math.min(sphereRadius, maxHeight / 2);
     final width = maxX - minX;
     final height = maxY - minY;
+    final widthInt = width.toInt();
 
     final surfaceWidth = widget.controller.surface?.width.toDouble();
     final surfaceHeight = widget.controller.surface?.height.toDouble();
+    final surfaceWidthInt = surfaceWidth!.toInt();
+    final surfaceHeightInt = surfaceHeight!.toInt();
 
-    final spherePixels = Uint32List(width.toInt() * height.toInt());
+    final spherePixels = Uint32List(widthInt * height.toInt());
 
-    // Prepare rotation matrices
+    // Prepare rotation matrices - combine for efficiency
     final rotationMatrixX = Matrix3.rotationX(math.pi / 2 - rotationX);
-    // final rotationMatrixY = Matrix3.rotationY(math.pi / 2 - rotationY);
     final rotationMatrixZ = Matrix3.rotationZ(rotationZ + math.pi / 2);
+    final combinedRotationMatrix = rotationMatrixZ.multiplied(rotationMatrixX);
 
-    final surfaceXRate = (surfaceWidth! - 1) / (2.0 * math.pi);
-    final surfaceYRate = (surfaceHeight! - 1) / math.pi;
+    final surfaceXRate = (surfaceWidth - 1) / (2.0 * math.pi);
+    final surfaceYRate = (surfaceHeight - 1) / math.pi;
+    final invSphereRadius = 1.0 / sphereRadius;
+
+    // Pre-compute surface data reference for faster access
+    final surfaceData = widget.controller.surfaceProcessed!;
 
     for (var y = minY; y < maxY; y++) {
-      final sphereY = (height - y + minY - 1).toInt() * width;
+      final sphereY = (height - y + minY - 1).toInt() * widthInt;
+      final ySquared = y * y;
       for (var x = minX; x < maxX; x++) {
-        var zSquared = sphereRadius * sphereRadius - x * x - y * y;
+        final zSquared = sphereRadiusSquared - x * x - ySquared;
         if (zSquared > 0) {
-          var z = math.sqrt(zSquared);
+          final z = math.sqrt(zSquared);
           var vector = Vector3(x, y, z);
 
-          // Apply rotations
-          vector = rotationMatrixX.transform(vector);
-          // vector = rotationMatrixY.transform(vector);
-          vector = rotationMatrixZ.transform(vector);
+          // Apply combined rotation in one step
+          vector = combinedRotationMatrix.transform(vector);
 
-          final lat = math.asin(vector.z / sphereRadius);
+          final lat = math.asin(vector.z * invSphereRadius);
           final lon = math.atan2(vector.y, vector.x);
 
           final x0 = (lon + math.pi) * surfaceXRate;
@@ -409,23 +494,24 @@ class RotatingGlobeState extends State<RotatingGlobe>
           // Bilinear interpolation for smoother texture mapping
           final x0Floor = x0.floor();
           final y0Floor = y0.floor();
-          final x0Ceil = (x0Floor + 1).clamp(0, surfaceWidth.toInt() - 1);
-          final y0Ceil = (y0Floor + 1).clamp(0, surfaceHeight.toInt() - 1);
-          final x0ClampedFloor = x0Floor.clamp(0, surfaceWidth.toInt() - 1);
-          final y0ClampedFloor = y0Floor.clamp(0, surfaceHeight.toInt() - 1);
+          final x0Ceil = (x0Floor + 1).clamp(0, surfaceWidthInt - 1);
+          final y0Ceil = (y0Floor + 1).clamp(0, surfaceHeightInt - 1);
+          final x0ClampedFloor = x0Floor.clamp(0, surfaceWidthInt - 1);
+          final y0ClampedFloor = y0Floor.clamp(0, surfaceHeightInt - 1);
 
           final fx = x0 - x0Floor;
           final fy = y0 - y0Floor;
 
-          // Get day surface colors
-          final c00 = widget.controller.surfaceProcessed![
-              (y0ClampedFloor * surfaceWidth + x0ClampedFloor).toInt()];
-          final c10 = widget.controller.surfaceProcessed![
-              (y0ClampedFloor * surfaceWidth + x0Ceil).toInt()];
-          final c01 = widget.controller.surfaceProcessed![
-              (y0Ceil * surfaceWidth + x0ClampedFloor).toInt()];
-          final c11 = widget.controller
-              .surfaceProcessed![(y0Ceil * surfaceWidth + x0Ceil).toInt()];
+          // Get day surface colors with pre-computed indices
+          final idx00 = y0ClampedFloor * surfaceWidthInt + x0ClampedFloor;
+          final idx10 = y0ClampedFloor * surfaceWidthInt + x0Ceil;
+          final idx01 = y0Ceil * surfaceWidthInt + x0ClampedFloor;
+          final idx11 = y0Ceil * surfaceWidthInt + x0Ceil;
+
+          final c00 = surfaceData[idx00];
+          final c10 = surfaceData[idx10];
+          final c01 = surfaceData[idx01];
+          final c11 = surfaceData[idx11];
 
           // Extract RGBA components for day surface
           final r00 = (c00 >> 0) & 0xFF;
@@ -560,6 +646,10 @@ class RotatingGlobeState extends State<RotatingGlobe>
         origin: Offset(-minX, -minY),
         offset: Offset(maxWidth / 2, maxHeight / 2),
       );
+      // Cache the result
+      _cachedSphereImage = sphereImage;
+      _updateCacheParams(maxWidth, maxHeight);
+      _isBuildingSphere = false;
       completer.complete(sphereImage);
     });
     return completer.future;
@@ -605,6 +695,174 @@ class RotatingGlobeState extends State<RotatingGlobe>
     setState(() {});
   }
 
+  /// Build the sphere widget using GPU shader rendering
+  Widget? _buildGpuSphere(BoxConstraints constraints) {
+    // Check if we can use GPU rendering
+    if (!_useGpuRendering || !_shaderManager.isReady) return null;
+    if (widget.controller.surface == null) return null;
+
+    final hasDayNightCycle = widget.controller.isDayNightCycleEnabled &&
+        widget.controller.nightSurface != null;
+
+    // Create shader with bound textures
+    final shader = _shaderManager.createShaderWithTextures(
+      daySurface: widget.controller.surface!,
+      nightSurface: hasDayNightCycle ? widget.controller.nightSurface : null,
+    );
+
+    if (shader == null) return null;
+
+    final sphereRadius = convertedRadius();
+    final sphereCenter =
+        Offset(constraints.maxWidth / 2, constraints.maxHeight / 2);
+
+    return CustomPaint(
+      painter: SphereShaderPainter(
+        shader: shader,
+        radius: sphereRadius,
+        center: sphereCenter,
+        rotationX: rotationX,
+        rotationZ: rotationZ,
+        sunLongitude: widget.controller.sunLongitude,
+        sunLatitude: widget.controller.sunLatitude,
+        blendFactor: widget.controller.dayNightBlendFactor,
+        isDayNightEnabled: hasDayNightCycle,
+      ),
+      size: Size(constraints.maxWidth, constraints.maxHeight),
+    );
+  }
+
+  /// Build the ForegroundPainter with all the connection/point handling
+  ForegroundPainter _buildForegroundPainter() {
+    return ForegroundPainter(
+      hoverOverConnection: (connectionId, cartesian2D, isHovering, isVisible) {
+        if (!mounted) return;
+        bool changed = false;
+        if (isVisible) {
+          if (!visibleConnections.containsKey(connectionId)) {
+            visibleConnections.putIfAbsent(
+                connectionId,
+                () => VisibleConnection(
+                    key: GlobalKey(),
+                    id: connectionId,
+                    position: cartesian2D,
+                    isVisible: isVisible,
+                    isHovering: isHovering));
+            changed = true;
+          } else {
+            visibleConnections.update(
+                connectionId,
+                (value) => value.copyWith(
+                    position: cartesian2D,
+                    isVisible: isVisible,
+                    isHovering: isHovering));
+            changed = true;
+          }
+        } else {
+          if (visibleConnections.containsKey(connectionId)) {
+            visibleConnections.remove(connectionId);
+            changed = true;
+          }
+        }
+        if (changed) {
+          Future.delayed(Duration.zero, () {
+            setState(() {});
+          });
+        }
+      },
+      hoverOverPoint: (pointId, cartesian2D, isHovering, isVisisble) {
+        if (!mounted) return;
+        bool changed = false;
+        if (isVisisble) {
+          if (!visiblePoints.containsKey(pointId)) {
+            visiblePoints.putIfAbsent(
+                pointId,
+                () => VisiblePoint(
+                    key: GlobalKey(),
+                    id: pointId,
+                    position: cartesian2D,
+                    isVisible: isVisisble,
+                    isHovering: isHovering));
+            changed = true;
+          } else {
+            visiblePoints.update(
+                pointId,
+                (value) => value.copyWith(
+                    position: cartesian2D,
+                    isVisible: isVisisble,
+                    isHovering: isHovering));
+            changed = true;
+          }
+        } else {
+          if (visiblePoints.containsKey(pointId)) {
+            visiblePoints.remove(pointId);
+            changed = true;
+          }
+        }
+        if (changed) {
+          Future.delayed(Duration.zero, () {
+            setState(() {});
+          });
+        }
+      },
+      connections: widget.controller.connections,
+      radius: convertedRadius(),
+      hoverPoint: hoveringPoint,
+      clickPoint: clickPoint,
+      onPointClicked: () {
+        setState(() {
+          clickPoint = null;
+        });
+      },
+      rotationZ: rotationZ,
+      rotationY: rotationY,
+      rotationX: rotationX,
+      zoomFactor: widget.controller.zoom,
+      points: widget.controller.points,
+    );
+  }
+
+  /// Build the sphere content widget (GPU or CPU rendering)
+  Widget _buildSphereContent(BoxConstraints constraints) {
+    // Try GPU rendering first
+    final gpuWidget = _buildGpuSphere(constraints);
+    if (gpuWidget != null) {
+      return RepaintBoundary(
+        child: CustomPaint(
+          willChange: true,
+          isComplex: true,
+          foregroundPainter: _buildForegroundPainter(),
+          child: gpuWidget,
+        ),
+      );
+    }
+
+    // Fall back to CPU rendering
+    return FutureBuilder(
+      key: _futureBuilderKey,
+      future: buildSphere(constraints.maxWidth, constraints.maxHeight),
+      builder: (BuildContext context, AsyncSnapshot<SphereImage?> snapshot) {
+        if (snapshot.hasData) {
+          final data = snapshot.data!;
+          return RepaintBoundary(
+            child: CustomPaint(
+              willChange: true,
+              isComplex: true,
+              foregroundPainter: _buildForegroundPainter(),
+              painter: SpherePainter(
+                style: widget.controller.sphereStyle,
+                sphereImage: data,
+              ),
+              size: Size(constraints.maxWidth, constraints.maxHeight),
+            ),
+          );
+        } else {
+          return Container();
+        }
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     double screenWidth = MediaQuery.of(context).size.width;
@@ -631,26 +889,29 @@ class RotatingGlobeState extends State<RotatingGlobe>
       children: [
         LayoutBuilder(builder: (context, constraints) {
           return widget.controller.background == null
-              ? Container()
-              : CustomPaint(
-                  painter: StarryBackgroundPainter(
-                    starTexture: widget.controller.background!,
-                    rotationZ:
-                        widget.controller.isBackgroundFollowingSphereRotation
-                            ? rotationZ *
-                                radiansToDegrees(widget.radius *
-                                    math.pow((2 * math.pi), 2) /
-                                    360)
-                            : 0,
-                    rotationY:
-                        widget.controller.isBackgroundFollowingSphereRotation
-                            ? rotationY *
-                                radiansToDegrees(widget.radius *
-                                    math.pow((2 * math.pi), 2) /
-                                    360)
-                            : 0,
+              ? const SizedBox.shrink()
+              : RepaintBoundary(
+                  child: CustomPaint(
+                    painter: StarryBackgroundPainter(
+                      starTexture: widget.controller.background!,
+                      rotationZ:
+                          widget.controller.isBackgroundFollowingSphereRotation
+                              ? rotationZ *
+                                  radiansToDegrees(widget.radius *
+                                      math.pow((2 * math.pi), 2) /
+                                      360)
+                              : 0,
+                      rotationY:
+                          widget.controller.isBackgroundFollowingSphereRotation
+                              ? rotationY *
+                                  radiansToDegrees(widget.radius *
+                                      math.pow((2 * math.pi), 2) /
+                                      360)
+                              : 0,
+                    ),
+                    size: Size(constraints.maxWidth, constraints.maxHeight),
                   ),
-                  size: Size(constraints.maxWidth, constraints.maxHeight));
+                );
         }),
         Positioned(
           left: -left,
@@ -742,122 +1003,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
                         Positioned(
                           top: widget.alignment.y * constraints.maxHeight / 2,
                           left: widget.alignment.x * constraints.maxWidth / 2,
-                          child: FutureBuilder(
-                            key: _futureBuilderKey,
-                            future: buildSphere(
-                                constraints.maxWidth, constraints.maxHeight),
-                            builder: (BuildContext context,
-                                AsyncSnapshot<SphereImage?> snapshot) {
-                              if (snapshot.hasData) {
-                                final data = snapshot.data!;
-                                return CustomPaint(
-                                  willChange: true,
-                                  isComplex: true,
-                                  foregroundPainter: ForegroundPainter(
-                                    hoverOverConnection: (connectionId,
-                                        cartesian2D, isHovering, isVisible) {
-                                      if (!mounted) return;
-                                      bool changed = false;
-                                      if (isVisible) {
-                                        if (!visibleConnections
-                                            .containsKey(connectionId)) {
-                                          visibleConnections.putIfAbsent(
-                                              connectionId,
-                                              () => VisibleConnection(
-                                                  key: GlobalKey(),
-                                                  id: connectionId,
-                                                  position: cartesian2D,
-                                                  isVisible: isVisible,
-                                                  isHovering: isHovering));
-                                          changed = true;
-                                        } else {
-                                          visibleConnections.update(
-                                              connectionId,
-                                              (value) => value.copyWith(
-                                                  position: cartesian2D,
-                                                  isVisible: isVisible,
-                                                  isHovering: isHovering));
-                                          changed = true;
-                                        }
-                                      } else {
-                                        if (visibleConnections
-                                            .containsKey(connectionId)) {
-                                          visibleConnections
-                                              .remove(connectionId);
-                                          changed = true;
-                                        }
-                                      }
-                                      if (changed) {
-                                        Future.delayed(Duration.zero, () {
-                                          setState(() {});
-                                        });
-                                      }
-                                    },
-                                    hoverOverPoint: (pointId, cartesian2D,
-                                        isHovering, isVisisble) {
-                                      if (!mounted) return;
-                                      bool changed = false;
-                                      if (isVisisble) {
-                                        if (!visiblePoints
-                                            .containsKey(pointId)) {
-                                          visiblePoints.putIfAbsent(
-                                              pointId,
-                                              () => VisiblePoint(
-                                                  key: GlobalKey(),
-                                                  id: pointId,
-                                                  position: cartesian2D,
-                                                  isVisible: isVisisble,
-                                                  isHovering: isHovering));
-                                          changed = true;
-                                        } else {
-                                          visiblePoints.update(
-                                              pointId,
-                                              (value) => value.copyWith(
-                                                  position: cartesian2D,
-                                                  isVisible: isVisisble,
-                                                  isHovering: isHovering));
-                                          changed = true;
-                                        }
-                                      } else {
-                                        if (visiblePoints
-                                            .containsKey(pointId)) {
-                                          visiblePoints.remove(pointId);
-                                          changed = true;
-                                        }
-                                      }
-                                      if (changed) {
-                                        Future.delayed(Duration.zero, () {
-                                          setState(() {});
-                                        });
-                                      }
-                                    },
-                                    connections: widget.controller.connections,
-                                    radius: convertedRadius(),
-                                    hoverPoint: hoveringPoint,
-                                    clickPoint: clickPoint,
-                                    onPointClicked: () {
-                                      setState(() {
-                                        clickPoint = null;
-                                      });
-                                    },
-                                    rotationZ: rotationZ,
-                                    rotationY: rotationY,
-                                    rotationX: rotationX,
-                                    zoomFactor: widget.controller.zoom,
-                                    points: widget.controller.points,
-                                  ),
-                                  painter: SpherePainter(
-                                    style: widget.controller.sphereStyle,
-                                    sphereImage: data,
-                                  ),
-                                  size: Size(constraints.maxWidth,
-                                      constraints.maxHeight),
-                                );
-                              } else {
-                                return Container();
-                              }
-                            },
-                          ),
+                          child: _buildSphereContent(constraints),
                         ),
                         if (visiblePoints.isNotEmpty)
                           ...visiblePoints.entries

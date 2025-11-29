@@ -53,7 +53,9 @@ bool isPointOnPath(Offset point, Path path, double pathWidth) {
   double totalLength = pathMetric.length;
   double strokeWidth = pathWidth.clamp(4, 100);
 
-  for (double d = 0.0; d <= totalLength; d += 1) {
+  // Use larger step for better performance
+  final step = totalLength > 100 ? totalLength / 50 : 2.0;
+  for (double d = 0.0; d <= totalLength; d += step) {
     Tangent? tangent = pathMetric.getTangentForOffset(d);
     if (tangent == null) continue;
 

@@ -100,36 +100,22 @@ class ForegroundPainter extends CustomPainter {
       Offset cartesian2D =
           Offset(center.dx + cartesian3D.y, center.dy - cartesian3D.z);
 
-      // final c2 = hoverOffsetToSphereCoordinates(
-      //     cartesian2D, center, radius, rotationY, rotationZ);
-      // if (c2 != null && cartesian3D.x > 0) {
-      //   print('${isSame(point.coordinates, c2)}');
-      // }
-
-      // print(
-      //     'new: $cartesian3D ---- converted: ${getVector3FromGlobeCoordinates(cartesian2D, center, radius, rotationZ)}');
-      // print(
-      //     'center: $center - point: ${point.coordinates} cartesian2D: $cartesian2D - cartesian3D: $cartesian3D');
-
       if (cartesian3D.x > 0) {
         final rect = getRectOnSphere(cartesian3D, cartesian2D, center, radius,
             zoomFactor, point.style.size);
         canvas.drawOval(rect, pointPaint);
-        // if(rect.contains())
         if (localHover != null && rect.contains(localHover)) {
-          Future.delayed(Duration.zero, () {
-            point.onHover?.call();
-            hoverOverPoint(point.id, cartesian2D, true, true);
-          });
+          // Schedule callbacks for next microtask to avoid setState during build
+          point.onHover?.call();
+          hoverOverPoint(point.id, cartesian2D, true, true);
         } else {
           hoverOverPoint(point.id, cartesian2D, false, true);
         }
 
         if (localClick != null && rect.contains(localClick)) {
-          Future.delayed(Duration.zero, () {
-            point.onTap?.call();
-            onPointClicked?.call();
-          });
+          // Schedule callbacks for next microtask to avoid setState during build
+          point.onTap?.call();
+          onPointClicked?.call();
         }
 
         if ((point.isLabelVisible &&
@@ -150,19 +136,17 @@ class ForegroundPainter extends CustomPainter {
       if (info?['path'] != null) {
         if (localHover != null &&
             isPointOnPath(localHover, info?['path'], connection.strokeWidth)) {
-          Future.delayed(Duration.zero, () {
-            connection.onHover?.call();
-            hoverOverConnection(connection.id, info?['midPoint'], true, true);
-          });
+          // Call directly - callbacks should handle their own scheduling
+          connection.onHover?.call();
+          hoverOverConnection(connection.id, info?['midPoint'], true, true);
         } else {
           hoverOverConnection(connection.id, info?['midPoint'], false, true);
         }
         if (localClick != null &&
             isPointOnPath(localClick, info?['path'], connection.strokeWidth)) {
-          Future.delayed(Duration.zero, () {
-            connection.onTap?.call();
-            onPointClicked?.call();
-          });
+          // Call directly - callbacks should handle their own scheduling
+          connection.onTap?.call();
+          onPointClicked?.call();
         }
       } else {
         hoverOverConnection(connection.id, info?['midPoint'], false, false);
@@ -171,7 +155,16 @@ class ForegroundPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(CustomPainter oldDelegate) {
-    return true;
+  bool shouldRepaint(covariant ForegroundPainter oldDelegate) {
+    // Only repaint when relevant properties change
+    return rotationX != oldDelegate.rotationX ||
+        rotationY != oldDelegate.rotationY ||
+        rotationZ != oldDelegate.rotationZ ||
+        radius != oldDelegate.radius ||
+        zoomFactor != oldDelegate.zoomFactor ||
+        hoverPoint != oldDelegate.hoverPoint ||
+        clickPoint != oldDelegate.clickPoint ||
+        connections.length != oldDelegate.connections.length ||
+        points.length != oldDelegate.points.length;
   }
 }

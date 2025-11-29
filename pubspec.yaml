@@ -20,6 +20,8 @@ dev_dependencies:
   flutter_lints: ^2.0.0
 
 flutter:
+  shaders:
+    - shaders/sphere.frag
 
 screenshots:
   - description: 'Flutter Earth Globe Sphere Day view'
