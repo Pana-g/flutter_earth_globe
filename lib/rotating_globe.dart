@@ -79,11 +79,14 @@ class RotatingGlobeState extends State<RotatingGlobe>
   double _angularVelocityZ = 0.0; // The angular velocity around the Z-axis.
   late AnimationController
       _decelerationController; // The animation controller for deceleration.
-  
+
+  AnimationController?
+      _dayNightCycleController; // The animation controller for day/night cycle.
+
   double _targetRotationX = 0.0;
   double _targetRotationY = 0.0;
   double _targetRotationZ = 0.0;
-  
+
   double _initialRotationX = 0.0;
   double _initialRotationY = 0.0;
   double _initialRotationZ = 0.0;
@@ -128,6 +131,10 @@ class RotatingGlobeState extends State<RotatingGlobe>
 
     widget.controller.onResetGlobeRotation = resetRotation;
 
+    widget.controller.onStartDayNightCycleAnimation =
+        startDayNightCycleAnimation;
+    widget.controller.onStopDayNightCycleAnimation = stopDayNightCycleAnimation;
+
     _lineMovingController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
@@ -160,20 +167,87 @@ class RotatingGlobeState extends State<RotatingGlobe>
       duration: const Duration(milliseconds: 800),
     )..addListener(() {
         if (mounted) {
-          final t = Curves.easeOutCubic.transform(_decelerationController.value);
-          
-          rotationX = _initialRotationX + (_targetRotationX - _initialRotationX) * t;
-          rotationY = _initialRotationY + (_targetRotationY - _initialRotationY) * t;
-          rotationZ = _initialRotationZ + (_targetRotationZ - _initialRotationZ) * t;
+          final t =
+              Curves.easeOutCubic.transform(_decelerationController.value);
+
+          rotationX =
+              _initialRotationX + (_targetRotationX - _initialRotationX) * t;
+          rotationY =
+              _initialRotationY + (_targetRotationY - _initialRotationY) * t;
+          rotationZ =
+              _initialRotationZ + (_targetRotationZ - _initialRotationZ) * t;
 
           setState(() {});
         }
       });
+
+    // Initialize day/night cycle animation controller
+    _initDayNightCycleController();
+
     Future.delayed(Duration.zero, () {
       widget.controller.load();
     });
 
     super.initState();
+  }
+
+  /// Initialize the day/night cycle animation controller
+  void _initDayNightCycleController() {
+    if (widget.controller.useRealTimeSunPosition) {
+      _dayNightCycleController = AnimationController(
+        vsync: this,
+        duration: const Duration(seconds: 60), // Update every minute
+      )..addListener(() {
+          if (mounted && widget.controller.useRealTimeSunPosition) {
+            widget.controller.updateSunPositionFromRealTime();
+          }
+        });
+      _dayNightCycleController!.repeat();
+    }
+  }
+
+  Duration _dayNightCycleDuration = const Duration(minutes: 1);
+
+  /// Start the day/night cycle animation with custom speed
+  void startDayNightCycleAnimation(
+      {Duration cycleDuration = const Duration(minutes: 1)}) {
+    // If controller exists and duration hasn't changed, just resume
+    if (_dayNightCycleController != null &&
+        _dayNightCycleDuration == cycleDuration &&
+        !_dayNightCycleController!.isAnimating) {
+      // Calculate where we should be based on current sun longitude
+      // sunLongitude = 180 - (value * 360), so value = (180 - sunLongitude) / 360
+      final currentValue = (180 - widget.controller.sunLongitude) / 360;
+      _dayNightCycleController!.value = currentValue.clamp(0.0, 1.0);
+      _dayNightCycleController!.repeat();
+      return;
+    }
+
+    // Otherwise, create new controller
+    _dayNightCycleController?.dispose();
+    _dayNightCycleDuration = cycleDuration;
+
+    // Calculate starting value based on current sun position
+    final startValue = (180 - widget.controller.sunLongitude) / 360;
+
+    _dayNightCycleController = AnimationController(
+      vsync: this,
+      duration: cycleDuration,
+      value: startValue.clamp(0.0, 1.0),
+    )..addListener(() {
+        if (mounted) {
+          // Animate sun longitude from 180 to -180 degrees
+          widget.controller.sunLongitude =
+              180 - (_dayNightCycleController!.value * 360);
+          setState(() {});
+        }
+      });
+    _dayNightCycleController!.repeat();
+  }
+
+  /// Stop the day/night cycle animation
+  void stopDayNightCycleAnimation() {
+    _dayNightCycleController?.stop();
   }
 
   /// Focus on the specified coordinates on the sphere.
@@ -253,7 +327,32 @@ class RotatingGlobeState extends State<RotatingGlobe>
     _lineMovingController.stop();
     _lineMovingController.dispose();
     _decelerationController.dispose();
+    _dayNightCycleController?.dispose();
     super.dispose();
+  }
+
+  /// Calculate the day/night blend factor for a given latitude and longitude
+  /// Returns a value between 0 (full night) and 1 (full day)
+  double _calculateDayNightFactor(double lat, double lon) {
+    // Convert sun position to radians
+    final sunLatRad = widget.controller.sunLatitude * math.pi / 180;
+    final sunLonRad = widget.controller.sunLongitude * math.pi / 180;
+
+    // Calculate the angle between the point and the sun
+    // Using spherical law of cosines
+    final cosAngle = math.sin(lat) * math.sin(sunLatRad) +
+        math.cos(lat) * math.cos(sunLatRad) * math.cos(lon - sunLonRad);
+
+    // Convert to a 0-1 factor with smooth transition
+    // Using the blend factor to control the sharpness of the transition
+    final blendFactor = widget.controller.dayNightBlendFactor;
+
+    // Map the cosine angle to a smooth transition
+    // cosAngle of 0 is the terminator (90 degrees from sun)
+    // Positive values are day, negative values are night
+    final factor = (cosAngle / blendFactor + 0.5).clamp(0.0, 1.0);
+
+    return factor;
   }
 
   Future<SphereImage?> buildSphere(double maxWidth, double maxHeight) async {
@@ -261,6 +360,11 @@ class RotatingGlobeState extends State<RotatingGlobe>
         widget.controller.surfaceProcessed == null) {
       return Future.value(null);
     }
+
+    // Check if day/night cycle is enabled and we have night surface
+    final hasDayNightCycle = widget.controller.isDayNightCycleEnabled &&
+        widget.controller.nightSurface != null &&
+        widget.controller.nightSurfaceProcessed != null;
 
     final sphereRadius = convertedRadius().roundToDouble();
     final minX = math.max(-sphereRadius, -maxWidth / 2);
@@ -309,50 +413,138 @@ class RotatingGlobeState extends State<RotatingGlobe>
           final y0Ceil = (y0Floor + 1).clamp(0, surfaceHeight.toInt() - 1);
           final x0ClampedFloor = x0Floor.clamp(0, surfaceWidth.toInt() - 1);
           final y0ClampedFloor = y0Floor.clamp(0, surfaceHeight.toInt() - 1);
-          
+
           final fx = x0 - x0Floor;
           final fy = y0 - y0Floor;
-          
+
+          // Get day surface colors
           final c00 = widget.controller.surfaceProcessed![
               (y0ClampedFloor * surfaceWidth + x0ClampedFloor).toInt()];
           final c10 = widget.controller.surfaceProcessed![
               (y0ClampedFloor * surfaceWidth + x0Ceil).toInt()];
           final c01 = widget.controller.surfaceProcessed![
               (y0Ceil * surfaceWidth + x0ClampedFloor).toInt()];
-          final c11 = widget.controller.surfaceProcessed![
-              (y0Ceil * surfaceWidth + x0Ceil).toInt()];
-          
-          // Extract RGBA components and interpolate
+          final c11 = widget.controller
+              .surfaceProcessed![(y0Ceil * surfaceWidth + x0Ceil).toInt()];
+
+          // Extract RGBA components for day surface
           final r00 = (c00 >> 0) & 0xFF;
           final g00 = (c00 >> 8) & 0xFF;
           final b00 = (c00 >> 16) & 0xFF;
           final a00 = (c00 >> 24) & 0xFF;
-          
+
           final r10 = (c10 >> 0) & 0xFF;
           final g10 = (c10 >> 8) & 0xFF;
           final b10 = (c10 >> 16) & 0xFF;
           final a10 = (c10 >> 24) & 0xFF;
-          
+
           final r01 = (c01 >> 0) & 0xFF;
           final g01 = (c01 >> 8) & 0xFF;
           final b01 = (c01 >> 16) & 0xFF;
           final a01 = (c01 >> 24) & 0xFF;
-          
+
           final r11 = (c11 >> 0) & 0xFF;
           final g11 = (c11 >> 8) & 0xFF;
           final b11 = (c11 >> 16) & 0xFF;
           final a11 = (c11 >> 24) & 0xFF;
-          
-          // Bilinear interpolation
-          final r = ((r00 * (1 - fx) + r10 * fx) * (1 - fy) + 
-                    (r01 * (1 - fx) + r11 * fx) * fy).round().clamp(0, 255);
-          final g = ((g00 * (1 - fx) + g10 * fx) * (1 - fy) + 
-                    (g01 * (1 - fx) + g11 * fx) * fy).round().clamp(0, 255);
-          final b = ((b00 * (1 - fx) + b10 * fx) * (1 - fy) + 
-                    (b01 * (1 - fx) + b11 * fx) * fy).round().clamp(0, 255);
-          final a = ((a00 * (1 - fx) + a10 * fx) * (1 - fy) + 
-                    (a01 * (1 - fx) + a11 * fx) * fy).round().clamp(0, 255);
-          
+
+          // Bilinear interpolation for day surface
+          var r = ((r00 * (1 - fx) + r10 * fx) * (1 - fy) +
+                  (r01 * (1 - fx) + r11 * fx) * fy)
+              .round()
+              .clamp(0, 255);
+          var g = ((g00 * (1 - fx) + g10 * fx) * (1 - fy) +
+                  (g01 * (1 - fx) + g11 * fx) * fy)
+              .round()
+              .clamp(0, 255);
+          var b = ((b00 * (1 - fx) + b10 * fx) * (1 - fy) +
+                  (b01 * (1 - fx) + b11 * fx) * fy)
+              .round()
+              .clamp(0, 255);
+          var a = ((a00 * (1 - fx) + a10 * fx) * (1 - fy) +
+                  (a01 * (1 - fx) + a11 * fx) * fy)
+              .round()
+              .clamp(0, 255);
+
+          // Apply day/night blending if enabled
+          if (hasDayNightCycle) {
+            final dayFactor = _calculateDayNightFactor(lat, lon);
+
+            // Get night surface colors
+            final nightWidth = widget.controller.nightSurface!.width.toDouble();
+            final nightHeight =
+                widget.controller.nightSurface!.height.toDouble();
+            final nightXRate = (nightWidth - 1) / (2.0 * math.pi);
+            final nightYRate = (nightHeight - 1) / math.pi;
+
+            final nx0 = (lon + math.pi) * nightXRate;
+            final ny0 = (math.pi / 2 - lat) * nightYRate;
+
+            final nx0Floor = nx0.floor();
+            final ny0Floor = ny0.floor();
+            final nx0Ceil = (nx0Floor + 1).clamp(0, nightWidth.toInt() - 1);
+            final ny0Ceil = (ny0Floor + 1).clamp(0, nightHeight.toInt() - 1);
+            final nx0ClampedFloor = nx0Floor.clamp(0, nightWidth.toInt() - 1);
+            final ny0ClampedFloor = ny0Floor.clamp(0, nightHeight.toInt() - 1);
+
+            final nfx = nx0 - nx0Floor;
+            final nfy = ny0 - ny0Floor;
+
+            final nc00 = widget.controller.nightSurfaceProcessed![
+                (ny0ClampedFloor * nightWidth + nx0ClampedFloor).toInt()];
+            final nc10 = widget.controller.nightSurfaceProcessed![
+                (ny0ClampedFloor * nightWidth + nx0Ceil).toInt()];
+            final nc01 = widget.controller.nightSurfaceProcessed![
+                (ny0Ceil * nightWidth + nx0ClampedFloor).toInt()];
+            final nc11 = widget.controller.nightSurfaceProcessed![
+                (ny0Ceil * nightWidth + nx0Ceil).toInt()];
+
+            // Extract RGBA components for night surface
+            final nr00 = (nc00 >> 0) & 0xFF;
+            final ng00 = (nc00 >> 8) & 0xFF;
+            final nb00 = (nc00 >> 16) & 0xFF;
+            final na00 = (nc00 >> 24) & 0xFF;
+
+            final nr10 = (nc10 >> 0) & 0xFF;
+            final ng10 = (nc10 >> 8) & 0xFF;
+            final nb10 = (nc10 >> 16) & 0xFF;
+            final na10 = (nc10 >> 24) & 0xFF;
+
+            final nr01 = (nc01 >> 0) & 0xFF;
+            final ng01 = (nc01 >> 8) & 0xFF;
+            final nb01 = (nc01 >> 16) & 0xFF;
+            final na01 = (nc01 >> 24) & 0xFF;
+
+            final nr11 = (nc11 >> 0) & 0xFF;
+            final ng11 = (nc11 >> 8) & 0xFF;
+            final nb11 = (nc11 >> 16) & 0xFF;
+            final na11 = (nc11 >> 24) & 0xFF;
+
+            // Bilinear interpolation for night surface
+            final nr = ((nr00 * (1 - nfx) + nr10 * nfx) * (1 - nfy) +
+                    (nr01 * (1 - nfx) + nr11 * nfx) * nfy)
+                .round()
+                .clamp(0, 255);
+            final ng = ((ng00 * (1 - nfx) + ng10 * nfx) * (1 - nfy) +
+                    (ng01 * (1 - nfx) + ng11 * nfx) * nfy)
+                .round()
+                .clamp(0, 255);
+            final nb = ((nb00 * (1 - nfx) + nb10 * nfx) * (1 - nfy) +
+                    (nb01 * (1 - nfx) + nb11 * nfx) * nfy)
+                .round()
+                .clamp(0, 255);
+            final na = ((na00 * (1 - nfx) + na10 * nfx) * (1 - nfy) +
+                    (na01 * (1 - nfx) + na11 * nfx) * nfy)
+                .round()
+                .clamp(0, 255);
+
+            // Blend day and night colors based on dayFactor
+            r = (r * dayFactor + nr * (1 - dayFactor)).round().clamp(0, 255);
+            g = (g * dayFactor + ng * (1 - dayFactor)).round().clamp(0, 255);
+            b = (b * dayFactor + nb * (1 - dayFactor)).round().clamp(0, 255);
+            a = (a * dayFactor + na * (1 - dayFactor)).round().clamp(0, 255);
+          }
+
           final color = (a << 24) | (b << 16) | (g << 8) | r;
           spherePixels[(sphereY + x - minX).toInt()] = color;
         }
@@ -503,22 +695,25 @@ class RotatingGlobeState extends State<RotatingGlobe>
             onInteractionEnd: (ScaleEndDetails details) {
               final velocity = details.velocity.pixelsPerSecond;
               final velocityMagnitude = velocity.distance;
-              
+
               if (velocityMagnitude > 50) {
                 final velocityFactor = velocityMagnitude / 6000.0;
-                
+
                 _angularVelocityX = velocity.dy / convertedRadius();
                 _angularVelocityY = -velocity.dy / convertedRadius();
                 _angularVelocityZ = -velocity.dx / convertedRadius();
-                
+
                 _initialRotationX = rotationX;
                 _initialRotationY = rotationY;
                 _initialRotationZ = rotationZ;
-                
-                _targetRotationX = rotationX + _angularVelocityX * velocityFactor;
-                _targetRotationY = rotationY + _angularVelocityY * velocityFactor;
-                _targetRotationZ = rotationZ + _angularVelocityZ * velocityFactor;
-                
+
+                _targetRotationX =
+                    rotationX + _angularVelocityX * velocityFactor;
+                _targetRotationY =
+                    rotationY + _angularVelocityY * velocityFactor;
+                _targetRotationZ =
+                    rotationZ + _angularVelocityZ * velocityFactor;
+
                 _decelerationController.forward(from: 0.0);
               }
 

@@ -11,6 +11,10 @@ Flutter Earth Globe is an interactive 3D sphere widget for Flutter applications.
 
 <img alt="image" src="https://raw.githubusercontent.com/Pana-g/flutter_earth_globe/master/screenshots/screenshotEarthNight.png" width="350">
 
+<img alt="Day/Night Cycle" src="https://raw.githubusercontent.com/Pana-g/flutter_earth_globe/master/screenshots/screenshotEarthDayNight.png" width="350">
+
+<img alt="Day/Night Cycle Animation" src="https://raw.githubusercontent.com/Pana-g/flutter_earth_globe/master/screenshots/earthDayNightCycle.gif" width="350">
+
 <img alt="image" src="https://raw.githubusercontent.com/Pana-g/flutter_earth_globe/master/screenshots/screenshotMoon.png" width="350">
 
 <img alt="image" src="https://raw.githubusercontent.com/Pana-g/flutter_earth_globe/master/screenshots/screenshotMars.png" width="350">
@@ -23,7 +27,7 @@ Flutter Earth Globe is an interactive 3D sphere widget for Flutter applications.
 - **Point Support**: Ability to place customizable points on the globe.
 - **Connections Support**: Ability to create connections between different coordinates.
 - **Custom Labels Support**: Ability to create custom widget labels for a **point** or **connection**.
-  
+- **Day/Night Cycle**: Realistic day/night cycle with smooth transitions between day and night textures based on sun position.
 - **Responsive Design**: Ensures compatibility with a wide range of devices and screen sizes.
 
 ## Installation
@@ -160,6 +164,31 @@ initState(){
 
     super.initState();
 }
+```
+
+#### Enable Day/Night Cycle
+
+Create a realistic day/night effect by providing both day and night textures:
+
+```dart
+final FlutterEarthGlobeController _controller = FlutterEarthGlobeController(
+    surface: Image.asset('assets/2k_earth-day.jpg').image,
+    nightSurface: Image.asset('assets/2k_earth-night.jpg').image,
+    isDayNightCycleEnabled: true,
+    dayNightBlendFactor: 0.15, // Controls the sharpness of the day/night transition
+);
+
+// Start animated day/night cycle
+_controller.startDayNightCycle(cycleDuration: Duration(seconds: 30));
+
+// Stop the animation
+_controller.stopDayNightCycle();
+
+// Manually set sun position
+_controller.setSunPosition(longitude: 45.0, latitude: 10.0);
+
+// Use real-time sun position based on current time
+_controller.setUseRealTimeSunPosition(true);
 ```
 
 #### Change the style of the sphere

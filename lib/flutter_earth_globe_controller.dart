@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -28,12 +29,17 @@ class FlutterEarthGlobeController extends ChangeNotifier {
       []; // The connections between points.
   SphereStyle sphereStyle; // The style of the sphere.
   ui.Image? surface; // The surface image of the sphere.
+  ui.Image? nightSurface; // The night surface image of the sphere.
   ui.Image? background; // The background image of the sphere.
   Uint32List? surfaceProcessed; // The processed surface image of the sphere.
+  Uint32List?
+      nightSurfaceProcessed; // The processed night surface image of the sphere.
   bool
       isBackgroundFollowingSphereRotation; // Whether the background follows the rotation of the sphere.
   ImageConfiguration
       surfaceConfiguration; // The configuration of the surface image.
+  ImageConfiguration
+      nightSurfaceConfiguration; // The configuration of the night surface image.
   ImageConfiguration
       backgroundConfiguration; // The configuration of the background image.
 
@@ -47,10 +53,22 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   double minZoom; // The minimum zoom level of the globe.
   bool isZoomEnabled; // Whether the zoom is enabled.
 
+  // Day/Night cycle properties
+  bool isDayNightCycleEnabled; // Whether the day/night cycle is enabled.
+  double
+      sunLongitude; // The current longitude of the sun (in degrees, -180 to 180).
+  double
+      sunLatitude; // The current latitude of the sun (in degrees, -23.5 to 23.5 for realistic Earth tilt).
+  double
+      dayNightBlendFactor; // The sharpness of the day/night transition (0.0 = sharp, 1.0 = very smooth).
+  bool
+      useRealTimeSunPosition; // Whether to calculate sun position based on real time.
+
   GlobalKey<RotatingGlobeState> globeKey = GlobalKey();
 
   FlutterEarthGlobeController({
     ImageProvider? surface,
+    ImageProvider? nightSurface,
     ImageProvider? background,
     this.rotationSpeed = 0.2,
     this.isZoomEnabled = true,
@@ -60,14 +78,24 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     bool isRotating = false,
     this.isBackgroundFollowingSphereRotation = false,
     this.surfaceConfiguration = const ImageConfiguration(),
+    this.nightSurfaceConfiguration = const ImageConfiguration(),
     this.backgroundConfiguration = const ImageConfiguration(),
     this.sphereStyle = const SphereStyle(),
+    this.isDayNightCycleEnabled = false,
+    this.sunLongitude = 0.0,
+    this.sunLatitude = 0.0,
+    this.dayNightBlendFactor = 0.15,
+    this.useRealTimeSunPosition = false,
   }) {
     assert(minZoom < maxZoom);
     assert(zoom >= minZoom && zoom <= maxZoom);
     _isRotating = isRotating;
     if (surface != null) {
       loadSurface(surface);
+    }
+
+    if (nightSurface != null) {
+      loadNightSurface(nightSurface);
     }
 
     if (background != null) {
@@ -81,6 +109,9 @@ class FlutterEarthGlobeController extends ChangeNotifier {
       required Duration animateDrawDuration})? onPointConnectionAdded;
 
   Function()? onResetGlobeRotation;
+
+  Function({Duration cycleDuration})? onStartDayNightCycleAnimation;
+  Function()? onStopDayNightCycleAnimation;
 
   void load() {
     _isReady = true;
@@ -100,6 +131,33 @@ class FlutterEarthGlobeController extends ChangeNotifier {
 
   /// Returns true if the globe is ready
   bool get isReady => _isReady;
+
+  /// Starts the day/night cycle animation.
+  ///
+  /// The [cycleDuration] parameter specifies how long one complete day/night cycle takes.
+  /// Default is 1 minute for a full 24-hour simulation.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// controller.startDayNightCycle(cycleDuration: Duration(seconds: 30));
+  /// ```
+  void startDayNightCycle(
+      {Duration cycleDuration = const Duration(minutes: 1)}) {
+    isDayNightCycleEnabled = true;
+    onStartDayNightCycleAnimation?.call(cycleDuration: cycleDuration);
+    notifyListeners();
+  }
+
+  /// Stops the day/night cycle animation.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// controller.stopDayNightCycle();
+  /// ```
+  void stopDayNightCycle() {
+    onStopDayNightCycleAnimation?.call();
+    notifyListeners();
+  }
 
   /// Adds a [connection] between two [points] to the globe.
   ///
@@ -319,6 +377,31 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     }));
   }
 
+  /// Loads the [image] as the night surface of the globe for day/night cycle effect.
+  ///
+  /// The [image] parameter represents the image to be loaded as the night surface of the globe.
+  /// The [configuration] parameter is optional and can be used to customize the image configuration.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// controller.loadNightSurface(
+  ///  AssetImage('assets/earth_night.jpg'),
+  /// );
+  /// ```
+  void loadNightSurface(
+    ImageProvider image, {
+    ImageConfiguration configuration = const ImageConfiguration(),
+  }) {
+    image
+        .resolve(configuration)
+        .addListener(ImageStreamListener((info, _) async {
+      nightSurface = info.image;
+      nightSurfaceConfiguration = configuration;
+      nightSurfaceProcessed = await convertImageToUint32List(info.image);
+      notifyListeners();
+    }));
+  }
+
   /// Loads the background image for the rotating globe.
   ///
   /// The [image] parameter specifies the image to be loaded as the background.
@@ -456,6 +539,99 @@ class FlutterEarthGlobeController extends ChangeNotifier {
       zoom = maxZoom;
     } else {
       this.zoom = zoom;
+    }
+    notifyListeners();
+  }
+
+  /// Enables or disables the day/night cycle effect.
+  ///
+  /// When enabled, the globe will blend between the day surface and night surface
+  /// based on the sun's position.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// controller.setDayNightCycleEnabled(true);
+  /// ```
+  void setDayNightCycleEnabled(bool enabled) {
+    isDayNightCycleEnabled = enabled;
+    notifyListeners();
+  }
+
+  /// Sets the sun's position for the day/night cycle effect.
+  ///
+  /// The [longitude] parameter specifies the sun's longitude in degrees (-180 to 180).
+  /// The [latitude] parameter specifies the sun's latitude in degrees (-23.5 to 23.5 for realistic Earth tilt).
+  ///
+  /// Example usage:
+  /// ```dart
+  /// controller.setSunPosition(longitude: 45.0, latitude: 10.0);
+  /// ```
+  void setSunPosition({double? longitude, double? latitude}) {
+    if (longitude != null) {
+      sunLongitude = longitude;
+    }
+    if (latitude != null) {
+      sunLatitude = latitude;
+    }
+    notifyListeners();
+  }
+
+  /// Sets the blend factor for the day/night transition.
+  ///
+  /// A lower value creates a sharper transition, while a higher value creates a smoother gradient.
+  /// Recommended values are between 0.1 and 0.3.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// controller.setDayNightBlendFactor(0.2);
+  /// ```
+  void setDayNightBlendFactor(double factor) {
+    dayNightBlendFactor = factor.clamp(0.01, 1.0);
+    notifyListeners();
+  }
+
+  /// Calculates and sets the sun's position based on real-time.
+  ///
+  /// This uses astronomical calculations to determine where the sun is
+  /// currently positioned over the Earth.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// controller.updateSunPositionFromRealTime();
+  /// ```
+  void updateSunPositionFromRealTime() {
+    final now = DateTime.now().toUtc();
+
+    // Calculate the day of the year
+    final startOfYear = DateTime.utc(now.year, 1, 1);
+    final dayOfYear = now.difference(startOfYear).inDays + 1;
+
+    // Calculate the sun's declination (latitude) based on the day of the year
+    // This approximates the Earth's axial tilt effect
+    final declination = -23.45 * math.cos(2 * math.pi * (dayOfYear + 10) / 365);
+
+    // Calculate the sun's longitude based on the current time
+    // The sun moves 15 degrees per hour (360 / 24)
+    final hours = now.hour + now.minute / 60.0 + now.second / 3600.0;
+    final longitude = 180 - (hours * 15); // Noon is at 0 degrees, moves west
+
+    sunLatitude = declination;
+    sunLongitude = longitude;
+    notifyListeners();
+  }
+
+  /// Enables or disables real-time sun position tracking.
+  ///
+  /// When enabled, the sun's position will be calculated based on the current time.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// controller.setUseRealTimeSunPosition(true);
+  /// ```
+  void setUseRealTimeSunPosition(bool enabled) {
+    useRealTimeSunPosition = enabled;
+    if (enabled) {
+      updateSunPositionFromRealTime();
     }
     notifyListeners();
   }

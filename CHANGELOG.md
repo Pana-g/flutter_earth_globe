@@ -1,3 +1,13 @@
+## 1.1.0
+
+- Added Day/Night cycle feature with animated sun position
+- Support for separate day and night surface textures
+- Smooth blending between day and night based on sun position
+- Real-time sun position calculation based on current time
+- Configurable day/night transition blend factor
+- Animation controls for day/night cycle (start, stop, resume)
+- Manual sun position control via longitude and latitude
+
 ## 1.0.7
 
 - Fixed issue with point connection. Thanks to @PabloAsensio .
