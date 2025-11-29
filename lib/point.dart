@@ -118,37 +118,71 @@ class Point {
 
 /// Represents the style of a point.
 ///
+/// Modeled after Globe.GL's point styling with properties for:
+/// - Point altitude (pointAltitude)
+/// - Transition animations (pointsTransitionDuration)
+///
 /// The [PointStyle] class provides methods to convert the style to a map, JSON, and a string representation.
 /// It also supports copying the style with optional new size and color values.
 class PointStyle {
-  /// The size of the point.
+  /// The size of the point (radius).
   final double size;
 
   /// The color of the point.
   final Color color;
 
+  /// The altitude of the point above the globe surface.
+  /// 0.0 = on surface, positive values rise above.
+  /// Similar to Globe.GL's pointAltitude.
+  final double altitude;
+
+  /// Duration in milliseconds for the point to animate when appearing/disappearing.
+  /// Similar to Globe.GL's pointsTransitionDuration.
+  final int transitionDuration;
+
+  /// Whether to merge points for better performance (batch rendering).
+  /// Similar to Globe.GL's pointsMerge.
+  final bool merge;
+
   /// Creates a new instance of the [PointStyle] class.
   ///
   /// The [size] parameter is the size of the point.
   /// The [color] parameter is the color of the point.
+  /// The [altitude] parameter is how high the point rises from the surface.
+  /// The [transitionDuration] parameter is the fade in/out duration in ms.
+  /// The [merge] parameter enables batch rendering for performance.
   ///
   /// The default value of [size] is 4.
   /// The default value of [color] is white.
+  /// The default value of [altitude] is 0.0.
+  /// The default value of [transitionDuration] is 500.
+  /// The default value of [merge] is false.
   ///
   /// Example usage:
   /// ```dart
   /// PointStyle(
-  ///  size: 4,
-  /// color: Colors.white,
+  ///   size: 4,
+  ///   color: Colors.white,
+  ///   altitude: 0.1,
+  ///   transitionDuration: 500,
   /// );
   /// ```
-  const PointStyle({this.size = 4, this.color = Colors.white});
+  const PointStyle({
+    this.size = 4,
+    this.color = Colors.white,
+    this.altitude = 0.0,
+    this.transitionDuration = 500,
+    this.merge = false,
+  });
 
   /// Converts the [PointStyle] object to a map.
   Map<String, dynamic> toMap() {
     return <String, dynamic>{
       'size': size,
       'color': color.value,
+      'altitude': altitude,
+      'transitionDuration': transitionDuration,
+      'merge': merge,
     };
   }
 
@@ -157,6 +191,9 @@ class PointStyle {
     return PointStyle(
       size: map['size'] as double,
       color: Color(map['color'] as int),
+      altitude: map['altitude'] as double? ?? 0.0,
+      transitionDuration: map['transitionDuration'] as int? ?? 500,
+      merge: map['merge'] as bool? ?? false,
     );
   }
 
@@ -171,10 +208,16 @@ class PointStyle {
   PointStyle copyWith({
     double? size,
     Color? color,
+    double? altitude,
+    int? transitionDuration,
+    bool? merge,
   }) {
     return PointStyle(
       size: size ?? this.size,
       color: color ?? this.color,
+      altitude: altitude ?? this.altitude,
+      transitionDuration: transitionDuration ?? this.transitionDuration,
+      merge: merge ?? this.merge,
     );
   }
 }

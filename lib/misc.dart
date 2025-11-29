@@ -3,6 +3,15 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart' as material;
 
+/// Enum to define the direction of the day/night cycle rotation
+enum DayNightCycleDirection {
+  /// Sun moves from east to west (left to right when viewing the globe)
+  leftToRight,
+
+  /// Sun moves from west to east (right to left when viewing the globe)
+  rightToLeft,
+}
+
 /// Paints the specified [title] on the [canvas] at the given [cartesian2D] position.
 ///
 /// The [textStyle] parameter is optional and can be used to customize the text style.
@@ -48,10 +57,23 @@ void paintText(String title, material.TextStyle? textStyle, Offset cartesian2D,
 /// Checks if the given [point] lies on the specified [path].
 /// Returns true if the point is on the path, otherwise returns false.
 bool isPointOnPath(Offset point, Path path, double pathWidth) {
+  // Early exit: check if point is within the path's bounding box (expanded by stroke width)
+  final bounds = path.getBounds();
+  final strokeWidth = pathWidth.clamp(4, 100);
+
+  if (point.dx < bounds.left - strokeWidth ||
+      point.dx > bounds.right + strokeWidth ||
+      point.dy < bounds.top - strokeWidth ||
+      point.dy > bounds.bottom + strokeWidth) {
+    return false;
+  }
+
   PathMetric? pathMetric = path.computeMetrics().firstOrNull;
   if (pathMetric == null) return false;
   double totalLength = pathMetric.length;
-  double strokeWidth = pathWidth.clamp(4, 100);
+
+  // Use distance squared for faster comparison (avoid sqrt)
+  final strokeWidthSquared = strokeWidth * strokeWidth;
 
   // Use larger step for better performance
   final step = totalLength > 100 ? totalLength / 50 : 2.0;
@@ -60,7 +82,10 @@ bool isPointOnPath(Offset point, Path path, double pathWidth) {
     if (tangent == null) continue;
 
     // Check if the point is within stroke the width of the path
-    if ((tangent.position - point).distance <= strokeWidth) {
+    // Using distance squared instead of distance for performance
+    final dx = tangent.position.dx - point.dx;
+    final dy = tangent.position.dy - point.dy;
+    if (dx * dx + dy * dy <= strokeWidthSquared) {
       return true;
     }
   }

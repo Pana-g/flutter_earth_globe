@@ -22,6 +22,7 @@ dev_dependencies:
 flutter:
   shaders:
     - shaders/sphere.frag
+    - shaders/background.frag
 
 screenshots:
   - description: 'Flutter Earth Globe Sphere Day view'

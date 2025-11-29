@@ -7,6 +7,9 @@ import 'package:flutter/material.dart';
 
 import 'flutter_earth_globe_controller.dart';
 
+// Export the DayNightCycleDirection enum for external use
+export 'misc.dart' show DayNightCycleDirection;
+
 /// This is the main widget of the package. It is a sphere that can be rotated and animated.
 class FlutterEarthGlobe extends StatefulWidget {
   final double radius;

@@ -53,6 +53,21 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   double minZoom; // The minimum zoom level of the globe.
   bool isZoomEnabled; // Whether the zoom is enabled.
 
+  // Sensitivity properties
+  double
+      zoomSensitivity; // Sensitivity for scroll/pinch zoom (default 0.8, higher = faster zoom)
+  double
+      panSensitivity; // Sensitivity for panning/rotating the globe (default 1.0, higher = faster pan)
+
+  // Atmospheric glow properties
+  bool showAtmosphere; // Whether to show the atmospheric glow around the globe
+  Color
+      atmosphereColor; // Color of the atmospheric glow (default: Earth-like blue)
+  double atmosphereBlur; // Blur radius for the atmospheric glow (default: 25)
+  double
+      atmosphereThickness; // Thickness of the atmosphere relative to globe radius (default: 0.15)
+  double atmosphereOpacity; // Opacity of the atmospheric glow (default: 0.6)
+
   // Day/Night cycle properties
   bool isDayNightCycleEnabled; // Whether the day/night cycle is enabled.
   double
@@ -63,6 +78,8 @@ class FlutterEarthGlobeController extends ChangeNotifier {
       dayNightBlendFactor; // The sharpness of the day/night transition (0.0 = sharp, 1.0 = very smooth).
   bool
       useRealTimeSunPosition; // Whether to calculate sun position based on real time.
+  DayNightCycleDirection
+      dayNightCycleDirection; // The direction of the day/night cycle animation.
 
   GlobalKey<RotatingGlobeState> globeKey = GlobalKey();
 
@@ -73,8 +90,8 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     this.rotationSpeed = 0.2,
     this.isZoomEnabled = true,
     this.zoom = 1,
-    this.maxZoom = 1.6,
-    this.minZoom = 0.1,
+    this.maxZoom = 2.5,
+    this.minZoom = -1.0, // Allow zooming out further (negative = smaller globe)
     bool isRotating = false,
     this.isBackgroundFollowingSphereRotation = false,
     this.surfaceConfiguration = const ImageConfiguration(),
@@ -86,6 +103,14 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     this.sunLatitude = 0.0,
     this.dayNightBlendFactor = 0.15,
     this.useRealTimeSunPosition = false,
+    this.dayNightCycleDirection = DayNightCycleDirection.leftToRight,
+    this.zoomSensitivity = 0.8,
+    this.panSensitivity = 1.0,
+    this.showAtmosphere = true,
+    this.atmosphereColor = const ui.Color.fromARGB(255, 57, 123, 185),
+    this.atmosphereBlur = 30.0,
+    this.atmosphereThickness = 0.03,
+    this.atmosphereOpacity = 0.2,
   }) {
     assert(minZoom < maxZoom);
     assert(zoom >= minZoom && zoom <= maxZoom);
@@ -110,7 +135,8 @@ class FlutterEarthGlobeController extends ChangeNotifier {
 
   Function()? onResetGlobeRotation;
 
-  Function({Duration cycleDuration})? onStartDayNightCycleAnimation;
+  Function({Duration cycleDuration, DayNightCycleDirection direction})?
+      onStartDayNightCycleAnimation;
   Function()? onStopDayNightCycleAnimation;
 
   void load() {
@@ -137,14 +163,28 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   /// The [cycleDuration] parameter specifies how long one complete day/night cycle takes.
   /// Default is 1 minute for a full 24-hour simulation.
   ///
+  /// The [direction] parameter specifies whether the sun moves left-to-right or right-to-left.
+  /// Default is [DayNightCycleDirection.leftToRight].
+  ///
   /// Example usage:
   /// ```dart
-  /// controller.startDayNightCycle(cycleDuration: Duration(seconds: 30));
+  /// controller.startDayNightCycle(
+  ///   cycleDuration: Duration(seconds: 30),
+  ///   direction: DayNightCycleDirection.rightToLeft,
+  /// );
   /// ```
-  void startDayNightCycle(
-      {Duration cycleDuration = const Duration(minutes: 1)}) {
+  void startDayNightCycle({
+    Duration cycleDuration = const Duration(minutes: 1),
+    DayNightCycleDirection? direction,
+  }) {
     isDayNightCycleEnabled = true;
-    onStartDayNightCycleAnimation?.call(cycleDuration: cycleDuration);
+    if (direction != null) {
+      dayNightCycleDirection = direction;
+    }
+    onStartDayNightCycleAnimation?.call(
+      cycleDuration: cycleDuration,
+      direction: dayNightCycleDirection,
+    );
     notifyListeners();
   }
 

@@ -45,8 +45,16 @@ Map? drawAnimatedLine(
   bool isStartVisible = startCartesian3D.x > 0;
   bool isEndVisible = endCartesian3D.x > 0;
 
-  // Calculate control points for curvature
-  if (isStartVisible || isEndVisible) {
+  // Calculate midpoint visibility for cases where both endpoints are hidden
+  // but the arc passes over the visible side
+  var midPoint3D = (startCartesian3D + endCartesian3D) / 2;
+  midPoint3D.normalize();
+  final angle = calculateCentralAngle(connection.start, connection.end);
+  midPoint3D.scale(((radius + (angle) * 10 * pi) * connection.curveScale));
+  bool isMidpointVisible = midPoint3D.x > 0;
+
+  // Only draw if at least one endpoint or the midpoint is visible
+  if (isStartVisible || isEndVisible || isMidpointVisible) {
     Paint paint = Paint()
       ..color = connection.style.color
       ..strokeWidth = connection.style.lineWidth
@@ -56,46 +64,67 @@ Map? drawAnimatedLine(
     Path path = Path();
     path.moveTo(startCartesian2D.dx, startCartesian2D.dy);
 
-    var midPoint = (startCartesian3D + endCartesian3D) / 2;
-    midPoint.normalize();
-
-    final angle = calculateCentralAngle(connection.start, connection.end);
-    midPoint.scale(((radius + (angle) * 10 * pi) * connection.curveScale));
-
-    final midPoint2D = Offset(center.dx + midPoint.y, center.dy - midPoint.z);
+    final midPoint2D =
+        Offset(center.dx + midPoint3D.y, center.dy - midPoint3D.z);
 
     path.quadraticBezierTo(
         midPoint2D.dx, midPoint2D.dy, endCartesian2D.dx, endCartesian2D.dy);
 
     PathMetric pathMetric = path.computeMetrics().first;
+    double totalLength = pathMetric.length;
 
-    double start = 0;
-    double end = pathMetric.length * animationValue;
+    double drawStart = 0;
+    double drawEnd = totalLength * animationValue;
 
-    if (!isStartVisible) {
+    // Handle visibility clipping
+    if (!isStartVisible && !isEndVisible) {
+      // Both ends hidden - find both intersection points
+      Offset? startIntersection =
+          findCurveSphereIntersection(path, center, radius, 1, true);
+      Offset? endIntersection =
+          findCurveSphereIntersection(path, center, radius, 1, false);
+
+      if (startIntersection != null && endIntersection != null) {
+        final startPerc = getDrawPercentage(path, startIntersection) / 100;
+        final endPerc =
+            getDrawPercentage(path, endIntersection, first: false) / 100;
+        drawStart = totalLength * startPerc;
+        drawEnd = min(totalLength * endPerc, totalLength * animationValue);
+      } else {
+        return {'path': null, 'midPoint': midPoint2D};
+      }
+    } else if (!isStartVisible) {
+      // Start is hidden - clip from intersection
       Offset? intersection =
           findCurveSphereIntersection(path, center, radius, 1, true);
       if (intersection != null) {
-        // canvas.drawCircle(intersection, 5, paint);
-        final perc = 1 - getDrawPercentage(path, intersection) / 100;
-        // print(perc);
-        start = pathMetric.length - (perc * pathMetric.length);
+        final perc = getDrawPercentage(path, intersection) / 100;
+        drawStart = totalLength * perc;
+        // Don't extend drawEnd beyond animation progress
+        drawEnd = totalLength * animationValue;
       } else {
-        return null;
+        return {'path': null, 'midPoint': midPoint2D};
       }
     } else if (!isEndVisible) {
+      // End is hidden - clip at intersection
       Offset? intersection =
           findCurveSphereIntersection(path, center, radius, 1, false);
       if (intersection != null) {
-        final perc =
-            1 - getDrawPercentage(path, intersection, first: false) / 100;
-        end = (pathMetric.length - (perc * pathMetric.length)) * animationValue;
+        final perc = getDrawPercentage(path, intersection, first: false) / 100;
+        double visibleEnd = totalLength * perc;
+        // Cap the draw end at the visible portion, scaled by animation progress
+        drawEnd = min(visibleEnd, totalLength * animationValue);
       } else {
-        return null;
+        return {'path': null, 'midPoint': midPoint2D};
       }
     }
 
-    Path extractPath = pathMetric.extractPath(start, end);
+    // Ensure drawStart doesn't exceed drawEnd
+    if (drawStart >= drawEnd) {
+      return {'path': null, 'midPoint': midPoint2D};
+    }
+
+    Path extractPath = pathMetric.extractPath(drawStart, drawEnd);
     final pathMetrics = extractPath.computeMetrics();
     if (pathMetrics.isNotEmpty) {
       switch (connection.style.type) {
@@ -167,7 +196,15 @@ Map? drawAnimatedLine(
     }
     return {'path': extractPath, 'midPoint': realMidPoint};
   }
-  return null;
+  // Return midpoint even when completely hidden for potential future use
+  final hiddenMidPoint3D = (startCartesian3D + endCartesian3D) / 2;
+  hiddenMidPoint3D.normalize();
+  final hiddenAngle = calculateCentralAngle(connection.start, connection.end);
+  hiddenMidPoint3D
+      .scale(((radius + (hiddenAngle) * 10 * pi) * connection.curveScale));
+  final hiddenMidPoint2D =
+      Offset(center.dx + hiddenMidPoint3D.y, center.dy - hiddenMidPoint3D.z);
+  return {'path': null, 'midPoint': hiddenMidPoint2D};
 }
 
 /// Calculates the central angle between two points on a sphere.
