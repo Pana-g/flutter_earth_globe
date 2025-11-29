@@ -5,7 +5,10 @@ import 'package:flutter_earth_globe/point.dart';
 import 'package:flutter_earth_globe/point_connection.dart';
 import 'package:flutter_earth_globe/point_connection_style.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_earth_globe/sphere_style.dart';
+import 'coordinate_state.dart';
+import 'coordinates_display.dart';
+import 'globe_controls_state.dart';
+import 'control_widgets.dart';
 
 void main() {
   runApp(MaterialApp(
@@ -25,11 +28,7 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> with TickerProviderStateMixin {
   final GlobalKey<ScaffoldState> _key = GlobalKey();
-  String? _selectedSurface;
-  GlobeCoordinates? _hoverCoordinates;
-  GlobeCoordinates? _clickCoordinates;
   late FlutterEarthGlobeController _controller;
-  bool _isDayNightAnimating = false;
   final List<String> _textures = [
     'assets/2k_earth-day.jpg',
     'assets/2k_earth-night.jpg',
@@ -46,7 +45,6 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
   ];
 
   late List<Point> points;
-
   List<PointConnection> connections = [];
 
   Widget pointLabelBuilder(
@@ -97,8 +95,12 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
 
   @override
   initState() {
+    super.initState();
+
     _controller = FlutterEarthGlobeController(
       rotationSpeed: 0.05,
+      minZoom: -1.5, // Allow zooming out to see the whole globe small
+      maxZoom: 5,
       zoom: 0.5,
       isRotating: false,
       isBackgroundFollowingSphereRotation: true,
@@ -108,32 +110,34 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       isDayNightCycleEnabled: false,
       dayNightBlendFactor: 0.15,
     );
+
     points = [
       Point(
           id: '1',
           coordinates: const GlobeCoordinates(51.5072, 0.1276),
           label: 'London',
-          // labelBuilder: pointLabelBuilder,
-          style: const PointStyle(color: Colors.red, size: 6)),
+          style: const PointStyle(
+              color: Colors.red,
+              size: 6,
+              altitude: 0.1,
+              transitionDuration: 500)),
       Point(
           id: '2',
-          // showTitleOnHover: true,
-          // labelBuilder: pointLabelBuilder,
           coordinates: const GlobeCoordinates(40.7128, -74.0060),
-          style: const PointStyle(color: Colors.green),
+          style: const PointStyle(
+              color: Colors.green, altitude: 0.05, transitionDuration: 600),
           onHover: () {},
           label: 'New York'),
       Point(
           id: '3',
-          // labelBuilder: pointLabelBuilder,
           coordinates: const GlobeCoordinates(35.6895, 139.6917),
-          style: const PointStyle(color: Colors.blue),
+          style: const PointStyle(
+              color: Colors.blue, altitude: 0.15, transitionDuration: 700),
           onHover: () {},
           label: 'Tokyo'),
       Point(
           id: '4',
           isLabelVisible: false,
-          // labelBuilder: pointLabelBuilder,
           onTap: () {
             Future.delayed(Duration.zero, () {
               showDialog(
@@ -145,9 +149,11 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
             });
           },
           coordinates: const GlobeCoordinates(0, 0),
-          style: const PointStyle(color: Colors.yellow),
+          style: const PointStyle(
+              color: Colors.yellow, altitude: 0.0, transitionDuration: 400),
           label: 'Center'),
     ];
+
     connections = [
       PointConnection(
           id: '1',
@@ -171,7 +177,11 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
               color: Colors.red,
               lineWidth: 2,
               dashSize: 6,
-              spacing: 10),
+              spacing: 10,
+              dashAnimateTime: 2000,
+              transitionDuration: 500,
+              animateOnAdd: true,
+              growthAnimationDuration: 1000),
           label: 'London to New York'),
       PointConnection(
           start: points[1].coordinates,
@@ -179,137 +189,41 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
           isMoving: true,
           labelBuilder: connectionLabelBuilder,
           id: '2',
-          style: const PointConnectionStyle(type: PointConnectionType.dashed),
+          style: const PointConnectionStyle(
+              type: PointConnectionType.dashed,
+              dashAnimateTime: 3000,
+              transitionDuration: 500,
+              animateOnAdd: true,
+              growthAnimationDuration: 800),
           label: 'New York to Center'),
       PointConnection(
           label: 'Tokyo to Center',
           labelBuilder: connectionLabelBuilder,
           start: points[2].coordinates,
           end: points[3].coordinates,
-          curveScale: 1.6,
-          id: '3')
+          curveScale: 0.5,
+          id: '3',
+          style: const PointConnectionStyle(
+              transitionDuration: 500,
+              animateOnAdd: true,
+              growthAnimationDuration: 1200))
     ];
+
     _controller.onLoaded = () {
-      setState(() {
-        _selectedSurface = _textures[0];
-      });
+      GlobeControlsState.instance.setSelectedSurface(_textures[0]);
     };
 
+    // Initialize state with all points visible
     for (var point in points) {
       _controller.addPoint(point);
+      GlobeControlsState.instance.addVisiblePoint(point.id);
     }
 
-    super.initState();
-  }
-
-  Widget getDividerText(String text) => Card(
-        child: SizedBox(
-          width: 250,
-          child: Row(
-            children: [
-              Flexible(
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 8),
-                  color: Colors.black38,
-                  height: 2,
-                ),
-              ),
-              Text(
-                text,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              Flexible(
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 8),
-                  color: Colors.black38,
-                  height: 2,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-
-  getTextures() {
-    return ListView(
-        shrinkWrap: true,
-        children: _textures
-            .map((texture) => Card(
-                  clipBehavior: Clip.hardEdge,
-                  color: _selectedSurface == texture
-                      ? Colors.cyan.withOpacity(0.5)
-                      : Colors.white.withOpacity(0.5),
-                  child: InkWell(
-                    onTap: () {
-                      _controller.loadSurface(Image.asset(
-                        texture,
-                      ).image);
-
-                      if (texture.contains('sun') ||
-                          texture.contains('venus') ||
-                          texture.contains('mars')) {
-                        _controller.setSphereStyle(SphereStyle(
-                            shadowColor: Colors.orange.withOpacity(0.8),
-                            shadowBlurSigma: 20));
-                      } else {
-                        _controller.setSphereStyle(const SphereStyle());
-                      }
-                      setState(() {
-                        _selectedSurface = texture;
-                      });
-                      // _controller.changeSurface(textures[i]);
-                    },
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Padding(
-                            padding: const EdgeInsets.all(2),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: Image.asset(
-                                texture,
-                                width: 100,
-                              ),
-                            )),
-                        const SizedBox(
-                          width: 10,
-                        ),
-                        Text(texture
-                            .replaceFirst('assets/', '')
-                            .split('.')[0]
-                            .replaceAll('_', ' ')
-                            .split(' ')[1]
-                            .toUpperCase())
-                      ],
-                    ),
-                  ),
-                ))
-            .toList());
-  }
-
-  Widget getListAction(String label, Widget child, {Widget? secondary}) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(label),
-                const SizedBox(
-                  width: 10,
-                ),
-                child
-              ],
-            ),
-            secondary ?? const SizedBox(),
-          ],
-        ),
-      ),
-    );
+    // Initialize control states
+    GlobeControlsState.instance.setZoom(_controller.zoom);
+    GlobeControlsState.instance.setRotationSpeed(_controller.rotationSpeed);
+    GlobeControlsState.instance
+        .setDayNightBlendFactor(_controller.dayNightBlendFactor);
   }
 
   Widget leftSideContent() {
@@ -319,213 +233,25 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       child: ListView(
         shrinkWrap: true,
         children: [
-          getListAction(
-            'Rotate',
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Switch(
-                    value: _controller.isRotating,
-                    onChanged: (value) {
-                      if (value) {
-                        _controller.startRotation();
-                      } else {
-                        _controller.stopRotation();
-                      }
-                      setState(() {});
-                    }),
-                IconButton(
-                    onPressed: () {
-                      _controller.resetRotation();
-                    },
-                    icon: const Icon(Icons.refresh)),
-              ],
-            ),
-          ),
-          getListAction('Rotation speed', Container(),
-              secondary: Slider(
-                  value: _controller.rotationSpeed,
-                  onChanged: _controller.isRotating
-                      ? (value) {
-                          _controller.rotationSpeed = value;
-                          setState(() {});
-                        }
-                      : null)),
-          getListAction('Zoom', Container(),
-              secondary: Slider(
-                  min: _controller.minZoom,
-                  max: _controller.maxZoom,
-                  value: _controller.zoom,
-                  divisions: 8,
-                  onChanged: (value) {
-                    _controller.setZoom(value);
-                    setState(() {});
-                  })),
-          getDividerText('Day/Night Cycle'),
-          getListAction(
-            'Enable',
-            Switch(
-                value: _controller.isDayNightCycleEnabled,
-                onChanged: (value) {
-                  _controller.setDayNightCycleEnabled(value);
-                  setState(() {});
-                }),
-          ),
-          getListAction(
-            'Animate',
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Switch(
-                    value: _isDayNightAnimating,
-                    onChanged: _controller.isDayNightCycleEnabled
-                        ? (value) {
-                            if (value) {
-                              _controller.startDayNightCycle(
-                                  cycleDuration: const Duration(seconds: 30));
-                              _isDayNightAnimating = true;
-                            } else {
-                              _controller.stopDayNightCycle();
-                              _isDayNightAnimating = false;
-                            }
-                            setState(() {});
-                          }
-                        : null),
-                IconButton(
-                    onPressed: _controller.isDayNightCycleEnabled
-                        ? () {
-                            _controller.stopDayNightCycle();
-                            _controller.setSunPosition(
-                                longitude: 0, latitude: 0);
-                            if (_isDayNightAnimating) {
-                              _controller.startDayNightCycle(
-                                  cycleDuration: const Duration(seconds: 30));
-                            }
-                            setState(() {});
-                          }
-                        : null,
-                    icon: const Icon(Icons.refresh)),
-              ],
-            ),
-          ),
-          getListAction('Sun Position', Container(),
-              secondary: Column(
-                children: [
-                  Text(
-                      'Longitude: ${_controller.sunLongitude.toStringAsFixed(1)}°'),
-                  Slider(
-                      min: -180,
-                      max: 180,
-                      value: _controller.sunLongitude,
-                      onChanged: _controller.isDayNightCycleEnabled
-                          ? (value) {
-                              _controller.setSunPosition(longitude: value);
-                              setState(() {});
-                            }
-                          : null),
-                  Text(
-                      'Latitude: ${_controller.sunLatitude.toStringAsFixed(1)}°'),
-                  Slider(
-                      min: -23.5,
-                      max: 23.5,
-                      value: _controller.sunLatitude.clamp(-23.5, 23.5),
-                      onChanged: _controller.isDayNightCycleEnabled
-                          ? (value) {
-                              _controller.setSunPosition(latitude: value);
-                              setState(() {});
-                            }
-                          : null),
-                ],
+          RotationControl(controller: _controller),
+          RotationSpeedControl(controller: _controller),
+          ZoomControl(controller: _controller),
+          const DividerText(text: 'Day/Night Cycle'),
+          DayNightEnableControl(controller: _controller),
+          DayNightAnimateControl(controller: _controller),
+          SunPositionControl(controller: _controller),
+          BlendFactorControl(controller: _controller),
+          RealTimeSunControl(controller: _controller),
+          const DividerText(text: 'Points'),
+          ...points.map((point) => PointControl(
+                controller: _controller,
+                point: point,
               )),
-          getListAction('Blend Factor', Container(),
-              secondary: Slider(
-                  min: 0.05,
-                  max: 0.5,
-                  value: _controller.dayNightBlendFactor,
-                  onChanged: _controller.isDayNightCycleEnabled
-                      ? (value) {
-                          _controller.setDayNightBlendFactor(value);
-                          setState(() {});
-                        }
-                      : null)),
-          getListAction(
-            'Real Time Sun',
-            Switch(
-                value: _controller.useRealTimeSunPosition,
-                onChanged: _controller.isDayNightCycleEnabled
-                    ? (value) {
-                        _controller.setUseRealTimeSunPosition(value);
-                        setState(() {});
-                      }
-                    : null),
-          ),
-          getDividerText('Points'),
-          ...points
-              .map((e) => getListAction(
-                  e.label ?? '',
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Checkbox(
-                        value: _controller.points
-                            .where((element) => element.id == e.id)
-                            .isNotEmpty,
-                        onChanged: (value) {
-                          if (value == true) {
-                            _controller.addPoint(e);
-                          } else {
-                            _controller.removePoint(e.id);
-                          }
-                          setState(() {});
-                        },
-                      ),
-                      const SizedBox(
-                        width: 10,
-                      ),
-                      IconButton(
-                          onPressed: () {
-                            _controller.focusOnCoordinates(e.coordinates,
-                                animate: true);
-                          },
-                          icon: const Icon(Icons.location_on))
-                    ],
-                  ),
-                  secondary: _controller.points
-                          .where((element) => element.id == e.id)
-                          .isNotEmpty
-                      ? Row(
-                          children: [
-                            Slider(
-                                value: e.style.size / 30,
-                                onChanged: (value) {
-                                  value = value * 30;
-                                  _controller.updatePoint(e.id,
-                                      style: e.style.copyWith(size: value));
-                                  e.style = e.style.copyWith(size: value);
-                                  setState(() {});
-                                }),
-                          ],
-                        )
-                      : null))
-              .toList(),
-          getDividerText('Connections'),
-          ...connections
-              .map((e) => getListAction(
-                  e.label ?? '',
-                  Checkbox(
-                    value: _controller.connections
-                        .where((element) => element.id == e.id)
-                        .isNotEmpty,
-                    onChanged: (value) {
-                      if (value == true) {
-                        _controller.addPointConnection(e, animateDraw: true);
-                      } else {
-                        _controller.removePointConnection(e.id);
-                      }
-                      setState(() {});
-                    },
-                  )))
-              .toList(),
+          const DividerText(text: 'Connections'),
+          ...connections.map((connection) => ConnectionControl(
+                controller: _controller,
+                connection: connection,
+              )),
         ],
       ),
     );
@@ -547,7 +273,10 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     return SizedBox(
       width: 220,
       height: MediaQuery.of(context).size.height - 10,
-      child: getTextures(),
+      child: TextureSelector(
+        controller: _controller,
+        textures: _textures,
+      ),
     );
   }
 
@@ -590,19 +319,16 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
           children: [
             FlutterEarthGlobe(
               onZoomChanged: (zoom) {
-                setState(() {});
+                // Update zoom state without setState - only control widgets rebuild
+                GlobeControlsState.instance.setZoom(zoom);
               },
               onTap: (coordinates) {
-                setState(() {
-                  _clickCoordinates = coordinates;
-                });
+                // Use CoordinateState instead of setState for better performance
+                CoordinateState.instance.updateClickCoordinates(coordinates);
               },
               onHover: (coordinates) {
-                if (coordinates == null) return;
-
-                setState(() {
-                  _hoverCoordinates = coordinates;
-                });
+                // Use CoordinateState instead of setState for better performance
+                CoordinateState.instance.updateHoverCoordinates(coordinates);
               },
               controller: _controller,
               radius: radius,
@@ -622,55 +348,8 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
             ),
             Positioned(top: 10, left: 10, child: getLeftSide()),
             Positioned(top: 10, right: 10, child: getRightSide()),
-            Positioned(
-                bottom: 0,
-                width: MediaQuery.of(context).size.width,
-                child: Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 10,
-                  children: [
-                    SizedBox(
-                      width: 250,
-                      child: Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Column(
-                            children: [
-                              Text(
-                                'Hover coordinates',
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                              Text(
-                                  'Latitude: ${_hoverCoordinates?.latitude ?? 0}'),
-                              Text(
-                                  'Longitude: ${_hoverCoordinates?.longitude ?? 0}'),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: 250,
-                      child: Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Column(
-                            children: [
-                              Text(
-                                'Click coordinates',
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                              Text(
-                                  'Latitude: ${_clickCoordinates?.latitude ?? 0}'),
-                              Text(
-                                  'Longitude: ${_clickCoordinates?.longitude ?? 0}'),
-                            ],
-                          ),
-                        ),
-                      ),
-                    )
-                  ],
-                ))
+            const Positioned(
+                bottom: 0, left: 0, right: 0, child: CoordinatesDisplay())
           ],
         ),
       ),
