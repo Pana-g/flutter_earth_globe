@@ -29,6 +29,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
   GlobeCoordinates? _hoverCoordinates;
   GlobeCoordinates? _clickCoordinates;
   late FlutterEarthGlobeController _controller;
+  bool _isDayNightAnimating = false;
   final List<String> _textures = [
     'assets/2k_earth-day.jpg',
     'assets/2k_earth-night.jpg',
@@ -97,12 +98,16 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
   @override
   initState() {
     _controller = FlutterEarthGlobeController(
-        rotationSpeed: 0.05,
-        zoom: 0.5,
-        isRotating: false,
-        isBackgroundFollowingSphereRotation: true,
-        background: Image.asset('assets/2k_stars.jpg').image,
-        surface: Image.asset('assets/2k_earth-day.jpg').image);
+      rotationSpeed: 0.05,
+      zoom: 0.5,
+      isRotating: false,
+      isBackgroundFollowingSphereRotation: true,
+      background: Image.asset('assets/2k_stars.jpg').image,
+      surface: Image.asset('assets/2k_earth-day.jpg').image,
+      nightSurface: Image.asset('assets/2k_earth-night.jpg').image,
+      isDayNightCycleEnabled: false,
+      dayNightBlendFactor: 0.15,
+    );
     points = [
       Point(
           id: '1',
@@ -356,6 +361,104 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
                     _controller.setZoom(value);
                     setState(() {});
                   })),
+          getDividerText('Day/Night Cycle'),
+          getListAction(
+            'Enable',
+            Switch(
+                value: _controller.isDayNightCycleEnabled,
+                onChanged: (value) {
+                  _controller.setDayNightCycleEnabled(value);
+                  setState(() {});
+                }),
+          ),
+          getListAction(
+            'Animate',
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Switch(
+                    value: _isDayNightAnimating,
+                    onChanged: _controller.isDayNightCycleEnabled
+                        ? (value) {
+                            if (value) {
+                              _controller.startDayNightCycle(
+                                  cycleDuration: const Duration(seconds: 30));
+                              _isDayNightAnimating = true;
+                            } else {
+                              _controller.stopDayNightCycle();
+                              _isDayNightAnimating = false;
+                            }
+                            setState(() {});
+                          }
+                        : null),
+                IconButton(
+                    onPressed: _controller.isDayNightCycleEnabled
+                        ? () {
+                            _controller.stopDayNightCycle();
+                            _controller.setSunPosition(
+                                longitude: 0, latitude: 0);
+                            if (_isDayNightAnimating) {
+                              _controller.startDayNightCycle(
+                                  cycleDuration: const Duration(seconds: 30));
+                            }
+                            setState(() {});
+                          }
+                        : null,
+                    icon: const Icon(Icons.refresh)),
+              ],
+            ),
+          ),
+          getListAction('Sun Position', Container(),
+              secondary: Column(
+                children: [
+                  Text(
+                      'Longitude: ${_controller.sunLongitude.toStringAsFixed(1)}°'),
+                  Slider(
+                      min: -180,
+                      max: 180,
+                      value: _controller.sunLongitude,
+                      onChanged: _controller.isDayNightCycleEnabled
+                          ? (value) {
+                              _controller.setSunPosition(longitude: value);
+                              setState(() {});
+                            }
+                          : null),
+                  Text(
+                      'Latitude: ${_controller.sunLatitude.toStringAsFixed(1)}°'),
+                  Slider(
+                      min: -23.5,
+                      max: 23.5,
+                      value: _controller.sunLatitude.clamp(-23.5, 23.5),
+                      onChanged: _controller.isDayNightCycleEnabled
+                          ? (value) {
+                              _controller.setSunPosition(latitude: value);
+                              setState(() {});
+                            }
+                          : null),
+                ],
+              )),
+          getListAction('Blend Factor', Container(),
+              secondary: Slider(
+                  min: 0.05,
+                  max: 0.5,
+                  value: _controller.dayNightBlendFactor,
+                  onChanged: _controller.isDayNightCycleEnabled
+                      ? (value) {
+                          _controller.setDayNightBlendFactor(value);
+                          setState(() {});
+                        }
+                      : null)),
+          getListAction(
+            'Real Time Sun',
+            Switch(
+                value: _controller.useRealTimeSunPosition,
+                onChanged: _controller.isDayNightCycleEnabled
+                    ? (value) {
+                        _controller.setUseRealTimeSunPosition(value);
+                        setState(() {});
+                      }
+                    : null),
+          ),
           getDividerText('Points'),
           ...points
               .map((e) => getListAction(
