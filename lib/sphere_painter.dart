@@ -86,7 +86,11 @@ class SpherePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(CustomPainter oldDelegate) {
-    return true;
+  bool shouldRepaint(covariant SpherePainter oldDelegate) {
+    // Only repaint if the image or style has changed
+    return sphereImage.image != oldDelegate.sphereImage.image ||
+        sphereImage.offset != oldDelegate.sphereImage.offset ||
+        sphereImage.radius != oldDelegate.sphereImage.radius ||
+        style != oldDelegate.style;
   }
 }

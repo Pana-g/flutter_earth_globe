@@ -1,6 +1,6 @@
 name: flutter_earth_globe
 description: "An interactive and fully customizable 3D Globe widget written in pure Dart."
-version: 1.1.0
+version: 2.0.0
 homepage: https://github.com/Pana-g/flutter_earth_globe
 repository: https://github.com/Pana-g/flutter_earth_globe
 
@@ -20,6 +20,9 @@ dev_dependencies:
   flutter_lints: ^2.0.0
 
 flutter:
+  shaders:
+    - shaders/sphere.frag
+    - shaders/background.frag
 
 screenshots:
   - description: 'Flutter Earth Globe Sphere Day view'

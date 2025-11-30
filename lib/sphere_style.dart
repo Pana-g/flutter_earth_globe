@@ -53,4 +53,24 @@ class SphereStyle {
       stops: [0.1, 0.85, 1.0],
     ),
   });
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is SphereStyle &&
+        other.shadowColor == shadowColor &&
+        other.shadowBlurStyle == shadowBlurStyle &&
+        other.shadowBlurSigma == shadowBlurSigma &&
+        other.showShadow == showShadow &&
+        other.showGradientOverlay == showGradientOverlay;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        shadowColor,
+        shadowBlurStyle,
+        shadowBlurSigma,
+        showShadow,
+        showGradientOverlay,
+      );
 }

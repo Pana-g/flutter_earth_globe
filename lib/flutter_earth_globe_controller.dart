@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_earth_globe/misc.dart';
 import 'package:flutter_earth_globe/rotating_globe.dart';
+import 'package:flutter_earth_globe/satellite.dart';
 
 import 'globe_coordinates.dart';
 import 'point.dart';
@@ -27,6 +28,7 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   List<Point> points = []; // The points on the globe.
   List<AnimatedPointConnection> connections =
       []; // The connections between points.
+  List<Satellite> satellites = []; // The satellites orbiting the globe.
   SphereStyle sphereStyle; // The style of the sphere.
   ui.Image? surface; // The surface image of the sphere.
   ui.Image? nightSurface; // The night surface image of the sphere.
@@ -53,6 +55,21 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   double minZoom; // The minimum zoom level of the globe.
   bool isZoomEnabled; // Whether the zoom is enabled.
 
+  // Sensitivity properties
+  double
+      zoomSensitivity; // Sensitivity for scroll/pinch zoom (default 0.8, higher = faster zoom)
+  double
+      panSensitivity; // Sensitivity for panning/rotating the globe (default 1.0, higher = faster pan)
+
+  // Atmospheric glow properties
+  bool showAtmosphere; // Whether to show the atmospheric glow around the globe
+  Color
+      atmosphereColor; // Color of the atmospheric glow (default: Earth-like blue)
+  double atmosphereBlur; // Blur radius for the atmospheric glow (default: 25)
+  double
+      atmosphereThickness; // Thickness of the atmosphere relative to globe radius (default: 0.15)
+  double atmosphereOpacity; // Opacity of the atmospheric glow (default: 0.6)
+
   // Day/Night cycle properties
   bool isDayNightCycleEnabled; // Whether the day/night cycle is enabled.
   double
@@ -63,6 +80,8 @@ class FlutterEarthGlobeController extends ChangeNotifier {
       dayNightBlendFactor; // The sharpness of the day/night transition (0.0 = sharp, 1.0 = very smooth).
   bool
       useRealTimeSunPosition; // Whether to calculate sun position based on real time.
+  DayNightCycleDirection
+      dayNightCycleDirection; // The direction of the day/night cycle animation.
 
   GlobalKey<RotatingGlobeState> globeKey = GlobalKey();
 
@@ -73,8 +92,8 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     this.rotationSpeed = 0.2,
     this.isZoomEnabled = true,
     this.zoom = 1,
-    this.maxZoom = 1.6,
-    this.minZoom = 0.1,
+    this.maxZoom = 2.5,
+    this.minZoom = -1.0, // Allow zooming out further (negative = smaller globe)
     bool isRotating = false,
     this.isBackgroundFollowingSphereRotation = false,
     this.surfaceConfiguration = const ImageConfiguration(),
@@ -86,6 +105,14 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     this.sunLatitude = 0.0,
     this.dayNightBlendFactor = 0.15,
     this.useRealTimeSunPosition = false,
+    this.dayNightCycleDirection = DayNightCycleDirection.leftToRight,
+    this.zoomSensitivity = 0.8,
+    this.panSensitivity = 1.0,
+    this.showAtmosphere = true,
+    this.atmosphereColor = const ui.Color.fromARGB(255, 57, 123, 185),
+    this.atmosphereBlur = 30.0,
+    this.atmosphereThickness = 0.03,
+    this.atmosphereOpacity = 0.2,
   }) {
     assert(minZoom < maxZoom);
     assert(zoom >= minZoom && zoom <= maxZoom);
@@ -110,7 +137,8 @@ class FlutterEarthGlobeController extends ChangeNotifier {
 
   Function()? onResetGlobeRotation;
 
-  Function({Duration cycleDuration})? onStartDayNightCycleAnimation;
+  Function({Duration cycleDuration, DayNightCycleDirection direction})?
+      onStartDayNightCycleAnimation;
   Function()? onStopDayNightCycleAnimation;
 
   void load() {
@@ -137,14 +165,28 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   /// The [cycleDuration] parameter specifies how long one complete day/night cycle takes.
   /// Default is 1 minute for a full 24-hour simulation.
   ///
+  /// The [direction] parameter specifies whether the sun moves left-to-right or right-to-left.
+  /// Default is [DayNightCycleDirection.leftToRight].
+  ///
   /// Example usage:
   /// ```dart
-  /// controller.startDayNightCycle(cycleDuration: Duration(seconds: 30));
+  /// controller.startDayNightCycle(
+  ///   cycleDuration: Duration(seconds: 30),
+  ///   direction: DayNightCycleDirection.rightToLeft,
+  /// );
   /// ```
-  void startDayNightCycle(
-      {Duration cycleDuration = const Duration(minutes: 1)}) {
+  void startDayNightCycle({
+    Duration cycleDuration = const Duration(minutes: 1),
+    DayNightCycleDirection? direction,
+  }) {
     isDayNightCycleEnabled = true;
-    onStartDayNightCycleAnimation?.call(cycleDuration: cycleDuration);
+    if (direction != null) {
+      dayNightCycleDirection = direction;
+    }
+    onStartDayNightCycleAnimation?.call(
+      cycleDuration: cycleDuration,
+      direction: dayNightCycleDirection,
+    );
     notifyListeners();
   }
 
@@ -350,6 +392,130 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   void removePoint(String id) {
     points.removeWhere((element) => element.id == id);
     notifyListeners();
+  }
+
+  /// Adds a [satellite] to the globe.
+  ///
+  /// The [satellite] parameter represents the satellite to be added to the globe.
+  /// Satellites can be stationary (geostationary) or orbiting with defined orbital parameters.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// // Add a geostationary satellite
+  /// controller.addSatellite(Satellite(
+  ///   id: 'geo-sat-1',
+  ///   coordinates: GlobeCoordinates(0, -75.2),
+  ///   altitude: 0.35,
+  ///   label: 'GOES-16',
+  ///   style: SatelliteStyle(size: 6, color: Colors.yellow),
+  /// ));
+  ///
+  /// // Add an orbiting satellite (ISS-like)
+  /// controller.addSatellite(Satellite(
+  ///   id: 'iss',
+  ///   coordinates: GlobeCoordinates(0, 0),
+  ///   altitude: 0.06,
+  ///   label: 'ISS',
+  ///   orbit: SatelliteOrbit(
+  ///     inclination: 51.6,
+  ///     period: Duration(seconds: 30), // Faster for demo
+  ///   ),
+  ///   style: SatelliteStyle(
+  ///     size: 8,
+  ///     color: Colors.white,
+  ///     showOrbitPath: true,
+  ///   ),
+  /// ));
+  /// ```
+  void addSatellite(Satellite satellite) {
+    satellites.add(satellite);
+    notifyListeners();
+  }
+
+  /// Updates an existing [satellite] on the globe.
+  ///
+  /// The [id] parameter represents the id of the satellite to be updated.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// controller.updateSatellite('iss',
+  ///   label: 'International Space Station',
+  ///   style: SatelliteStyle(size: 10, color: Colors.blue),
+  /// );
+  /// ```
+  void updateSatellite(
+    String id, {
+    GlobeCoordinates? coordinates,
+    double? altitude,
+    String? label,
+    Widget? Function(BuildContext context, Satellite satellite, bool isHovering,
+            bool isVisible)?
+        labelBuilder,
+    bool? isLabelVisible,
+    Offset? labelOffset,
+    SatelliteStyle? style,
+    TextStyle? labelTextStyle,
+    SatelliteOrbit? orbit,
+    VoidCallback? onTap,
+    VoidCallback? onHover,
+  }) {
+    final index = satellites.indexWhere((element) => element.id == id);
+    if (index != -1) {
+      satellites[index] = satellites[index].copyWith(
+        coordinates: coordinates,
+        altitude: altitude,
+        label: label,
+        labelBuilder: labelBuilder,
+        isLabelVisible: isLabelVisible,
+        labelOffset: labelOffset,
+        style: style,
+        labelTextStyle: labelTextStyle,
+        orbit: orbit,
+        onTap: onTap,
+        onHover: onHover,
+      );
+      notifyListeners();
+    }
+  }
+
+  /// Removes the [satellite] from the globe.
+  ///
+  /// The [id] parameter represents the id of the satellite to be removed.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// controller.removeSatellite('iss');
+  /// ```
+  void removeSatellite(String id) {
+    satellites.removeWhere((element) => element.id == id);
+    notifyListeners();
+  }
+
+  /// Removes all satellites from the globe.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// controller.clearSatellites();
+  /// ```
+  void clearSatellites() {
+    satellites.clear();
+    notifyListeners();
+  }
+
+  /// Gets a satellite by its [id].
+  ///
+  /// Returns null if no satellite with the given id is found.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// final satellite = controller.getSatellite('iss');
+  /// ```
+  Satellite? getSatellite(String id) {
+    try {
+      return satellites.firstWhere((element) => element.id == id);
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Loads the [image] as the surface of the globe.
