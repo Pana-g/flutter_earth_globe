@@ -76,10 +76,10 @@ class CoordinatesDisplay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
+    return const Wrap(
       alignment: WrapAlignment.center,
       spacing: 10,
-      children: const [
+      children: [
         HoverCoordinatesCard(),
         ClickCoordinatesCard(),
       ],

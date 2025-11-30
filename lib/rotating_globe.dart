@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_earth_globe/background_shader_painter.dart';
@@ -148,10 +149,13 @@ class RotatingGlobeState extends State<RotatingGlobe>
   // Cached render data for current frame
   List<PointRenderData> _pointRenderData = [];
   List<ArcRenderData> _arcRenderData = [];
+  List<SatelliteRenderData> _satelliteRenderData = [];
 
   // Track currently hovered elements to avoid redundant callbacks
   String? _currentHoveredPointId;
   String? _currentHoveredConnectionId;
+  // TODO: Add satellite hover support in future
+  // String? _currentHoveredSatelliteId;
 
   /// Calculate the converted radius based on zoom level
   /// Includes safeguards against extreme values that could cause rendering issues
@@ -229,9 +233,19 @@ class RotatingGlobeState extends State<RotatingGlobe>
             }
           }
 
+          // Check if there are any orbiting satellites
+          bool hasOrbitingSatellites = false;
+          for (var satellite in widget.controller.satellites) {
+            if (satellite.orbit != null) {
+              hasOrbitingSatellites = true;
+              break;
+            }
+          }
+
           // Trigger foreground repaint for animations
-          if (hasAnimatingConnections) {
-            _animationNotifier.value++;
+          // Use modulo to prevent integer overflow after long runtime
+          if (hasAnimatingConnections || hasOrbitingSatellites) {
+            _animationNotifier.value = (_animationNotifier.value + 1) % 1000000;
           }
         }
       })
@@ -909,7 +923,25 @@ class RotatingGlobeState extends State<RotatingGlobe>
   /// Build the sphere widget using GPU shader rendering
   Widget? _buildGpuSphere(BoxConstraints constraints) {
     // Check if we can use GPU rendering (also check error count for web stability)
-    if (!_useGpuRendering || !_shaderManager.isReady) return null;
+    if (!_useGpuRendering) return null;
+
+    // If shader manager needs reloading (after forceReload), trigger async reload
+    // but DON'T return null - keep using cached shader if available
+    if (!_shaderManager.isReady && !_shaderManager.loadFailed) {
+      // Trigger async shader reload
+      _shaderManager.loadShader().then((success) {
+        if (mounted && success) {
+          setState(() {
+            _sphereShaderNeedsRecreation = true;
+          });
+        }
+      });
+      // If we have a cached shader, continue using it
+      // Only return null if we have no shader at all
+      if (_cachedShader == null) return null;
+    }
+
+    if (!_shaderManager.isReady && _cachedShader == null) return null;
     if (_sphereShaderErrorCount >= _maxShaderErrors) {
       // Too many shader errors, fall back to CPU permanently
       _useGpuRendering = false;
@@ -933,23 +965,33 @@ class RotatingGlobeState extends State<RotatingGlobe>
     if (needsRecreation) {
       try {
         // Create new shader with bound textures
-        _cachedShader = _shaderManager.createShaderWithTextures(
+        final newShader = _shaderManager.createShaderWithTextures(
           daySurface: daySurface,
           nightSurface: nightSurface,
         );
-        _cachedDaySurface = daySurface;
-        _cachedNightSurface = nightSurface;
-        _sphereShaderNeedsRecreation = false;
-        // Reset error count on successful creation
-        _sphereShaderErrorCount = 0;
+        // Only update if we successfully got a new shader
+        if (newShader != null) {
+          _cachedShader = newShader;
+          _cachedDaySurface = daySurface;
+          _cachedNightSurface = nightSurface;
+          _sphereShaderNeedsRecreation = false;
+          // Reset error count on successful creation
+          _sphereShaderErrorCount = 0;
+        } else {
+          // Shader creation returned null - mark for retry but keep old shader
+          _sphereShaderNeedsRecreation = true;
+        }
       } catch (e) {
         debugPrint('Error creating sphere shader: $e');
-        _cachedShader = null;
+        // Keep the old cached shader if we have one - don't set to null!
         _sphereShaderErrorCount++;
+        _sphereShaderNeedsRecreation = true;
         if (_sphereShaderErrorCount >= _maxShaderErrors) {
           _useGpuRendering = false;
+          _cachedShader = null; // Only clear on permanent fallback
         }
-        return null;
+        // If we still have an old shader, don't return null
+        if (_cachedShader == null) return null;
       }
     }
 
@@ -990,6 +1032,21 @@ class RotatingGlobeState extends State<RotatingGlobe>
   /// Handle sphere shader paint errors by incrementing error count and potentially falling back to CPU
   void _handleSphereShaderPaintError() {
     _sphereShaderErrorCount++;
+
+    // On web, mark shader for recreation but DON'T clear it
+    // This allows us to keep showing the old shader while we try to create a new one
+    if (kIsWeb && _sphereShaderErrorCount < _maxShaderErrors) {
+      // Mark for recreation on next frame - don't clear the cached shader!
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            _sphereShaderNeedsRecreation = true;
+          });
+        }
+      });
+      return;
+    }
+
     if (_sphereShaderErrorCount >= _maxShaderErrors && mounted) {
       // Schedule a rebuild to fall back to CPU rendering
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1006,6 +1063,20 @@ class RotatingGlobeState extends State<RotatingGlobe>
   /// Handle background shader paint errors
   void _handleBackgroundShaderPaintError() {
     _backgroundShaderErrorCount++;
+
+    // On web, mark shader for recreation but DON'T clear it
+    if (kIsWeb && _backgroundShaderErrorCount < _maxShaderErrors) {
+      // Mark for recreation on next frame - don't clear the cached shader!
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            _backgroundShaderNeedsRecreation = true;
+          });
+        }
+      });
+      return;
+    }
+
     if (_backgroundShaderErrorCount >= _maxShaderErrors && mounted) {
       // Schedule a rebuild to fall back to CPU rendering
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1038,6 +1109,16 @@ class RotatingGlobeState extends State<RotatingGlobe>
     // Calculate arc positions
     _arcRenderData = _foregroundRenderer.calculateConnectionPositions(
       connections: widget.controller.connections,
+      radius: convertedRadius(),
+      rotationY: rotationY,
+      rotationZ: rotationZ,
+      canvasSize: canvasSize,
+      now: now,
+    );
+
+    // Calculate satellite positions
+    _satelliteRenderData = _foregroundRenderer.calculateSatellitePositions(
+      satellites: widget.controller.satellites,
       radius: convertedRadius(),
       rotationY: rotationY,
       rotationZ: rotationZ,
@@ -1112,14 +1193,17 @@ class RotatingGlobeState extends State<RotatingGlobe>
   }
 
   /// Build the Globe.GL-style foreground painter
-  GpuForegroundPainter _buildGpuForegroundPainter() {
+  GpuForegroundPainter _buildGpuForegroundPainter(
+      {bool skipSatelliteShapes = false}) {
     return GpuForegroundPainter(
       points: _pointRenderData,
       arcs: _arcRenderData,
+      satellites: _satelliteRenderData,
       radius: convertedRadius(),
       center: center,
       hoverPoint: _hoverNotifier.value,
       clickPoint: _clickNotifier.value,
+      skipSatelliteShapes: skipSatelliteShapes,
       previousHoveredPointId: _currentHoveredPointId,
       previousHoveredConnectionId: _currentHoveredConnectionId,
       onPointHover: (pointId, position, isHovering, isVisible) {
@@ -1183,32 +1267,57 @@ class RotatingGlobeState extends State<RotatingGlobe>
             radiansToDegrees(widget.radius * math.pow((2 * math.pi), 2) / 360)
         : 0.0;
 
-    // Try GPU rendering for background (also check error count for web stability)
+    // If shader manager needs reloading (after forceReload), trigger async reload
+    // but DON'T wait - keep using cached shader if available
     if (_useGpuBackground &&
-        _backgroundShaderManager.isReady &&
+        !_backgroundShaderManager.isReady &&
+        !_backgroundShaderManager.loadFailed) {
+      // Trigger async shader reload
+      _backgroundShaderManager.loadShader().then((success) {
+        if (mounted && success) {
+          setState(() {
+            _backgroundShaderNeedsRecreation = true;
+          });
+        }
+      });
+      // Continue with cached shader if available
+    }
+
+    // Try GPU rendering for background (also check error count for web stability)
+    // Also try if we have a cached shader even if manager isn't ready
+    if (_useGpuBackground &&
+        (_backgroundShaderManager.isReady || _cachedBackgroundShader != null) &&
         _backgroundShaderErrorCount < _maxShaderErrors) {
       // Check if we need to recreate the shader (texture changed or shader needs recreation)
       final needsRecreation = _cachedBackgroundShader == null ||
           _backgroundShaderNeedsRecreation ||
           _cachedBackgroundTexture != background;
 
-      if (needsRecreation) {
+      if (needsRecreation && _backgroundShaderManager.isReady) {
         try {
-          _cachedBackgroundShader =
-              _backgroundShaderManager.createShaderWithTexture(
+          final newShader = _backgroundShaderManager.createShaderWithTexture(
             starTexture: background,
           );
-          _cachedBackgroundTexture = background;
-          _backgroundShaderNeedsRecreation = false;
-          // Reset error count on successful creation
-          _backgroundShaderErrorCount = 0;
+          // Only update if we successfully got a new shader
+          if (newShader != null) {
+            _cachedBackgroundShader = newShader;
+            _cachedBackgroundTexture = background;
+            _backgroundShaderNeedsRecreation = false;
+            // Reset error count on successful creation
+            _backgroundShaderErrorCount = 0;
+          } else {
+            // Shader creation returned null - mark for retry but keep old shader
+            _backgroundShaderNeedsRecreation = true;
+          }
         } catch (e) {
           debugPrint('Error creating background shader: $e');
-          _cachedBackgroundShader = null;
+          // Keep the old cached shader if we have one
           _backgroundShaderErrorCount++;
-          // Mark for retry unless we've exceeded max errors
-          _backgroundShaderNeedsRecreation =
-              _backgroundShaderErrorCount < _maxShaderErrors;
+          _backgroundShaderNeedsRecreation = true;
+          if (_backgroundShaderErrorCount >= _maxShaderErrors) {
+            _useGpuBackground = false;
+            _cachedBackgroundShader = null;
+          }
         }
       }
 
@@ -1318,7 +1427,9 @@ class RotatingGlobeState extends State<RotatingGlobe>
                     builder: (context, clickValue, child) {
                       return RepaintBoundary(
                         child: CustomPaint(
-                          painter: _buildGpuForegroundPainter(),
+                          // Use Canvas for all foreground elements including satellites
+                          painter: _buildGpuForegroundPainter(
+                              skipSatelliteShapes: false),
                           size:
                               Size(constraints.maxWidth, constraints.maxHeight),
                         ),
@@ -1367,7 +1478,9 @@ class RotatingGlobeState extends State<RotatingGlobe>
                         builder: (context, clickValue, child) {
                           return RepaintBoundary(
                             child: CustomPaint(
-                              painter: _buildGpuForegroundPainter(),
+                              // Use Canvas-based rendering for all foreground elements
+                              painter: _buildGpuForegroundPainter(
+                                  skipSatelliteShapes: false),
                               size: Size(
                                   constraints.maxWidth, constraints.maxHeight),
                             ),

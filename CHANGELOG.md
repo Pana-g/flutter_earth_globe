@@ -1,3 +1,42 @@
+## 2.0.0
+
+### 🚀 Major Performance Improvements
+
+- **GPU-accelerated rendering**: Sphere and background now use fragment shaders for significantly better performance
+- **New shader-based sphere renderer**: Smooth texture mapping with hardware acceleration
+- **New shader-based background renderer**: GPU-powered starry background with parallax effect
+- **Optimized foreground rendering**: Separated repaint boundaries for hover/click events to prevent unnecessary repaints
+
+### ✨ New Features
+
+- **Satellites**: New satellite feature inspired by globe.gl
+  - Add satellites with customizable styles (size, color, glow, shape)
+  - Multiple satellite shapes: circle, square, triangle, star, satellite icon
+  - Orbital animation support with customizable orbital parameters (inclination, period, eccentricity)
+  - Orbit path visualization with optional dashed lines
+  - Size attenuation based on depth
+  - Glow effects with customizable intensity
+- **Enhanced Points**: Points now support tilt effect based on surface angle (Globe.GL style)
+- **Improved Connection Rendering**: Great circle arc rendering with proper 3D projection
+- **Atmospheric Glow**: Enhanced atmospheric effects around the globe
+
+### 🛠 Improvements
+
+- Smooth zoom animations with easing curves (Globe.GL style)
+- Improved deceleration for rotation with natural physics-based movement
+- Better error handling and automatic fallback to CPU rendering when shaders fail
+- Web platform stability improvements with shader recreation on WebGL context issues
+- Replaced deprecated `withOpacity` calls with `withAlpha` for better performance
+
+### 📦 Dependencies
+
+- Added shader assets for GPU rendering
+
+### ⚠️ Breaking Changes
+
+- Removed legacy `foreground_painter.dart` in favor of new `gpu_foreground_painter.dart`
+- Some internal APIs have changed for the new rendering pipeline
+
 ## 1.1.0
 
 - Added Day/Night cycle feature with animated sun position

@@ -136,6 +136,16 @@ class SphereShaderManager {
     }
   }
 
+  /// Force a complete reload of the shader program
+  /// This is useful for web platform where WebGL context can be lost
+  void forceReload() {
+    _program = null;
+    _isLoading = false;
+    _loadFailed = false;
+    _loadError = null;
+    _loadAttempts = 0;
+  }
+
   /// Load the shader program from assets
   Future<bool> loadShader() async {
     if (_program != null) return true;

@@ -196,7 +196,7 @@ _controller.setUseRealTimeSunPosition(true);
 ```dart
 final FlutterEarthGlobeController _controller = FlutterEarthGlobeController();
 _controller.changeSphereStyle(SphereStyle(
-      shadowColor: Colors.orange.withOpacity(0.8),
+      shadowColor: Colors.orange.withAlpha(204),
       shadowBlurSigma: 20));
 controller
 ```

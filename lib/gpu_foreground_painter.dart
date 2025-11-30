@@ -1,11 +1,14 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
+import 'globe_coordinates.dart';
 import 'line_helper.dart';
 import 'math_helper.dart';
 import 'point.dart';
 import 'point_connection.dart';
 import 'point_connection_style.dart';
+import 'satellite.dart';
 
 /// Calculated position data for a point on the globe
 class PointRenderData {
@@ -73,6 +76,44 @@ class ArcRenderData {
   });
 }
 
+/// Calculated position data for a satellite on the globe
+class SatelliteRenderData {
+  final String id;
+  final Offset position2D;
+  final double depth; // 0-1, higher = closer to camera
+  final bool isVisible;
+  final Satellite satellite;
+  final double transitionProgress; // 0-1 for fade in animation
+  final GlobeCoordinates
+      currentPosition; // Current position (for orbiting satellites)
+
+  // 3D surface normal for tilt effect
+  final double normalX;
+  final double normalY;
+  final double normalZ;
+  final double tiltAngle;
+
+  // Orbit path points (if showOrbitPath is enabled)
+  final List<Offset>? orbitPath2D;
+  final List<bool>? orbitPathVisible;
+
+  SatelliteRenderData({
+    required this.id,
+    required this.position2D,
+    required this.depth,
+    required this.isVisible,
+    required this.satellite,
+    required this.currentPosition,
+    this.transitionProgress = 1.0,
+    this.normalX = 1.0,
+    this.normalY = 0.0,
+    this.normalZ = 0.0,
+    this.tiltAngle = 0.0,
+    this.orbitPath2D,
+    this.orbitPathVisible,
+  });
+}
+
 /// Manages transition animations for points and connections
 class TransitionState {
   final DateTime addedAt;
@@ -94,6 +135,7 @@ class GlobeForegroundRenderer {
   // Transition states for animations
   final Map<String, TransitionState> _pointTransitions = {};
   final Map<String, TransitionState> _connectionTransitions = {};
+  final Map<String, TransitionState> _satelliteTransitions = {};
 
   // Time tracking for dash animations
   DateTime? _lastFrameTime;
@@ -371,9 +413,142 @@ class GlobeForegroundRenderer {
     return result;
   }
 
+  /// Calculate render data for all satellites
+  List<SatelliteRenderData> calculateSatellitePositions({
+    required List<Satellite> satellites,
+    required double radius,
+    required double rotationY,
+    required double rotationZ,
+    required Size canvasSize,
+    required DateTime now,
+  }) {
+    final center = Offset(canvasSize.width / 2, canvasSize.height / 2);
+    final List<SatelliteRenderData> result = [];
+
+    for (final satellite in satellites) {
+      // Initialize transition if new satellite
+      if (!_satelliteTransitions.containsKey(satellite.id)) {
+        _satelliteTransitions[satellite.id] = TransitionState(addedAt: now);
+      }
+
+      // Update transition progress
+      final transition = _satelliteTransitions[satellite.id]!;
+      final elapsed = now.difference(transition.addedAt).inMilliseconds;
+      final duration = satellite.style.transitionDuration;
+      transition.transitionProgress =
+          duration > 0 ? (elapsed / duration).clamp(0.0, 1.0) : 1.0;
+
+      // Get current position (handles orbiting satellites)
+      final currentPosition = satellite.getPositionAtTime(now);
+
+      // Calculate satellite radius (globe radius + altitude)
+      final satelliteRadius = radius * (1.0 + satellite.altitude);
+
+      // Calculate 3D position at the satellite's altitude
+      final cartesian3D = getSpherePosition3D(
+        currentPosition,
+        satelliteRadius,
+        rotationY,
+        rotationZ,
+      );
+
+      // Project to 2D
+      final position2D = Offset(
+        center.dx + cartesian3D.y,
+        center.dy - cartesian3D.z,
+      );
+
+      // Visibility check - satellites above the globe can be visible even when
+      // coordinates are "behind" the globe
+      // Use the same logic as arc points for elevated objects
+      final projectedDistFromCenter = math
+          .sqrt(cartesian3D.y * cartesian3D.y + cartesian3D.z * cartesian3D.z);
+      final isAboveSilhouette =
+          projectedDistFromCenter > radius && satellite.altitude > 0;
+      final horizonThreshold = -satellite.altitude * radius * 0.3;
+      final isVisible = cartesian3D.x > horizonThreshold || isAboveSilhouette;
+
+      // Depth calculation for scaling (normalized 0-1)
+      final depth =
+          isVisible ? (cartesian3D.x / satelliteRadius).clamp(0.0, 1.0) : 0.0;
+
+      // Calculate surface normal
+      final normalX = cartesian3D.x / satelliteRadius;
+      final normalY = cartesian3D.y / satelliteRadius;
+      final normalZ = cartesian3D.z / satelliteRadius;
+      final tiltAngle = math.acos(normalX.clamp(-1.0, 1.0));
+
+      // Calculate orbit path if enabled
+      List<Offset>? orbitPath2D;
+      List<bool>? orbitPathVisible;
+
+      if (satellite.style.showOrbitPath && satellite.orbit != null) {
+        orbitPath2D = [];
+        orbitPathVisible = [];
+
+        // Generate orbit path points
+        const numOrbitPoints = 360;
+        final orbitPeriod = satellite.orbit!.period;
+
+        for (int i = 0; i <= numOrbitPoints; i++) {
+          final t = i / numOrbitPoints;
+          final orbitTime = satellite.referenceTime.add(
+            Duration(milliseconds: (orbitPeriod.inMilliseconds * t).round()),
+          );
+
+          final orbitPos = satellite.orbit!
+              .getPositionAtTime(orbitTime, satellite.referenceTime);
+          final orbitCartesian = getSpherePosition3D(
+            orbitPos,
+            satelliteRadius,
+            rotationY,
+            rotationZ,
+          );
+
+          final orbitPoint2D = Offset(
+            center.dx + orbitCartesian.y,
+            center.dy - orbitCartesian.z,
+          );
+          orbitPath2D.add(orbitPoint2D);
+
+          // Visibility check for orbit path
+          final orbitProjDist = math.sqrt(orbitCartesian.y * orbitCartesian.y +
+              orbitCartesian.z * orbitCartesian.z);
+          final orbitAboveSilhouette =
+              orbitProjDist > radius && satellite.altitude > 0;
+          final orbitHorizonThreshold = -satellite.altitude * radius * 0.3;
+          orbitPathVisible.add(
+              orbitCartesian.x > orbitHorizonThreshold || orbitAboveSilhouette);
+        }
+      }
+
+      result.add(SatelliteRenderData(
+        id: satellite.id,
+        position2D: position2D,
+        depth: depth,
+        isVisible: isVisible,
+        satellite: satellite,
+        currentPosition: currentPosition,
+        transitionProgress: transition.transitionProgress,
+        normalX: normalX,
+        normalY: normalY,
+        normalZ: normalZ,
+        tiltAngle: tiltAngle,
+        orbitPath2D: orbitPath2D,
+        orbitPathVisible: orbitPathVisible,
+      ));
+    }
+
+    // Sort by depth (back to front) for proper overlapping
+    result.sort((a, b) => a.depth.compareTo(b.depth));
+
+    return result;
+  }
+
   /// Clean up transitions for removed elements
   void cleanupRemovedElements(
-      List<Point> points, List<AnimatedPointConnection> connections) {
+      List<Point> points, List<AnimatedPointConnection> connections,
+      [List<Satellite>? satellites]) {
     final pointIds = points.map((p) => p.id).toSet();
     final connectionIds = connections.map((c) => c.id).toSet();
 
@@ -381,6 +556,12 @@ class GlobeForegroundRenderer {
     _connectionTransitions
         .removeWhere((key, _) => !connectionIds.contains(key));
     _dashOffsets.removeWhere((key, _) => !connectionIds.contains(key));
+
+    if (satellites != null) {
+      final satelliteIds = satellites.map((s) => s.id).toSet();
+      _satelliteTransitions
+          .removeWhere((key, _) => !satelliteIds.contains(key));
+    }
   }
 }
 
@@ -388,10 +569,15 @@ class GlobeForegroundRenderer {
 class GpuForegroundPainter extends CustomPainter {
   final List<PointRenderData> points;
   final List<ArcRenderData> arcs;
+  final List<SatelliteRenderData> satellites;
   final double radius;
   final Offset center;
   final Offset? hoverPoint;
   final Offset? clickPoint;
+
+  // Whether to skip satellite shape drawing (when using GPU shader for satellites)
+  // Orbit paths and labels will still be drawn via Canvas
+  final bool skipSatelliteShapes;
 
   // Callbacks
   final void Function(
@@ -399,24 +585,31 @@ class GpuForegroundPainter extends CustomPainter {
       onPointHover;
   final void Function(String connectionId, Offset? position, bool isHovering,
       bool isVisible)? onConnectionHover;
+  final void Function(String satelliteId, Offset? position, bool isHovering,
+      bool isVisible)? onSatelliteHover;
   final VoidCallback? onPointClicked;
 
   // Previous state for change detection
   final String? previousHoveredPointId;
   final String? previousHoveredConnectionId;
+  final String? previousHoveredSatelliteId;
 
   GpuForegroundPainter({
     required this.points,
     required this.arcs,
+    required this.satellites,
     required this.radius,
     required this.center,
     this.hoverPoint,
     this.clickPoint,
+    this.skipSatelliteShapes = false,
     this.onPointHover,
     this.onConnectionHover,
+    this.onSatelliteHover,
     this.onPointClicked,
     this.previousHoveredPointId,
     this.previousHoveredConnectionId,
+    this.previousHoveredSatelliteId,
   });
 
   @override
@@ -474,7 +667,11 @@ class GpuForegroundPainter extends CustomPainter {
         if (!clickHandled &&
             clickPoint != null &&
             _isPointOnPath(clickPoint!, path, arc.connection.strokeWidth + 4)) {
-          arc.connection.onTap?.call();
+          // Defer callback to after paint to avoid triggering widget builds during paint
+          final callback = arc.connection.onTap;
+          if (callback != null) {
+            SchedulerBinding.instance.addPostFrameCallback((_) => callback());
+          }
           onPointClicked?.call();
           clickHandled = true;
         }
@@ -514,7 +711,82 @@ class GpuForegroundPainter extends CustomPainter {
       if (!clickHandled &&
           clickPoint != null &&
           hitRect.contains(clickPoint!)) {
-        point.point.onTap?.call();
+        // Defer callback to after paint to avoid triggering widget builds during paint
+        final callback = point.point.onTap;
+        if (callback != null) {
+          SchedulerBinding.instance.addPostFrameCallback((_) => callback());
+        }
+        onPointClicked?.call();
+        clickHandled = true;
+      }
+    }
+
+    // Draw satellites (on top of arcs, as they are elevated objects)
+    String? currentHoveredSatelliteId;
+    for (final satellite in satellites) {
+      if (!satellite.isVisible) {
+        onSatelliteHover?.call(
+            satellite.id, satellite.position2D, false, false);
+        continue;
+      }
+
+      // Draw orbit path first (behind the satellite) - always use Canvas for paths
+      if (satellite.orbitPath2D != null && satellite.orbitPathVisible != null) {
+        _drawOrbitPath(canvas, satellite);
+      }
+
+      // Draw the satellite shape (skip if using GPU shader for satellite shapes)
+      if (!skipSatelliteShapes) {
+        _drawSatellite(canvas, satellite);
+      }
+
+      // Draw label (non-builder labels) - always use Canvas for labels
+      if (satellite.satellite.isLabelVisible &&
+          satellite.satellite.label != null &&
+          satellite.satellite.label!.isNotEmpty &&
+          satellite.satellite.labelBuilder == null) {
+        _drawLabel(
+            canvas,
+            satellite.satellite.label!,
+            satellite.satellite.labelTextStyle,
+            satellite.position2D + satellite.satellite.labelOffset,
+            size);
+      }
+
+      // Calculate hit rect for hover/click
+      final scaledSize =
+          satellite.satellite.style.size * (0.7 + 0.6 * satellite.depth);
+      final hitRect = Rect.fromCenter(
+        center: satellite.position2D,
+        width: scaledSize * 2 + 8,
+        height: scaledSize * 2 + 8,
+      );
+
+      final isHovering = currentHoveredSatelliteId == null &&
+          currentHoveredConnectionId == null &&
+          currentHoveredPointId == null &&
+          hoverPoint != null &&
+          hitRect.contains(hoverPoint!);
+
+      if (isHovering) {
+        currentHoveredSatelliteId = satellite.id;
+        if (satellite.id != previousHoveredSatelliteId) {
+          satellite.satellite.onHover?.call();
+        }
+      }
+
+      onSatelliteHover?.call(
+          satellite.id, satellite.position2D, isHovering, true);
+
+      // Handle click
+      if (!clickHandled &&
+          clickPoint != null &&
+          hitRect.contains(clickPoint!)) {
+        // Defer callback to after paint to avoid triggering widget builds during paint
+        final callback = satellite.satellite.onTap;
+        if (callback != null) {
+          SchedulerBinding.instance.addPostFrameCallback((_) => callback());
+        }
         onPointClicked?.call();
         clickHandled = true;
       }
@@ -546,8 +818,8 @@ class GpuForegroundPainter extends CustomPainter {
     }
 
     final paint = Paint()
-      ..color = connection.style.color
-          .withOpacity(connection.style.color.opacity * arc.transitionProgress)
+      ..color = connection.style.color.withAlpha(
+          (connection.style.color.a * arc.transitionProgress * 255).round())
       ..strokeWidth = connection.style.lineWidth * globeScale
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
@@ -725,6 +997,193 @@ class GpuForegroundPainter extends CustomPainter {
     canvas.drawOval(rect, paint);
 
     canvas.restore();
+  }
+
+  void _drawSatellite(Canvas canvas, SatelliteRenderData satellite) {
+    final style = satellite.satellite.style;
+
+    // Scale satellite relative to globe size
+    const baseRadius = 150.0;
+    final globeScale = radius / baseRadius;
+
+    // Scale based on depth and size attenuation
+    final depthScale =
+        style.sizeAttenuation ? (0.7 + 0.6 * satellite.depth) : 1.0;
+    final scaledSize = style.size * depthScale * globeScale;
+
+    // Apply transition animation
+    final alpha = style.color.opacity * satellite.transitionProgress;
+
+    // Draw glow effect first (behind the satellite)
+    if (style.hasGlow) {
+      final glowColor = style.glowColor ?? style.color;
+      final glowPaint = Paint()
+        ..color = glowColor
+            .withAlpha((alpha * style.glowIntensity * 0.5 * 255).round())
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, scaledSize * 1.5);
+      canvas.drawCircle(satellite.position2D, scaledSize * 1.5, glowPaint);
+    }
+
+    // Draw the satellite based on shape
+    final paint = Paint()
+      ..color = style.color.withAlpha((alpha * 255).round())
+      ..style = PaintingStyle.fill;
+
+    switch (style.shape) {
+      case SatelliteShape.circle:
+        canvas.drawCircle(satellite.position2D, scaledSize, paint);
+        break;
+
+      case SatelliteShape.square:
+        final rect = Rect.fromCenter(
+          center: satellite.position2D,
+          width: scaledSize * 2,
+          height: scaledSize * 2,
+        );
+        canvas.save();
+        canvas.translate(satellite.position2D.dx, satellite.position2D.dy);
+        canvas.rotate(math.pi / 4); // Rotate 45 degrees for diamond shape
+        canvas.translate(-satellite.position2D.dx, -satellite.position2D.dy);
+        canvas.drawRect(rect, paint);
+        canvas.restore();
+        break;
+
+      case SatelliteShape.triangle:
+        final path = Path();
+        path.moveTo(
+            satellite.position2D.dx, satellite.position2D.dy - scaledSize);
+        path.lineTo(satellite.position2D.dx - scaledSize * 0.866,
+            satellite.position2D.dy + scaledSize * 0.5);
+        path.lineTo(satellite.position2D.dx + scaledSize * 0.866,
+            satellite.position2D.dy + scaledSize * 0.5);
+        path.close();
+        canvas.drawPath(path, paint);
+        break;
+
+      case SatelliteShape.star:
+        _drawStar(canvas, satellite.position2D, scaledSize, paint);
+        break;
+
+      case SatelliteShape.satelliteIcon:
+        _drawSatelliteIcon(canvas, satellite.position2D, scaledSize, paint);
+        break;
+    }
+  }
+
+  void _drawStar(Canvas canvas, Offset center, double size, Paint paint) {
+    final path = Path();
+    const points = 5;
+    const innerRadius = 0.4;
+
+    for (int i = 0; i < points * 2; i++) {
+      final angle = (i * math.pi / points) - math.pi / 2;
+      final r = i.isEven ? size : size * innerRadius;
+      final x = center.dx + r * math.cos(angle);
+      final y = center.dy + r * math.sin(angle);
+
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+    path.close();
+    canvas.drawPath(path, paint);
+  }
+
+  void _drawSatelliteIcon(
+      Canvas canvas, Offset center, double size, Paint paint) {
+    // Draw a simple satellite shape: body with two solar panels
+    final bodySize = size * 0.6;
+    final panelWidth = size * 0.8;
+    final panelHeight = size * 0.3;
+
+    // Body (rectangle)
+    final bodyRect = Rect.fromCenter(
+      center: center,
+      width: bodySize,
+      height: bodySize,
+    );
+    canvas.drawRect(bodyRect, paint);
+
+    // Left solar panel
+    final leftPanel = Rect.fromCenter(
+      center: Offset(center.dx - bodySize / 2 - panelWidth / 2, center.dy),
+      width: panelWidth,
+      height: panelHeight,
+    );
+    canvas.drawRect(leftPanel, paint);
+
+    // Right solar panel
+    final rightPanel = Rect.fromCenter(
+      center: Offset(center.dx + bodySize / 2 + panelWidth / 2, center.dy),
+      width: panelWidth,
+      height: panelHeight,
+    );
+    canvas.drawRect(rightPanel, paint);
+  }
+
+  void _drawOrbitPath(Canvas canvas, SatelliteRenderData satellite) {
+    if (satellite.orbitPath2D == null || satellite.orbitPathVisible == null) {
+      return;
+    }
+
+    final style = satellite.satellite.style;
+    final alpha = style.orbitPathColor.a * satellite.transitionProgress * 255;
+
+    final paint = Paint()
+      ..color = style.orbitPathColor.withAlpha(alpha.round())
+      ..strokeWidth = style.orbitPathWidth
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    // Build path with gaps where segments are hidden
+    final path = Path();
+    bool inPath = false;
+
+    for (int i = 0; i < satellite.orbitPath2D!.length; i++) {
+      final isVisible = satellite.orbitPathVisible![i];
+      final point = satellite.orbitPath2D![i];
+
+      if (isVisible) {
+        if (!inPath) {
+          path.moveTo(point.dx, point.dy);
+          inPath = true;
+        } else {
+          path.lineTo(point.dx, point.dy);
+        }
+      } else {
+        inPath = false;
+      }
+    }
+
+    if (style.orbitPathDashed) {
+      // Draw dashed line
+      final pathMetrics = path.computeMetrics();
+      const dashLength = 5.0;
+      const gapLength = 3.0;
+
+      for (final metric in pathMetrics) {
+        double distance = 0;
+        while (distance < metric.length) {
+          final startDash = distance;
+          final endDash = math.min(startDash + dashLength, metric.length);
+
+          if (startDash < metric.length) {
+            final startTangent = metric.getTangentForOffset(startDash);
+            final endTangent = metric.getTangentForOffset(endDash);
+
+            if (startTangent != null && endTangent != null) {
+              canvas.drawLine(
+                  startTangent.position, endTangent.position, paint);
+            }
+          }
+          distance += dashLength + gapLength;
+        }
+      }
+    } else {
+      canvas.drawPath(path, paint);
+    }
   }
 
   void _drawLabel(Canvas canvas, String text, TextStyle? style, Offset position,

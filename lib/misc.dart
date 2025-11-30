@@ -19,7 +19,7 @@ enum DayNightCycleDirection {
 void paintText(String title, material.TextStyle? textStyle, Offset cartesian2D,
     Size size, Canvas canvas) {
   final defaultTextPaint = Paint()
-    ..color = material.Colors.blue.withOpacity(0.7)
+    ..color = material.Colors.blue.withAlpha(179)
     ..strokeWidth = 25
     ..strokeCap = StrokeCap.round
     ..strokeJoin = StrokeJoin.round

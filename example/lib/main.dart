@@ -23,6 +23,7 @@ class Home extends StatefulWidget {
   const Home({Key? key}) : super(key: key);
 
   @override
+  // ignore: library_private_types_in_public_api
   _HomeState createState() => _HomeState();
 }
 
@@ -53,12 +54,12 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
           color: isHovering
-              ? Colors.blueAccent.withOpacity(0.8)
-              : Colors.blueAccent.withOpacity(0.5),
+              ? Colors.blueAccent.withAlpha(204)
+              : Colors.blueAccent.withAlpha(128),
           borderRadius: BorderRadius.circular(8),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withOpacity(0.2),
+                color: Colors.black.withAlpha(51),
                 blurRadius: 10,
                 spreadRadius: 2)
           ]),
@@ -75,12 +76,12 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
           color: isHovering
-              ? Colors.blueAccent.withOpacity(0.8)
-              : Colors.blueAccent.withOpacity(0.5),
+              ? Colors.blueAccent.withAlpha(204)
+              : Colors.blueAccent.withAlpha(128),
           borderRadius: BorderRadius.circular(8),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withOpacity(0.2),
+                color: Colors.black.withAlpha(51),
                 blurRadius: 10,
                 spreadRadius: 2)
           ]),
@@ -141,6 +142,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
           onTap: () {
             Future.delayed(Duration.zero, () {
               showDialog(
+                  // ignore: use_build_context_synchronously
                   context: context,
                   builder: (context) => const AlertDialog(
                         title: Text('Center'),
@@ -252,6 +254,8 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
                 controller: _controller,
                 connection: connection,
               )),
+          const DividerText(text: 'Satellites'),
+          SatelliteControl(controller: _controller),
         ],
       ),
     );
@@ -337,7 +341,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  color: Colors.blue.withOpacity(0.5)),
+                  color: Colors.blue.withAlpha(128)),
               child: Text(
                 'Flutter Earth Globe',
                 style: Theme.of(context)

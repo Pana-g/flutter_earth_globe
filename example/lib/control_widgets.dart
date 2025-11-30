@@ -1,9 +1,11 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_earth_globe/flutter_earth_globe.dart';
 import 'package:flutter_earth_globe/flutter_earth_globe_controller.dart';
 import 'package:flutter_earth_globe/point.dart';
 import 'package:flutter_earth_globe/point_connection.dart';
 import 'package:flutter_earth_globe/sphere_style.dart';
+import 'package:flutter_earth_globe/globe_coordinates.dart';
 import 'globe_controls_state.dart';
 
 /// Rotation control widget - only rebuilds when rotation state changes
@@ -566,8 +568,8 @@ class TextureSelector extends StatelessWidget {
               .map((texture) => Card(
                     clipBehavior: Clip.hardEdge,
                     color: selectedSurface == texture
-                        ? Colors.cyan.withOpacity(0.5)
-                        : Colors.white.withOpacity(0.5),
+                        ? Colors.cyan.withAlpha(128)
+                        : Colors.white.withAlpha(128),
                     child: InkWell(
                       onTap: () {
                         controller.loadSurface(Image.asset(texture).image);
@@ -576,7 +578,7 @@ class TextureSelector extends StatelessWidget {
                             texture.contains('venus') ||
                             texture.contains('mars')) {
                           controller.setSphereStyle(SphereStyle(
-                              shadowColor: Colors.orange.withOpacity(0.8),
+                              shadowColor: Colors.orange.withAlpha(204),
                               shadowBlurSigma: 20));
                         } else {
                           controller.setSphereStyle(const SphereStyle());
@@ -643,6 +645,292 @@ class DividerText extends StatelessWidget {
                 margin: const EdgeInsets.symmetric(horizontal: 8),
                 color: Colors.black38,
                 height: 2,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Satellite control widget for adding and managing satellites
+class SatelliteControl extends StatefulWidget {
+  final FlutterEarthGlobeController controller;
+
+  const SatelliteControl({Key? key, required this.controller})
+      : super(key: key);
+
+  @override
+  State<SatelliteControl> createState() => _SatelliteControlState();
+}
+
+class _SatelliteControlState extends State<SatelliteControl> {
+  int _satelliteCounter = 100;
+  final math.Random _random = math.Random();
+  SatelliteShape? _selectedShape;
+  Color _selectedColor = Colors.cyan;
+  double _selectedSize = 3.0;
+
+  static const List<Color> _colors = [
+    Colors.white,
+    Colors.cyan,
+    Colors.blue,
+    Colors.green,
+    Colors.yellow,
+    Colors.orange,
+    Colors.pink,
+    Colors.purple,
+    Colors.red,
+    Colors.teal,
+  ];
+
+  String _getColorName(Color color) {
+    if (color == Colors.white) return 'White';
+    if (color == Colors.cyan) return 'Cyan';
+    if (color == Colors.blue) return 'Blue';
+    if (color == Colors.green) return 'Green';
+    if (color == Colors.yellow) return 'Yellow';
+    if (color == Colors.orange) return 'Orange';
+    if (color == Colors.pink) return 'Pink';
+    if (color == Colors.purple) return 'Purple';
+    if (color == Colors.red) return 'Red';
+    if (color == Colors.teal) return 'Teal';
+    return 'Unknown';
+  }
+
+  String _getShapeName(SatelliteShape shape) {
+    switch (shape) {
+      case SatelliteShape.circle:
+        return '● Circle';
+      case SatelliteShape.square:
+        return '■ Square';
+      case SatelliteShape.triangle:
+        return '▲ Triangle';
+      case SatelliteShape.star:
+        return '★ Star';
+      case SatelliteShape.satelliteIcon:
+        return '🛰 Satellite';
+    }
+  }
+
+  void _addRandomSatellites(int count) {
+    setState(() {
+      const shapes = SatelliteShape.values;
+
+      for (int i = 0; i < count; i++) {
+        final inclination = _random.nextDouble() * 90;
+        final raan = _random.nextDouble() * 360;
+        final periodSeconds = 10 + _random.nextDouble() * 40;
+        final altitude = 0.05 + _random.nextDouble() * 0.5;
+
+        final orbit = SatelliteOrbit(
+          inclination: inclination,
+          raan: raan,
+          period: Duration(seconds: periodSeconds.round()),
+          initialPhase: _random.nextDouble() * 360,
+          eccentricity: _random.nextDouble() * 0.1,
+        );
+
+        final shape = _selectedShape ?? shapes[_random.nextInt(shapes.length)];
+
+        widget.controller.addSatellite(Satellite(
+          id: 'random-sat-${_satelliteCounter++}',
+          coordinates: const GlobeCoordinates(0, 0),
+          orbit: orbit,
+          altitude: altitude,
+          style: SatelliteStyle(
+            size: _selectedSize,
+            color: _selectedColor,
+            shape: shape,
+            hasGlow: true,
+            glowColor: _selectedColor,
+            glowIntensity: 0.5,
+          ),
+        ));
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 4.0),
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Count: ${widget.controller.satellites.length}',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            // Shape selector dropdown
+            Row(
+              children: [
+                const Text('Shape: ', style: TextStyle(fontSize: 12)),
+                Expanded(
+                  child: DropdownButton<SatelliteShape?>(
+                    value: _selectedShape,
+                    isExpanded: true,
+                    isDense: true,
+                    hint: const Text('Random', style: TextStyle(fontSize: 12)),
+                    items: [
+                      const DropdownMenuItem<SatelliteShape?>(
+                        value: null,
+                        child: Text('Random', style: TextStyle(fontSize: 12)),
+                      ),
+                      ...SatelliteShape.values.map((shape) => DropdownMenuItem(
+                            value: shape,
+                            child: Text(
+                              _getShapeName(shape),
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          )),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedShape = value;
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            // Color selector dropdown
+            Row(
+              children: [
+                const Text('Color: ', style: TextStyle(fontSize: 12)),
+                Expanded(
+                  child: DropdownButton<Color>(
+                    value: _selectedColor,
+                    isExpanded: true,
+                    isDense: true,
+                    items: _colors
+                        .map((color) => DropdownMenuItem(
+                              value: color,
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 16,
+                                    height: 16,
+                                    decoration: BoxDecoration(
+                                      color: color,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: Colors.grey),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    _getColorName(color),
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                            ))
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _selectedColor = value;
+                        });
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            // Size selector
+            Row(
+              children: [
+                const Text('Size: ', style: TextStyle(fontSize: 12)),
+                Expanded(
+                  child: Slider(
+                    value: _selectedSize,
+                    min: 1.0,
+                    max: 8.0,
+                    divisions: 14,
+                    label: _selectedSize.toStringAsFixed(1),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedSize = value;
+                      });
+                    },
+                  ),
+                ),
+                Text(
+                  _selectedSize.toStringAsFixed(1),
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => _addRandomSatellites(1),
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('+1', style: TextStyle(fontSize: 12)),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => _addRandomSatellites(10),
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('+10', style: TextStyle(fontSize: 12)),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => _addRandomSatellites(50),
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('+50', style: TextStyle(fontSize: 12)),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => _addRandomSatellites(100),
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('+100', style: TextStyle(fontSize: 12)),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ElevatedButton.icon(
+              onPressed: () {
+                setState(() {
+                  widget.controller.clearSatellites();
+                });
+              },
+              icon: const Icon(Icons.delete_outline, size: 16),
+              label: const Text('Clear All'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade400,
+                foregroundColor: Colors.white,
               ),
             ),
           ],

@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_earth_globe/misc.dart';
 import 'package:flutter_earth_globe/rotating_globe.dart';
+import 'package:flutter_earth_globe/satellite.dart';
 
 import 'globe_coordinates.dart';
 import 'point.dart';
@@ -27,6 +28,7 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   List<Point> points = []; // The points on the globe.
   List<AnimatedPointConnection> connections =
       []; // The connections between points.
+  List<Satellite> satellites = []; // The satellites orbiting the globe.
   SphereStyle sphereStyle; // The style of the sphere.
   ui.Image? surface; // The surface image of the sphere.
   ui.Image? nightSurface; // The night surface image of the sphere.
@@ -390,6 +392,130 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   void removePoint(String id) {
     points.removeWhere((element) => element.id == id);
     notifyListeners();
+  }
+
+  /// Adds a [satellite] to the globe.
+  ///
+  /// The [satellite] parameter represents the satellite to be added to the globe.
+  /// Satellites can be stationary (geostationary) or orbiting with defined orbital parameters.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// // Add a geostationary satellite
+  /// controller.addSatellite(Satellite(
+  ///   id: 'geo-sat-1',
+  ///   coordinates: GlobeCoordinates(0, -75.2),
+  ///   altitude: 0.35,
+  ///   label: 'GOES-16',
+  ///   style: SatelliteStyle(size: 6, color: Colors.yellow),
+  /// ));
+  ///
+  /// // Add an orbiting satellite (ISS-like)
+  /// controller.addSatellite(Satellite(
+  ///   id: 'iss',
+  ///   coordinates: GlobeCoordinates(0, 0),
+  ///   altitude: 0.06,
+  ///   label: 'ISS',
+  ///   orbit: SatelliteOrbit(
+  ///     inclination: 51.6,
+  ///     period: Duration(seconds: 30), // Faster for demo
+  ///   ),
+  ///   style: SatelliteStyle(
+  ///     size: 8,
+  ///     color: Colors.white,
+  ///     showOrbitPath: true,
+  ///   ),
+  /// ));
+  /// ```
+  void addSatellite(Satellite satellite) {
+    satellites.add(satellite);
+    notifyListeners();
+  }
+
+  /// Updates an existing [satellite] on the globe.
+  ///
+  /// The [id] parameter represents the id of the satellite to be updated.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// controller.updateSatellite('iss',
+  ///   label: 'International Space Station',
+  ///   style: SatelliteStyle(size: 10, color: Colors.blue),
+  /// );
+  /// ```
+  void updateSatellite(
+    String id, {
+    GlobeCoordinates? coordinates,
+    double? altitude,
+    String? label,
+    Widget? Function(BuildContext context, Satellite satellite, bool isHovering,
+            bool isVisible)?
+        labelBuilder,
+    bool? isLabelVisible,
+    Offset? labelOffset,
+    SatelliteStyle? style,
+    TextStyle? labelTextStyle,
+    SatelliteOrbit? orbit,
+    VoidCallback? onTap,
+    VoidCallback? onHover,
+  }) {
+    final index = satellites.indexWhere((element) => element.id == id);
+    if (index != -1) {
+      satellites[index] = satellites[index].copyWith(
+        coordinates: coordinates,
+        altitude: altitude,
+        label: label,
+        labelBuilder: labelBuilder,
+        isLabelVisible: isLabelVisible,
+        labelOffset: labelOffset,
+        style: style,
+        labelTextStyle: labelTextStyle,
+        orbit: orbit,
+        onTap: onTap,
+        onHover: onHover,
+      );
+      notifyListeners();
+    }
+  }
+
+  /// Removes the [satellite] from the globe.
+  ///
+  /// The [id] parameter represents the id of the satellite to be removed.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// controller.removeSatellite('iss');
+  /// ```
+  void removeSatellite(String id) {
+    satellites.removeWhere((element) => element.id == id);
+    notifyListeners();
+  }
+
+  /// Removes all satellites from the globe.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// controller.clearSatellites();
+  /// ```
+  void clearSatellites() {
+    satellites.clear();
+    notifyListeners();
+  }
+
+  /// Gets a satellite by its [id].
+  ///
+  /// Returns null if no satellite with the given id is found.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// final satellite = controller.getSatellite('iss');
+  /// ```
+  Satellite? getSatellite(String id) {
+    try {
+      return satellites.firstWhere((element) => element.id == id);
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Loads the [image] as the surface of the globe.
