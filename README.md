@@ -205,6 +205,70 @@ _controller.changeSphereStyle(SphereStyle(
 controller
 ```
 
+#### Add Satellites
+
+Add satellites to the globe with customizable styles and optional orbital animations. Inspired by [Globe.GL](https://globe.gl/).
+
+```dart
+final FlutterEarthGlobeController _controller = FlutterEarthGlobeController();
+
+// Add a stationary (geostationary) satellite
+_controller.addSatellite(Satellite(
+  id: 'geo-sat-1',
+  coordinates: GlobeCoordinates(0, -75.2),
+  altitude: 0.35, // Height above the globe surface
+  label: 'GOES-16',
+  isLabelVisible: true,
+  style: SatelliteStyle(
+    size: 6,
+    color: Colors.yellow,
+    shape: SatelliteShape.circle,
+    hasGlow: true,
+    glowColor: Colors.yellow,
+    glowIntensity: 0.5,
+  ),
+));
+
+// Add an orbiting satellite (ISS-like)
+_controller.addSatellite(Satellite(
+  id: 'iss',
+  coordinates: GlobeCoordinates(0, 0), // Starting position (used if no orbit)
+  altitude: 0.06,
+  label: 'ISS',
+  isLabelVisible: true,
+  orbit: SatelliteOrbit(
+    inclination: 51.6,        // Orbital inclination in degrees
+    period: Duration(seconds: 30), // Orbital period (faster for demo)
+    raan: 0.0,                // Right ascension of ascending node
+    initialPhase: 0.0,        // Starting phase in degrees
+  ),
+  style: SatelliteStyle(
+    size: 8,
+    color: Colors.white,
+    shape: SatelliteShape.satelliteIcon,
+    showOrbitPath: true,      // Show the orbital path
+    orbitPathColor: Colors.white.withAlpha(77),
+    orbitPathWidth: 1.0,
+  ),
+));
+```
+
+##### Managing Satellites
+
+```dart
+// Update an existing satellite
+_controller.updateSatellite('iss',
+  label: 'International Space Station',
+  style: SatelliteStyle(size: 10, color: Colors.blue),
+);
+
+// Remove a satellite
+_controller.removeSatellite('geo-sat-1');
+
+// Clear all satellites
+_controller.clearSatellites();
+```
+
 ## Contributors
 
 We would like to thank all the contributors who have helped make this project a success. Your contributions, big or small, make a significant impact on the development and improvement of this project.
