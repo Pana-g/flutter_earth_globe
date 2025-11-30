@@ -34,14 +34,14 @@ import 'starry_background_painter.dart';
 /// The [onTap] callback is called when the sphere is tapped.
 class RotatingGlobe extends StatefulWidget {
   const RotatingGlobe({
-    Key? key,
+    super.key,
     required this.controller,
     required this.radius,
     required this.alignment,
     this.onZoomChanged,
     this.onHover,
     this.onTap,
-  }) : super(key: key);
+  });
 
   final FlutterEarthGlobeController controller;
   final double radius;
@@ -492,7 +492,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
   }
 
   /// Add a connection to the sphere
-  _addConnection(AnimatedPointConnection connection,
+  void _addConnection(AnimatedPointConnection connection,
       {required bool animateDraw, required Duration animateDrawDuration}) {
     if (animateDraw) {
       final animation = AnimationController(
@@ -511,7 +511,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
   }
 
   /// Update the state of the sphere
-  _update() {
+  void _update() {
     if (mounted) setState(() {});
   }
 
@@ -868,7 +868,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
   }
 
   /// Handle tap event
-  onTapEvent(TapDownDetails details) {
+  void onTapEvent(TapDownDetails details) {
     clickPoint = details.localPosition;
     _clickNotifier.value = details.localPosition;
     // Don't call setState - the ValueNotifier will trigger foreground repaint
@@ -900,7 +900,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
   }
 
   /// Handle hover event
-  onHover(PointerEvent event) {
+  void onHover(PointerEvent event) {
     hoveringPoint = event.localPosition;
     _hoverNotifier.value = event.localPosition;
     // Don't call setState - the ValueNotifier will trigger foreground repaint
@@ -928,7 +928,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
   }
 
   /// Update zoom immediately without animation (for continuous gestures)
-  _onZoomUpdated(double scale) {
+  void _onZoomUpdated(double scale) {
     // Ignore invalid scale values
     if (!scale.isFinite) return;
 
@@ -1712,120 +1712,110 @@ class RotatingGlobeState extends State<RotatingGlobe>
                             ),
                           ),
                           if (visiblePoints.isNotEmpty)
-                            ...visiblePoints.entries
-                                .map(
-                                  (e) {
-                                    final point = widget.controller.points
-                                        .where(
-                                          (element) => element.id == e.key,
-                                        )
-                                        .firstOrNull;
-                                    final pos = e.value.position;
-                                    if (point == null ||
-                                        point.labelBuilder == null ||
-                                        pos == null) {
-                                      return null;
+                            ...visiblePoints.entries.map(
+                              (e) {
+                                final point = widget.controller.points
+                                    .where(
+                                      (element) => element.id == e.key,
+                                    )
+                                    .firstOrNull;
+                                final pos = e.value.position;
+                                if (point == null ||
+                                    point.labelBuilder == null ||
+                                    pos == null) {
+                                  return null;
+                                }
+
+                                WidgetsBinding.instance
+                                    .addPostFrameCallback((_) {
+                                  final box = e.value.key.currentContext
+                                      ?.findRenderObject() as RenderBox?;
+                                  if ((e.value.size?.height !=
+                                              box?.size.height ||
+                                          e.value.size?.width !=
+                                              box?.size.width) &&
+                                      box?.size != null) {
+                                    if (visiblePoints.containsKey(e.key)) {
+                                      visiblePoints.update(
+                                          e.key,
+                                          (value) => value.copyWith(
+                                                size: box?.size,
+                                              ));
+                                      setState(() {});
                                     }
+                                  }
+                                });
 
-                                    WidgetsBinding.instance
-                                        .addPostFrameCallback((_) {
-                                      final box = e.value.key.currentContext
-                                          ?.findRenderObject() as RenderBox?;
-                                      if ((e.value.size?.height !=
-                                                  box?.size.height ||
-                                              e.value.size?.width !=
-                                                  box?.size.width) &&
-                                          box?.size != null) {
-                                        if (visiblePoints.containsKey(e.key)) {
-                                          visiblePoints.update(
-                                              e.key,
-                                              (value) => value.copyWith(
-                                                    size: box?.size,
-                                                  ));
-                                          setState(() {});
-                                        }
-                                      }
-                                    });
-
-                                    double width = e.value.size?.width ?? 0;
-                                    double height = e.value.size?.height ?? 0;
-                                    return Positioned(
-                                        key: e.value.key,
-                                        left: pos.dx -
-                                            point.labelOffset.dx -
-                                            (width / 2),
-                                        top: pos.dy -
-                                            point.labelOffset.dy -
-                                            height,
-                                        child: point.labelBuilder!(
-                                                context,
-                                                point,
-                                                e.value.isHovering,
-                                                e.value.isVisible) ??
-                                            Container());
-                                  },
-                                )
-                                .whereType<Widget>()
-                                .toList(),
+                                double width = e.value.size?.width ?? 0;
+                                double height = e.value.size?.height ?? 0;
+                                return Positioned(
+                                    key: e.value.key,
+                                    left: pos.dx -
+                                        point.labelOffset.dx -
+                                        (width / 2),
+                                    top: pos.dy - point.labelOffset.dy - height,
+                                    child: point.labelBuilder!(
+                                            context,
+                                            point,
+                                            e.value.isHovering,
+                                            e.value.isVisible) ??
+                                        Container());
+                              },
+                            ).whereType<Widget>(),
                           if (visibleConnections.isNotEmpty)
-                            ...visibleConnections.entries
-                                .map(
-                                  (e) {
-                                    final connection =
-                                        widget.controller.connections
-                                            .where(
-                                              (element) => element.id == e.key,
-                                            )
-                                            .firstOrNull;
-                                    final pos = e.value.position;
-                                    if (connection == null ||
-                                        connection.labelBuilder == null ||
-                                        pos == null) {
-                                      return null;
+                            ...visibleConnections.entries.map(
+                              (e) {
+                                final connection = widget.controller.connections
+                                    .where(
+                                      (element) => element.id == e.key,
+                                    )
+                                    .firstOrNull;
+                                final pos = e.value.position;
+                                if (connection == null ||
+                                    connection.labelBuilder == null ||
+                                    pos == null) {
+                                  return null;
+                                }
+
+                                WidgetsBinding.instance
+                                    .addPostFrameCallback((_) {
+                                  final box = e.value.key.currentContext
+                                      ?.findRenderObject() as RenderBox?;
+                                  if ((e.value.size?.height !=
+                                              box?.size.height ||
+                                          e.value.size?.width !=
+                                              box?.size.width) &&
+                                      box?.size != null) {
+                                    if (visibleConnections.containsKey(e.key)) {
+                                      visibleConnections.update(
+                                        e.key,
+                                        (value) => value.copyWith(
+                                          size: box?.size,
+                                        ),
+                                      );
+                                      setState(() {});
                                     }
+                                  }
+                                });
 
-                                    WidgetsBinding.instance
-                                        .addPostFrameCallback((_) {
-                                      final box = e.value.key.currentContext
-                                          ?.findRenderObject() as RenderBox?;
-                                      if ((e.value.size?.height !=
-                                                  box?.size.height ||
-                                              e.value.size?.width !=
-                                                  box?.size.width) &&
-                                          box?.size != null) {
-                                        if (visibleConnections
-                                            .containsKey(e.key)) {
-                                          visibleConnections.update(
-                                            e.key,
-                                            (value) => value.copyWith(
-                                              size: box?.size,
-                                            ),
-                                          );
-                                          setState(() {});
-                                        }
-                                      }
-                                    });
-
-                                    double width = e.value.size?.width ?? 0;
-                                    double height = e.value.size?.height ?? 0;
-                                    return Positioned(
-                                        key: e.value.key,
-                                        left: pos.dx -
-                                            connection.labelOffset.dx -
-                                            (width / 2),
-                                        top: pos.dy -
-                                            connection.labelOffset.dy -
-                                            height,
-                                        child: connection.labelBuilder!(
-                                                context,
-                                                connection,
-                                                e.value.isHovering,
-                                                e.value.isVisible) ??
-                                            Container());
-                                  },
-                                )
-                                .whereType<Widget>()
-                                .toList(),
+                                double width = e.value.size?.width ?? 0;
+                                double height = e.value.size?.height ?? 0;
+                                return Positioned(
+                                    key: e.value.key,
+                                    left: pos.dx -
+                                        connection.labelOffset.dx -
+                                        (width / 2),
+                                    top: pos.dy -
+                                        connection.labelOffset.dy -
+                                        height,
+                                    child: connection.labelBuilder!(
+                                            context,
+                                            connection,
+                                            e.value.isHovering,
+                                            e.value.isVisible) ??
+                                        Container());
+                              },
+                            ).whereType<Widget>(),
                         ],
                       );
                     },

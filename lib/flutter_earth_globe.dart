@@ -1,5 +1,5 @@
 /// The main file of the package. It contains the [FlutterEarthGlobe] widget, which is the main widget of the package.
-library flutter_earth_globe;
+library;
 
 import 'globe_coordinates.dart';
 import 'rotating_globe.dart';
@@ -48,14 +48,14 @@ class FlutterEarthGlobe extends StatefulWidget {
   /// )
   /// ```
   const FlutterEarthGlobe({
-    Key? key,
+    super.key,
     required this.radius,
     required this.controller,
     this.alignment = Alignment.center,
     this.onZoomChanged,
     this.onHover,
     this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   FlutterEarthGlobeState createState() => FlutterEarthGlobeState();
