@@ -153,6 +153,76 @@ List<Point> points = [
     }
 ```
 
+#### Create connections between points
+
+```dart
+final FlutterEarthGlobeController _controller = FlutterEarthGlobeController();
+
+// Add a simple solid connection
+_controller.addPointConnection(PointConnection(
+  id: 'connection-1',
+  start: const GlobeCoordinates(51.5072, 0.1276),    // London
+  end: const GlobeCoordinates(40.7128, -74.0060),    // New York
+  label: 'London - New York',
+  isLabelVisible: true,
+  style: PointConnectionStyle(
+    type: PointConnectionType.solid,
+    color: Colors.cyan,
+    lineWidth: 2,
+  ),
+));
+
+// Add an animated dashed connection
+_controller.addPointConnection(PointConnection(
+  id: 'connection-2',
+  start: const GlobeCoordinates(40.7128, -74.0060),  // New York
+  end: const GlobeCoordinates(35.6895, 139.6917),    // Tokyo
+  label: 'New York - Tokyo',
+  isLabelVisible: true,
+  style: PointConnectionStyle(
+    type: PointConnectionType.dashed,
+    color: Colors.orange,
+    dashSize: 4,
+    spacing: 6,
+    dashAnimateTime: 2000,  // Dashes move along the arc over 2 seconds
+    animateOnAdd: true,     // Arc grows when first appearing
+    growthAnimationDuration: 1500,
+  ),
+));
+
+// Add a dotted connection
+_controller.addPointConnection(PointConnection(
+  id: 'connection-3',
+  start: const GlobeCoordinates(35.6895, 139.6917), // Tokyo
+  end: const GlobeCoordinates(51.5072, 0.1276),     // London
+  style: PointConnectionStyle(
+    type: PointConnectionType.dotted,
+    color: Colors.green,
+    dotSize: 2,
+    spacing: 4,
+  ),
+  curveScale: 2.0,  // Higher arc curve
+  onTap: () {
+    print('Connection tapped!');
+  },
+));
+```
+
+##### PointConnectionStyle Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `type` | `PointConnectionType` | solid | Line type: solid, dashed, or dotted |
+| `color` | `Color` | white | Color of the connection line |
+| `lineWidth` | `double` | 1.0 | Width of solid lines |
+| `dashSize` | `double` | 4.0 | Length of dashes |
+| `dotSize` | `double` | 1.0 | Size of dots |
+| `spacing` | `double` | 8.0 | Space between dashes/dots |
+| `dashAnimateTime` | `int` | 0 | Time (ms) for dash to travel the arc (0 = disabled) |
+| `transitionDuration` | `int` | 500 | Fade in/out duration (ms) |
+| `animateOnAdd` | `bool` | true | Animate arc growth when added |
+| `growthAnimationDuration` | `int` | 1000 | Arc growth animation duration (ms) |
+
 #### Load a background image that follows the rotation of the sphere and a sphere surface texture image
 
 ```dart
