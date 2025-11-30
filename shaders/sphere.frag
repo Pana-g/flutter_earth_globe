@@ -68,20 +68,39 @@ void main() {
     vec2 pos = fragCoord - center;
     
     // Calculate distance from center
-    float distSquared = dot(pos, pos);
+    float dist = length(pos);
     float radiusSquared = uRadius * uRadius;
     
-    // If outside the sphere, discard (transparent)
-    if (distSquared > radiusSquared) {
+    // Anti-aliasing with fixed edge width for smooth edges
+    // Use 1.5 pixels of smoothing at the edge
+    float edgeWidth = 1.5;
+    
+    // Smooth transition at the edge
+    float edgeAlpha = 1.0 - smoothstep(uRadius - edgeWidth, uRadius + edgeWidth * 0.5, dist);
+    
+    // If completely outside the AA band, output transparent
+    if (edgeAlpha <= 0.001) {
         fragColor = vec4(0.0);
         return;
     }
     
+    // For pixels at the edge, we need to calculate z carefully
+    // Clamp distance to just inside the sphere for stable z calculation
+    float effectiveDist = min(dist, uRadius - 0.5);
+    float distSquared = effectiveDist * effectiveDist;
+    
     // Calculate z coordinate on sphere surface
     float z = sqrt(radiusSquared - distSquared);
     
+    // For edge pixels, scale pos to stay on sphere surface
+    // This ensures proper texture sampling at the edge
+    vec2 effectivePos = pos;
+    if (dist > effectiveDist) {
+        effectivePos = pos * (effectiveDist / dist);
+    }
+    
     // Create 3D point on sphere
-    vec3 spherePoint = vec3(pos.x, pos.y, z);
+    vec3 spherePoint = vec3(effectivePos.x, effectivePos.y, z);
     
     // Apply combined rotation (Z then X, matching the Dart code)
     mat3 rotX = rotationMatrixX(HALF_PI - uRotationX);
@@ -115,4 +134,9 @@ void main() {
     } else {
         fragColor = dayColor;
     }
+    
+    // Apply anti-aliasing edge smoothing with premultiplied alpha
+    // This ensures proper blending with the background
+    fragColor.rgb *= edgeAlpha;
+    fragColor.a *= edgeAlpha;
 }

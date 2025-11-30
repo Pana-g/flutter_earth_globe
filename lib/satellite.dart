@@ -57,15 +57,15 @@ class SatelliteStyle {
   Map<String, dynamic> toMap() {
     return {
       'size': size,
-      'color': color.value,
+      'color': color.toARGB32(),
       'hasGlow': hasGlow,
-      'glowColor': glowColor?.value,
+      'glowColor': glowColor?.toARGB32(),
       'glowIntensity': glowIntensity,
       'sizeAttenuation': sizeAttenuation,
       'transitionDuration': transitionDuration,
       'shape': shape.index,
       'showOrbitPath': showOrbitPath,
-      'orbitPathColor': orbitPathColor.value,
+      'orbitPathColor': orbitPathColor.toARGB32(),
       'orbitPathWidth': orbitPathWidth,
       'orbitPathDashed': orbitPathDashed,
     };

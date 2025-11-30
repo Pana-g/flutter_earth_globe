@@ -58,10 +58,11 @@ class FlutterEarthGlobe extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  _FlutterEarthGlobeState createState() => _FlutterEarthGlobeState();
+  FlutterEarthGlobeState createState() => FlutterEarthGlobeState();
 }
 
-class _FlutterEarthGlobeState extends State<FlutterEarthGlobe> {
+/// State for the [FlutterEarthGlobe] widget.
+class FlutterEarthGlobeState extends State<FlutterEarthGlobe> {
   @override
   Widget build(BuildContext context) {
     return RotatingGlobe(

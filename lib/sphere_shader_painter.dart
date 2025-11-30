@@ -85,8 +85,11 @@ class SphereShaderPainter extends CustomPainter {
       // uDayNightEnabled
       shader.setFloat(idx++, isDayNightEnabled ? 1.0 : 0.0);
 
-      // Draw using the shader
-      final paint = Paint()..shader = shader;
+      // Draw using the shader with proper alpha blending for anti-aliased edges
+      final paint = Paint()
+        ..shader = shader
+        ..isAntiAlias = true
+        ..blendMode = BlendMode.srcOver;
       canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), paint);
     } catch (e) {
       // On WebGL, shaders can fail during paint - log and notify
@@ -97,9 +100,10 @@ class SphereShaderPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(SphereShaderPainter oldDelegate) {
-    // Always repaint if any values changed - don't compare shader instances
-    // as they may be recreated frequently on web
-    return oldDelegate.radius != radius ||
+    // Always repaint if shader changed (including texture updates)
+    // or if any other values changed
+    return oldDelegate.shader != shader ||
+        oldDelegate.radius != radius ||
         oldDelegate.center != center ||
         oldDelegate.rotationX != rotationX ||
         oldDelegate.rotationZ != rotationZ ||

@@ -110,6 +110,9 @@ class RotatingGlobeState extends State<RotatingGlobe>
   double _cachedSunLatitude = double.nan;
   Size _cachedSize = Size.zero;
   bool _isBuildingSphere = false;
+  // Cached surface references to detect texture changes (CPU rendering)
+  ui.Image? _cachedCpuSurface;
+  ui.Image? _cachedCpuNightSurface;
 
   // GPU shader rendering support
   final SphereShaderManager _shaderManager = SphereShaderManager();
@@ -554,6 +557,10 @@ class RotatingGlobeState extends State<RotatingGlobe>
   bool _isCacheValid(double maxWidth, double maxHeight) {
     if (_cachedSphereImage == null || _isBuildingSphere) return false;
 
+    // Check if surface textures have changed
+    if (_cachedCpuSurface != widget.controller.surface) return false;
+    if (_cachedCpuNightSurface != widget.controller.nightSurface) return false;
+
     final hasDayNightCycle = widget.controller.isDayNightCycleEnabled &&
         widget.controller.nightSurface != null;
 
@@ -579,6 +586,8 @@ class RotatingGlobeState extends State<RotatingGlobe>
     _cachedSunLongitude = widget.controller.sunLongitude;
     _cachedSunLatitude = widget.controller.sunLatitude;
     _cachedSize = Size(maxWidth, maxHeight);
+    _cachedCpuSurface = widget.controller.surface;
+    _cachedCpuNightSurface = widget.controller.nightSurface;
   }
 
   Future<SphereImage?> buildSphere(double maxWidth, double maxHeight) async {
@@ -633,14 +642,49 @@ class RotatingGlobeState extends State<RotatingGlobe>
     // Pre-compute surface data reference for faster access
     final surfaceData = widget.controller.surfaceProcessed!;
 
+    // Anti-aliasing parameters
+    const aaWidth = 1.5; // Width of anti-aliasing band in pixels
+
     for (var y = minY; y < maxY; y++) {
       final sphereY = (height - y + minY - 1).toInt() * widthInt;
       final ySquared = y * y;
       for (var x = minX; x < maxX; x++) {
-        final zSquared = sphereRadiusSquared - x * x - ySquared;
-        if (zSquared > 0) {
-          final z = math.sqrt(zSquared);
-          var vector = Vector3(x, y, z);
+        final distSquared = x * x + ySquared;
+        final dist = math.sqrt(distSquared);
+
+        // Calculate edge alpha for anti-aliasing
+        // Smooth transition from full opacity inside to transparent outside
+        double edgeAlpha = 1.0;
+        if (dist > sphereRadius - aaWidth) {
+          if (dist > sphereRadius + aaWidth * 0.5) {
+            continue; // Completely outside, skip this pixel
+          }
+          // Smooth interpolation at the edge
+          edgeAlpha = (sphereRadius + aaWidth * 0.5 - dist) / (aaWidth * 1.5);
+          edgeAlpha = edgeAlpha.clamp(0.0, 1.0);
+          // Apply smoothstep for better visual quality
+          edgeAlpha = edgeAlpha * edgeAlpha * (3.0 - 2.0 * edgeAlpha);
+        }
+
+        final zSquared = sphereRadiusSquared - distSquared;
+        if (zSquared > 0 || edgeAlpha > 0) {
+          // For edge pixels, use a safe z calculation
+          final safeZSquared = math.max(
+              0.0,
+              sphereRadiusSquared -
+                  math.min(distSquared, sphereRadiusSquared * 0.999));
+          final z = math.sqrt(safeZSquared);
+
+          // For edge pixels, scale position to stay on sphere surface
+          double effectiveX = x;
+          double effectiveY = y;
+          if (dist > sphereRadius * 0.99) {
+            final scale = sphereRadius * 0.99 / dist;
+            effectiveX = x * scale;
+            effectiveY = y * scale;
+          }
+
+          var vector = Vector3(effectiveX, effectiveY, z);
 
           // Apply combined rotation in one step
           vector = combinedRotationMatrix.transform(vector);
@@ -790,6 +834,14 @@ class RotatingGlobeState extends State<RotatingGlobe>
             b = (b * dayFactor + nb * (1 - dayFactor)).round().clamp(0, 255);
             a = (a * dayFactor + na * (1 - dayFactor)).round().clamp(0, 255);
           }
+
+          // Apply edge anti-aliasing alpha
+          a = (a * edgeAlpha).round().clamp(0, 255);
+
+          // Premultiply RGB by alpha for correct blending
+          r = (r * edgeAlpha).round().clamp(0, 255);
+          g = (g * edgeAlpha).round().clamp(0, 255);
+          b = (b * edgeAlpha).round().clamp(0, 255);
 
           final color = (a << 24) | (b << 16) | (g << 8) | r;
           spherePixels[(sphereY + x - minX).toInt()] = color;

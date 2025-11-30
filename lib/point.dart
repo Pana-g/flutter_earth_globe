@@ -179,7 +179,7 @@ class PointStyle {
   Map<String, dynamic> toMap() {
     return <String, dynamic>{
       'size': size,
-      'color': color.value,
+      'color': color.toARGB32(),
       'altitude': altitude,
       'transitionDuration': transitionDuration,
       'merge': merge,

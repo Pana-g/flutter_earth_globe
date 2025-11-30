@@ -113,7 +113,7 @@ class PointConnectionStyle {
       'spacing': spacing,
       'dashSize': dashSize,
       'lineWidth': lineWidth,
-      'color': color.value,
+      'color': color.toARGB32(),
       'dashAnimateTime': dashAnimateTime,
       'transitionDuration': transitionDuration,
       'animateOnAdd': animateOnAdd,

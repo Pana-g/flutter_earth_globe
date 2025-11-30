@@ -1,3 +1,21 @@
+## 2.1.0
+
+### 🐛 Bug Fixes
+
+- **Fixed texture change not updating**: Globe now properly updates when changing textures via `loadSurface()` without requiring manual interaction
+- **Fixed chunky globe edges**: Added anti-aliasing to both GPU shader and CPU fallback rendering for smooth circular edges
+- **Fixed deprecated API warnings**: Replaced deprecated `color.value` with `color.toARGB32()` and `color.opacity` with `color.a`
+- **Fixed private type in public API**: Made `FlutterEarthGlobeState` public to comply with Dart best practices
+
+### ✨ Improvements
+
+- **Improved edge rendering**: Smooth sphere edges using smoothstep-based alpha blending
+- **Better CPU fallback**: Enhanced CPU rendering path with proper anti-aliasing when GPU shaders are unavailable
+- **Shader compatibility**: Removed unsupported `fwidth()` function for better platform compatibility
+- **Cache invalidation**: Proper surface texture tracking in cache validation for both GPU and CPU rendering paths
+
+---
+
 ## 2.0.0
 
 ### 🚀 Major Performance Improvements

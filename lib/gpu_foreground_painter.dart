@@ -382,7 +382,7 @@ class GlobeForegroundRenderer {
       }
 
       // Calculate midpoint for label
-      final midIdx = numSegments ~/ 2;
+      const midIdx = numSegments ~/ 2;
       final midPoint2D = arcPoints2D[midIdx];
 
       // Legacy control point
@@ -951,7 +951,7 @@ class GpuForegroundPainter extends CustomPainter {
     final scaledSize = style.size * depthScale * globeScale;
 
     // Apply transition animation
-    final alpha = style.color.opacity * point.transitionProgress;
+    final alpha = style.color.a * point.transitionProgress;
 
     // Draw point with altitude effect
     final altitudeOffset = style.altitude * point.depth * 2.0 * globeScale;
@@ -1012,7 +1012,7 @@ class GpuForegroundPainter extends CustomPainter {
     final scaledSize = style.size * depthScale * globeScale;
 
     // Apply transition animation
-    final alpha = style.color.opacity * satellite.transitionProgress;
+    final alpha = style.color.a * satellite.transitionProgress;
 
     // Draw glow effect first (behind the satellite)
     if (style.hasGlow) {
