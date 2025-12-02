@@ -1433,7 +1433,8 @@ class RotatingGlobeState extends State<RotatingGlobe>
         // Calculate background zoom: use a reduced zoom factor for realistic parallax effect
         // Background (distant stars) should zoom much less than the globe (foreground)
         final globeZoom = math.pow(2, widget.controller.zoom).toDouble();
-        final backgroundZoom = 1.0 + (globeZoom - 1.0) * 0.15; // 15% of the globe's zoom effect
+        final backgroundZoom =
+            1.0 + (globeZoom - 1.0) * 0.15; // 15% of the globe's zoom effect
         return CustomPaint(
           painter: BackgroundShaderPainter(
             shader: _cachedBackgroundShader!,
@@ -1452,7 +1453,8 @@ class RotatingGlobeState extends State<RotatingGlobe>
     // Calculate background zoom: use a reduced zoom factor for realistic parallax effect
     // Background (distant stars) should zoom much less than the globe (foreground)
     final globeZoom = math.pow(2, widget.controller.zoom).toDouble();
-    final backgroundZoom = 1.0 + (globeZoom - 1.0) * 0.15; // 15% of the globe's zoom effect
+    final backgroundZoom =
+        1.0 + (globeZoom - 1.0) * 0.15; // 15% of the globe's zoom effect
 
     // Fall back to CPU rendering
     return CustomPaint(
