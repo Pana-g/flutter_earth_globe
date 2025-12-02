@@ -13,10 +13,11 @@ jobs:
     - name: Flutter Doctor
       run: flutter doctor
       working-directory: ./
-    - name: Build and Deploy 🚀
-      uses: bluefireteam/flutter-gh-pages@v9
+    - name: Build Web with WASM
+      run: flutter build web --wasm --base-href /flutter_earth_globe/
+      working-directory: example
+    - name: Deploy to GitHub Pages 🚀
+      uses: peaceiris/actions-gh-pages@v4
       with:
-        baseHref: /flutter_earth_globe/
-        targetBranch: gh-pages
-        webRenderer: skwasm
-        workingDir: example
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: example/build/web
