@@ -117,8 +117,10 @@ void main() {
     // Convert to UV coordinates for texture sampling
     // lon is in [-PI, PI], map to [0, 1]
     // lat is in [-PI/2, PI/2], map to [0, 1]
+    // Note: We invert the U coordinate (1.0 - ...) to fix horizontal mirroring
+    // This ensures the texture maps correctly (west on left, east on right)
     vec2 uv;
-    uv.x = (lon + PI) / TWO_PI;
+    uv.x = 1.0 - (lon + PI) / TWO_PI;
     uv.y = (HALF_PI - lat) / PI;
     
     // Sample day texture

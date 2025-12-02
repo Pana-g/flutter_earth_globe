@@ -692,7 +692,9 @@ class RotatingGlobeState extends State<RotatingGlobe>
           final lat = math.asin(vector.z * invSphereRadius);
           final lon = math.atan2(vector.y, vector.x);
 
-          final x0 = (lon + math.pi) * surfaceXRate;
+          // Invert the x coordinate to fix horizontal mirroring
+          // This ensures the texture maps correctly (west on left, east on right)
+          final x0 = (surfaceWidth - 1) - (lon + math.pi) * surfaceXRate;
           final y0 = (math.pi / 2 - lat) * surfaceYRate;
 
           // Bilinear interpolation for smoother texture mapping
@@ -767,7 +769,8 @@ class RotatingGlobeState extends State<RotatingGlobe>
             final nightXRate = (nightWidth - 1) / (2.0 * math.pi);
             final nightYRate = (nightHeight - 1) / math.pi;
 
-            final nx0 = (lon + math.pi) * nightXRate;
+            // Invert the x coordinate to fix horizontal mirroring
+            final nx0 = (nightWidth - 1) - (lon + math.pi) * nightXRate;
             final ny0 = (math.pi / 2 - lat) * nightYRate;
 
             final nx0Floor = nx0.floor();
@@ -946,20 +949,73 @@ class RotatingGlobeState extends State<RotatingGlobe>
     setState(() {});
   }
 
-  /// Handle scroll wheel zoom with smooth animation
-  void _onScrollZoom(double delta) {
+  /// Handle scroll wheel zoom
+  /// Two modes:
+  /// 1. Center zoom (zoomToMousePosition=false): Globe stays centered, zoom from screen center
+  /// 2. Free zoom (zoomToMousePosition=true): Zoom towards cursor, globe moves freely
+  void _onScrollZoom(double delta, {Offset? screenPosition}) {
     // Ignore invalid delta values
     if (!delta.isFinite) return;
 
-    // Logarithmic zoom: zoom change is proportional to current zoom level
-    // This provides consistent zoom speed at all zoom levels like globe.gl
+    // Calculate zoom delta - logarithmic for consistent feel at all zoom levels
     final zoomDelta = -delta * 0.001 * (1.0 + widget.controller.zoom * 0.5);
-
-    // Ensure the zoom delta is valid
     if (!zoomDelta.isFinite) return;
 
-    final targetZoom = widget.controller.zoom + zoomDelta;
-    _animateZoomTo(targetZoom);
+    final currentZoom = widget.controller.zoom;
+    final targetZoom = (currentZoom + zoomDelta)
+        .clamp(widget.controller.minZoom, widget.controller.maxZoom);
+
+    if ((targetZoom - currentZoom).abs() < 0.0001) return;
+
+    if (widget.controller.zoomToMousePosition && screenPosition != null) {
+      // FREE ZOOM MODE: Zoom towards cursor position
+      // The cursor position stays fixed on screen while everything scales around it
+      _applyFreeZoom(currentZoom, targetZoom, screenPosition);
+    } else {
+      // CENTER ZOOM MODE: Globe stays centered, simple zoom
+      // Reset any pan offset to keep globe centered
+      widget.controller.panOffsetX = 0;
+      widget.controller.panOffsetY = 0;
+      _animateZoomTo(targetZoom);
+    }
+  }
+
+  /// Apply free zoom - zoom towards/away from cursor position
+  /// The point under the cursor stays fixed while the entire view scales
+  void _applyFreeZoom(
+      double currentZoom, double targetZoom, Offset cursorScreenPos) {
+    // Get screen center
+    final screenSize = MediaQuery.of(context).size;
+    final screenCenter = Offset(screenSize.width / 2, screenSize.height / 2);
+
+    // Current globe center position on screen
+    final currentGlobeCenter = Offset(
+      screenCenter.dx + widget.controller.panOffsetX,
+      screenCenter.dy + widget.controller.panOffsetY,
+    );
+
+    // Calculate scale ratio
+    final currentScale = math.pow(2, currentZoom).toDouble();
+    final targetScale = math.pow(2, targetZoom).toDouble();
+    final scaleRatio = targetScale / currentScale;
+
+    // The key insight: when we zoom, everything scales around the cursor position
+    // The vector from cursor to any point gets multiplied by scaleRatio
+    //
+    // currentGlobeCenter = cursorPos + (currentGlobeCenter - cursorPos)
+    // newGlobeCenter = cursorPos + (currentGlobeCenter - cursorPos) * scaleRatio
+
+    final cursorToGlobe = currentGlobeCenter - cursorScreenPos;
+    final newGlobeCenter = cursorScreenPos + cursorToGlobe * scaleRatio;
+
+    // Update pan offset (offset from screen center)
+    widget.controller.panOffsetX = newGlobeCenter.dx - screenCenter.dx;
+    widget.controller.panOffsetY = newGlobeCenter.dy - screenCenter.dy;
+
+    // Apply zoom immediately for responsive feel
+    widget.controller.zoom = targetZoom;
+    widget.onZoomChanged?.call(widget.controller.zoom);
+    setState(() {});
   }
 
   /// Get pan sensitivity adjusted for current zoom level
@@ -1374,6 +1430,10 @@ class RotatingGlobeState extends State<RotatingGlobe>
       }
 
       if (_cachedBackgroundShader != null) {
+        // Calculate background zoom: use a reduced zoom factor for realistic parallax effect
+        // Background (distant stars) should zoom much less than the globe (foreground)
+        final globeZoom = math.pow(2, widget.controller.zoom).toDouble();
+        final backgroundZoom = 1.0 + (globeZoom - 1.0) * 0.15; // 15% of the globe's zoom effect
         return CustomPaint(
           painter: BackgroundShaderPainter(
             shader: _cachedBackgroundShader!,
@@ -1381,6 +1441,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
             offsetY: offsetY,
             texWidth: background.width.toDouble(),
             texHeight: background.height.toDouble(),
+            zoom: backgroundZoom,
             onPaintError: _handleBackgroundShaderPaintError,
           ),
           size: Size(constraints.maxWidth, constraints.maxHeight),
@@ -1388,12 +1449,18 @@ class RotatingGlobeState extends State<RotatingGlobe>
       }
     }
 
+    // Calculate background zoom: use a reduced zoom factor for realistic parallax effect
+    // Background (distant stars) should zoom much less than the globe (foreground)
+    final globeZoom = math.pow(2, widget.controller.zoom).toDouble();
+    final backgroundZoom = 1.0 + (globeZoom - 1.0) * 0.15; // 15% of the globe's zoom effect
+
     // Fall back to CPU rendering
     return CustomPaint(
       painter: StarryBackgroundPainter(
         starTexture: background,
         rotationZ: offsetX,
         rotationY: offsetY,
+        zoom: backgroundZoom,
       ),
       size: Size(constraints.maxWidth, constraints.maxHeight),
     );
@@ -1574,8 +1641,19 @@ class RotatingGlobeState extends State<RotatingGlobe>
     if (screenHeight < maxHeight) {
       top = (maxHeight - screenHeight) / 2;
     }
+
+    // Pan offsets are only used in free zoom mode (zoomToMousePosition=true)
+    // In center zoom mode, the globe stays centered
+    final panOffsetX = widget.controller.zoomToMousePosition
+        ? widget.controller.panOffsetX
+        : 0.0;
+    final panOffsetY = widget.controller.zoomToMousePosition
+        ? widget.controller.panOffsetY
+        : 0.0;
+
     return Stack(
       children: [
+        // Background - stays fixed, fills the screen
         LayoutBuilder(builder: (context, constraints) {
           return widget.controller.background == null
               ? const SizedBox.shrink()
@@ -1584,8 +1662,8 @@ class RotatingGlobeState extends State<RotatingGlobe>
                 );
         }),
         Positioned(
-          left: -left,
-          top: -top,
+          left: -left + panOffsetX,
+          top: -top + panOffsetY,
           width: maxWidth,
           height: maxHeight,
           child: Listener(
@@ -1593,7 +1671,10 @@ class RotatingGlobeState extends State<RotatingGlobe>
               // Handle scroll wheel zoom with smooth animation
               if (event is PointerScrollEvent &&
                   widget.controller.isZoomEnabled) {
-                _onScrollZoom(event.scrollDelta.dy);
+                // Use the screen position for zoom-to-cursor, not local position
+                // This gives us the actual cursor position on the screen
+                _onScrollZoom(event.scrollDelta.dy,
+                    screenPosition: event.position);
               }
             },
             child: InteractiveViewer(

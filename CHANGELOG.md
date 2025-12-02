@@ -1,3 +1,11 @@
+## 2.1.2
+
+### 🐛 Bug Fixes
+
+- **Improved background parallax zoom**: Background (starry sky) now zooms at a reduced rate (15% of globe zoom) for a more realistic depth perception. Distant stars appear to stay in place while the globe zooms, creating a natural parallax effect.
+
+---
+
 ## 2.1.1
 
 - Updated to `lints` package with `lints/core.yaml` for stricter analysis

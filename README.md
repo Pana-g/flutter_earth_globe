@@ -5,6 +5,26 @@
 
 Flutter Earth Globe is an interactive 3D sphere widget for Flutter applications. This widget is designed to be easy to use and highly customizable, making it ideal for any application that requires a visually appealing representation of a planet. This package was inspired by [Globe.GL](https://globe.gl/) and [Sphere](https://pub.dev/packages/sphere).
 
+## Table of Contents
+
+- [Live Demo](#live-demo)
+- [Features](#features)
+- [Installation](#installation)
+  - [Web Build Requirements](#web-build-requirements)
+- [Quick Start](#quick-start)
+- [Adding Objects to the Globe](#adding-objects-to-the-globe)
+  - [Points](#points)
+  - [Connections](#connections)
+  - [Satellites](#satellites)
+- [Globe Configuration](#globe-configuration)
+  - [Loading Textures](#loading-textures)
+  - [Day/Night Cycle](#daynight-cycle)
+  - [Sphere Style](#sphere-style)
+- [Contributors](#contributors)
+  - [How to Contribute](#how-to-contribute)
+- [Support the Library](#support-the-library)
+- [License](#license)
+
 # [Live Demo](https://pana-g.github.io/flutter_earth_globe/)
 
 <img alt="image" src="https://raw.githubusercontent.com/Pana-g/flutter_earth_globe/master/screenshots/screenshotEarthDay.png" width="350">
@@ -59,6 +79,18 @@ To install Flutter Earth Globe, follow these steps:
    ```dart
    import 'package:flutter_earth_globe/flutter_earth_globe.dart';
    ```
+
+### Web Build Requirements
+
+> ⚠️ **Important**: When building or running for web, you **must** use the `--wasm` flag for the shaders to work correctly. Without this flag, you may experience rendering issues or strange visual behavior.
+
+```shell
+# Run for web with WASM
+flutter run -d chrome --wasm
+
+# Build for web with WASM
+flutter build web --wasm
+```
 
 ## Quick Start
 

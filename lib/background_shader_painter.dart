@@ -11,6 +11,7 @@ class BackgroundShaderPainter extends CustomPainter {
   final double offsetY;
   final double texWidth;
   final double texHeight;
+  final double zoom;
   final void Function()? onPaintError;
 
   BackgroundShaderPainter({
@@ -19,6 +20,7 @@ class BackgroundShaderPainter extends CustomPainter {
     required this.offsetY,
     required this.texWidth,
     required this.texHeight,
+    this.zoom = 1.0,
     this.onPaintError,
   });
 
@@ -54,6 +56,9 @@ class BackgroundShaderPainter extends CustomPainter {
       shader.setFloat(idx++, texWidth);
       shader.setFloat(idx++, texHeight);
 
+      // uZoom
+      shader.setFloat(idx++, zoom.isFinite && zoom > 0 ? zoom : 1.0);
+
       // Draw using the shader
       final paint = Paint()..shader = shader;
       canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), paint);
@@ -71,7 +76,8 @@ class BackgroundShaderPainter extends CustomPainter {
     return oldDelegate.offsetX != offsetX ||
         oldDelegate.offsetY != offsetY ||
         oldDelegate.texWidth != texWidth ||
-        oldDelegate.texHeight != texHeight;
+        oldDelegate.texHeight != texHeight ||
+        oldDelegate.zoom != zoom;
   }
 }
 

@@ -104,6 +104,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       maxZoom: 5,
       zoom: 0.5,
       isRotating: false,
+      zoomToMousePosition: false,
       isBackgroundFollowingSphereRotation: true,
       background: Image.asset('assets/2k_stars.jpg').image,
       surface: Image.asset('assets/2k_earth-day.jpg').image,

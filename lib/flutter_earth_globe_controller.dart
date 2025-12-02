@@ -83,6 +83,13 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   DayNightCycleDirection
       dayNightCycleDirection; // The direction of the day/night cycle animation.
 
+  bool
+      zoomToMousePosition; // Whether zooming should zoom towards the mouse/pointer position.
+
+  // Pan offset for zoom-to-cursor feature (in pixels)
+  double panOffsetX; // Horizontal pan offset from center
+  double panOffsetY; // Vertical pan offset from center
+
   GlobalKey<RotatingGlobeState> globeKey = GlobalKey();
 
   FlutterEarthGlobeController({
@@ -108,6 +115,9 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     this.dayNightCycleDirection = DayNightCycleDirection.leftToRight,
     this.zoomSensitivity = 0.8,
     this.panSensitivity = 1.0,
+    this.zoomToMousePosition = false,
+    this.panOffsetX = 0.0,
+    this.panOffsetY = 0.0,
     this.showAtmosphere = true,
     this.atmosphereColor = const ui.Color.fromARGB(255, 57, 123, 185),
     this.atmosphereBlur = 30.0,
@@ -159,6 +169,19 @@ class FlutterEarthGlobeController extends ChangeNotifier {
 
   /// Returns true if the globe is ready
   bool get isReady => _isReady;
+
+  /// Resets the pan offset to center the globe in the view.
+  /// This is useful after using zoom-to-cursor to return to the default centered position.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// controller.resetPanOffset();
+  /// ```
+  void resetPanOffset() {
+    panOffsetX = 0.0;
+    panOffsetY = 0.0;
+    notifyListeners();
+  }
 
   /// Starts the day/night cycle animation.
   ///
