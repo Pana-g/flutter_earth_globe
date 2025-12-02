@@ -18,5 +18,5 @@ jobs:
       with:
         baseHref: /flutter_earth_globe/
         targetBranch: gh-pages
-        webRenderer: canvaskit
+        webRenderer: skwasm
         workingDir: example
