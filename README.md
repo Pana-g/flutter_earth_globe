@@ -46,8 +46,6 @@ This package was inspired by [Globe.GL](https://globe.gl/) and [Sphere](https://
 
 <img alt="Day/Night Cycle Animation" src="https://raw.githubusercontent.com/Pana-g/flutter_earth_globe/master/screenshots/earthDayNightCycle.gif" width="350">
 
-<img alt="Satellites" src="https://raw.githubusercontent.com/Pana-g/flutter_earth_globe/master/screenshots/earthDaySatelites.gif" width="350">
-
 <img alt="Satellites with Day/Night Cycle" src="https://raw.githubusercontent.com/Pana-g/flutter_earth_globe/master/screenshots/earthDayNightCycleSatelites.gif" width="350">
 
 <img alt="image" src="https://raw.githubusercontent.com/Pana-g/flutter_earth_globe/master/screenshots/screenshotMoon.png" width="350">
