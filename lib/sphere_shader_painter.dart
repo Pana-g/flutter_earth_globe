@@ -15,6 +15,9 @@ class SphereShaderPainter extends CustomPainter {
   final double sunLatitude;
   final double blendFactor;
   final bool isDayNightEnabled;
+  final bool isSimulatedMode;
+  final Color nightColor;
+  final double nightIntensity;
   final void Function()? onPaintError;
 
   SphereShaderPainter({
@@ -27,6 +30,9 @@ class SphereShaderPainter extends CustomPainter {
     this.sunLatitude = 0.0,
     this.blendFactor = 0.3,
     this.isDayNightEnabled = false,
+    this.isSimulatedMode = false,
+    this.nightColor = const Color.fromARGB(255, 25, 38, 64),
+    this.nightIntensity = 0.15,
     this.onPaintError,
   });
 
@@ -85,6 +91,17 @@ class SphereShaderPainter extends CustomPainter {
       // uDayNightEnabled
       shader.setFloat(idx++, isDayNightEnabled ? 1.0 : 0.0);
 
+      // uDayNightMode (0.0 = textureSwap, 1.0 = simulated)
+      shader.setFloat(idx++, isSimulatedMode ? 1.0 : 0.0);
+
+      // uNightColorR, uNightColorG, uNightColorB (normalized 0-1)
+      shader.setFloat(idx++, nightColor.red / 255.0);
+      shader.setFloat(idx++, nightColor.green / 255.0);
+      shader.setFloat(idx++, nightColor.blue / 255.0);
+
+      // uNightIntensity
+      shader.setFloat(idx++, nightIntensity);
+
       // Draw using the shader with proper alpha blending for anti-aliased edges
       final paint = Paint()
         ..shader = shader
@@ -110,7 +127,10 @@ class SphereShaderPainter extends CustomPainter {
         oldDelegate.sunLongitude != sunLongitude ||
         oldDelegate.sunLatitude != sunLatitude ||
         oldDelegate.blendFactor != blendFactor ||
-        oldDelegate.isDayNightEnabled != isDayNightEnabled;
+        oldDelegate.isDayNightEnabled != isDayNightEnabled ||
+        oldDelegate.isSimulatedMode != isSimulatedMode ||
+        oldDelegate.nightColor != nightColor ||
+        oldDelegate.nightIntensity != nightIntensity;
   }
 }
 

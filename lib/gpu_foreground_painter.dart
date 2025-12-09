@@ -127,6 +127,32 @@ class TransitionState {
   });
 }
 
+/// Cached orbit path data to avoid recalculation every frame
+class CachedOrbitPath {
+  final List<Offset> path2D;
+  final List<bool> pathVisible;
+  final double rotationY;
+  final double rotationZ;
+  final double radius;
+
+  CachedOrbitPath({
+    required this.path2D,
+    required this.pathVisible,
+    required this.rotationY,
+    required this.rotationZ,
+    required this.radius,
+  });
+
+  /// Check if the cache is still valid for the given parameters
+  bool isValidFor(double rotY, double rotZ, double r) {
+    // Use small epsilon for floating point comparison
+    const epsilon = 0.0001;
+    return (rotationY - rotY).abs() < epsilon &&
+        (rotationZ - rotZ).abs() < epsilon &&
+        (radius - r).abs() < epsilon;
+  }
+}
+
 /// Globe.GL-style foreground renderer for points and connections.
 ///
 /// This class calculates positions for all elements and renders them
@@ -142,6 +168,10 @@ class GlobeForegroundRenderer {
 
   // Accumulated dash offsets per connection (for continuous animation)
   final Map<String, double> _dashOffsets = {};
+
+  // Cached orbit paths to avoid expensive recalculation every frame
+  // Key is satellite ID, value is cached path data
+  final Map<String, CachedOrbitPath> _orbitPathCache = {};
 
   /// Calculate render data for all points
   List<PointRenderData> calculatePointPositions({
@@ -478,47 +508,67 @@ class GlobeForegroundRenderer {
       final normalZ = cartesian3D.z / satelliteRadius;
       final tiltAngle = math.acos(normalX.clamp(-1.0, 1.0));
 
-      // Calculate orbit path if enabled
+      // Calculate orbit path if enabled - use caching for performance
       List<Offset>? orbitPath2D;
       List<bool>? orbitPathVisible;
 
       if (satellite.style.showOrbitPath && satellite.orbit != null) {
-        orbitPath2D = [];
-        orbitPathVisible = [];
+        // Check if we have a valid cached orbit path
+        final cachedPath = _orbitPathCache[satellite.id];
+        if (cachedPath != null &&
+            cachedPath.isValidFor(rotationY, rotationZ, satelliteRadius)) {
+          // Use cached path - huge performance win!
+          orbitPath2D = cachedPath.path2D;
+          orbitPathVisible = cachedPath.pathVisible;
+        } else {
+          // Calculate new orbit path
+          orbitPath2D = [];
+          orbitPathVisible = [];
 
-        // Generate orbit path points
-        const numOrbitPoints = 360;
-        final orbitPeriod = satellite.orbit!.period;
+          // Generate orbit path points (reduced from 360 to 180 for performance)
+          const numOrbitPoints = 180;
+          final orbitPeriod = satellite.orbit!.period;
 
-        for (int i = 0; i <= numOrbitPoints; i++) {
-          final t = i / numOrbitPoints;
-          final orbitTime = satellite.referenceTime.add(
-            Duration(milliseconds: (orbitPeriod.inMilliseconds * t).round()),
+          for (int i = 0; i <= numOrbitPoints; i++) {
+            final t = i / numOrbitPoints;
+            final orbitTime = satellite.referenceTime.add(
+              Duration(milliseconds: (orbitPeriod.inMilliseconds * t).round()),
+            );
+
+            final orbitPos = satellite.orbit!
+                .getPositionAtTime(orbitTime, satellite.referenceTime);
+            final orbitCartesian = getSpherePosition3D(
+              orbitPos,
+              satelliteRadius,
+              rotationY,
+              rotationZ,
+            );
+
+            final orbitPoint2D = Offset(
+              center.dx + orbitCartesian.y,
+              center.dy - orbitCartesian.z,
+            );
+            orbitPath2D.add(orbitPoint2D);
+
+            // Visibility check for orbit path
+            final orbitProjDist = math.sqrt(
+                orbitCartesian.y * orbitCartesian.y +
+                    orbitCartesian.z * orbitCartesian.z);
+            final orbitAboveSilhouette =
+                orbitProjDist > radius && satellite.altitude > 0;
+            final orbitHorizonThreshold = -satellite.altitude * radius * 0.3;
+            orbitPathVisible.add(orbitCartesian.x > orbitHorizonThreshold ||
+                orbitAboveSilhouette);
+          }
+
+          // Cache the computed path
+          _orbitPathCache[satellite.id] = CachedOrbitPath(
+            path2D: orbitPath2D,
+            pathVisible: orbitPathVisible,
+            rotationY: rotationY,
+            rotationZ: rotationZ,
+            radius: satelliteRadius,
           );
-
-          final orbitPos = satellite.orbit!
-              .getPositionAtTime(orbitTime, satellite.referenceTime);
-          final orbitCartesian = getSpherePosition3D(
-            orbitPos,
-            satelliteRadius,
-            rotationY,
-            rotationZ,
-          );
-
-          final orbitPoint2D = Offset(
-            center.dx + orbitCartesian.y,
-            center.dy - orbitCartesian.z,
-          );
-          orbitPath2D.add(orbitPoint2D);
-
-          // Visibility check for orbit path
-          final orbitProjDist = math.sqrt(orbitCartesian.y * orbitCartesian.y +
-              orbitCartesian.z * orbitCartesian.z);
-          final orbitAboveSilhouette =
-              orbitProjDist > radius && satellite.altitude > 0;
-          final orbitHorizonThreshold = -satellite.altitude * radius * 0.3;
-          orbitPathVisible.add(
-              orbitCartesian.x > orbitHorizonThreshold || orbitAboveSilhouette);
         }
       }
 
@@ -561,6 +611,8 @@ class GlobeForegroundRenderer {
       final satelliteIds = satellites.map((s) => s.id).toSet();
       _satelliteTransitions
           .removeWhere((key, _) => !satelliteIds.contains(key));
+      // Also cleanup orbit path cache
+      _orbitPathCache.removeWhere((key, _) => !satelliteIds.contains(key));
     }
   }
 }
@@ -1233,8 +1285,15 @@ class GpuForegroundPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant GpuForegroundPainter oldDelegate) {
-    // Always repaint for smooth animations
-    // The animation notifier will handle throttling
-    return true;
+    // Only repaint if the render data has changed
+    // The CustomPaint is already being rebuilt by ValueListenableBuilder when animation updates
+    // so we can compare the actual data to avoid redundant repaints
+    return points != oldDelegate.points ||
+        arcs != oldDelegate.arcs ||
+        satellites != oldDelegate.satellites ||
+        hoverPoint != oldDelegate.hoverPoint ||
+        clickPoint != oldDelegate.clickPoint ||
+        radius != oldDelegate.radius ||
+        center != oldDelegate.center;
   }
 }

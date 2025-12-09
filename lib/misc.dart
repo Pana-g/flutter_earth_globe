@@ -12,6 +12,17 @@ enum DayNightCycleDirection {
   rightToLeft,
 }
 
+/// Enum to define how the day/night cycle renders the night side
+enum DayNightMode {
+  /// Use a separate night texture (e.g., Earth with city lights)
+  /// Requires a night surface texture to be loaded
+  textureSwap,
+
+  /// Simulate night by darkening the day texture
+  /// Does not require a separate night texture
+  simulated,
+}
+
 /// Paints the specified [title] on the [canvas] at the given [cartesian2D] position.
 ///
 /// The [textStyle] parameter is optional and can be used to customize the text style.

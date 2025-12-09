@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'dart:ui' show Color;
 
 /// A state management class for globe controls that uses ValueNotifier
 /// to efficiently update only the widgets that depend on specific control changes.
@@ -21,10 +22,23 @@ class GlobeControlsState {
   // Day/Night cycle controls
   final ValueNotifier<bool> isDayNightCycleEnabled = ValueNotifier<bool>(false);
   final ValueNotifier<bool> isDayNightAnimating = ValueNotifier<bool>(false);
+  final ValueNotifier<bool> isSimulatedNightMode =
+      ValueNotifier<bool>(false); // false = textureSwap, true = simulated
   final ValueNotifier<double> sunLongitude = ValueNotifier<double>(0.0);
   final ValueNotifier<double> sunLatitude = ValueNotifier<double>(0.0);
   final ValueNotifier<double> dayNightBlendFactor = ValueNotifier<double>(0.15);
   final ValueNotifier<bool> useRealTimeSunPosition = ValueNotifier<bool>(false);
+
+  // Simulated night mode controls
+  final ValueNotifier<Color> simulatedNightColor =
+      ValueNotifier<Color>(const Color.fromARGB(255, 25, 38, 64));
+  final ValueNotifier<double> simulatedNightIntensity =
+      ValueNotifier<double>(0.15);
+
+  // Atmosphere controls
+  final ValueNotifier<Color> atmosphereColor =
+      ValueNotifier<Color>(const Color.fromARGB(255, 57, 123, 185));
+  final ValueNotifier<double> atmosphereOpacity = ValueNotifier<double>(0.8);
 
   // Surface selection
   final ValueNotifier<String?> selectedSurface = ValueNotifier<String?>(null);
@@ -66,6 +80,11 @@ class GlobeControlsState {
     isDayNightAnimating.value = value;
   }
 
+  /// Update simulated night mode setting
+  void setSimulatedNightMode(bool value) {
+    isSimulatedNightMode.value = value;
+  }
+
   /// Update sun longitude
   void setSunLongitude(double value) {
     sunLongitude.value = value;
@@ -84,6 +103,26 @@ class GlobeControlsState {
   /// Update real time sun position setting
   void setUseRealTimeSunPosition(bool value) {
     useRealTimeSunPosition.value = value;
+  }
+
+  /// Update simulated night color
+  void setSimulatedNightColor(Color value) {
+    simulatedNightColor.value = value;
+  }
+
+  /// Update simulated night intensity
+  void setSimulatedNightIntensity(double value) {
+    simulatedNightIntensity.value = value;
+  }
+
+  /// Update atmosphere color
+  void setAtmosphereColor(Color value) {
+    atmosphereColor.value = value;
+  }
+
+  /// Update atmosphere opacity
+  void setAtmosphereOpacity(double value) {
+    atmosphereOpacity.value = value;
   }
 
   /// Update selected surface
@@ -153,10 +192,15 @@ class GlobeControlsState {
     zoom.value = 0.5;
     isDayNightCycleEnabled.value = false;
     isDayNightAnimating.value = false;
+    isSimulatedNightMode.value = false;
     sunLongitude.value = 0.0;
     sunLatitude.value = 0.0;
     dayNightBlendFactor.value = 0.15;
     useRealTimeSunPosition.value = false;
+    simulatedNightColor.value = const Color.fromARGB(255, 25, 38, 64);
+    simulatedNightIntensity.value = 0.15;
+    atmosphereColor.value = const Color.fromARGB(255, 57, 123, 185);
+    atmosphereOpacity.value = 0.2;
     selectedSurface.value = null;
     visiblePoints.value = {};
     visibleConnections.value = {};
@@ -170,10 +214,15 @@ class GlobeControlsState {
     zoom.dispose();
     isDayNightCycleEnabled.dispose();
     isDayNightAnimating.dispose();
+    isSimulatedNightMode.dispose();
     sunLongitude.dispose();
     sunLatitude.dispose();
     dayNightBlendFactor.dispose();
     useRealTimeSunPosition.dispose();
+    simulatedNightColor.dispose();
+    simulatedNightIntensity.dispose();
+    atmosphereColor.dispose();
+    atmosphereOpacity.dispose();
     selectedSurface.dispose();
     visiblePoints.dispose();
     visibleConnections.dispose();

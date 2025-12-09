@@ -146,6 +146,9 @@ class RotatingGlobeState extends State<RotatingGlobe>
   // Use ValueNotifier for animation to trigger foreground repaints
   final ValueNotifier<int> _animationNotifier = ValueNotifier<int>(0);
 
+  // Debounce flag to prevent setState loops from label sizing
+  bool _labelSizeUpdateScheduled = false;
+
   // Globe.GL-style foreground renderer for calculating positions
   final GlobeForegroundRenderer _foregroundRenderer = GlobeForegroundRenderer();
 
@@ -1131,6 +1134,10 @@ class RotatingGlobeState extends State<RotatingGlobe>
         sunLatitude: widget.controller.sunLatitude,
         blendFactor: widget.controller.dayNightBlendFactor,
         isDayNightEnabled: hasDayNightCycle,
+        isSimulatedMode:
+            widget.controller.dayNightMode == DayNightMode.simulated,
+        nightColor: widget.controller.simulatedNightColor,
+        nightIntensity: widget.controller.simulatedNightIntensity,
         onPaintError: _handleSphereShaderPaintError,
       ),
       size: Size(constraints.maxWidth, constraints.maxHeight),
@@ -1317,7 +1324,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
       onPointHover: (pointId, position, isHovering, isVisible) {
         if (!mounted) return;
 
-        // Track currently hovered point
+        // Track currently hovered point and trigger label rebuild if changed
         if (isHovering && _currentHoveredPointId != pointId) {
           _currentHoveredPointId = pointId;
         } else if (!isHovering && _currentHoveredPointId == pointId) {
@@ -1326,10 +1333,18 @@ class RotatingGlobeState extends State<RotatingGlobe>
 
         // Update visible point hover state
         if (visiblePoints.containsKey(pointId)) {
-          visiblePoints.update(
-            pointId,
-            (value) => value.copyWith(isHovering: isHovering),
-          );
+          final currentState = visiblePoints[pointId]!;
+          if (currentState.isHovering != isHovering) {
+            visiblePoints.update(
+              pointId,
+              (value) => value.copyWith(isHovering: isHovering),
+            );
+            // Trigger label rebuild when hover state actually changes
+            // Use post-frame callback to avoid rebuilding during paint
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() {});
+            });
+          }
         }
       },
       onConnectionHover: (connectionId, position, isHovering, isVisible) {
@@ -1344,10 +1359,18 @@ class RotatingGlobeState extends State<RotatingGlobe>
 
         // Update visible connection hover state
         if (visibleConnections.containsKey(connectionId)) {
-          visibleConnections.update(
-            connectionId,
-            (value) => value.copyWith(isHovering: isHovering),
-          );
+          final currentState = visibleConnections[connectionId]!;
+          if (currentState.isHovering != isHovering) {
+            visibleConnections.update(
+              connectionId,
+              (value) => value.copyWith(isHovering: isHovering),
+            );
+            // Trigger label rebuild when hover state actually changes
+            // Use post-frame callback to avoid rebuilding during paint
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() {});
+            });
+          }
         }
       },
       onPointClicked: () {
@@ -1519,9 +1542,9 @@ class RotatingGlobeState extends State<RotatingGlobe>
 
   /// Build the sphere content widget (GPU or CPU rendering)
   Widget _buildSphereContent(BoxConstraints constraints) {
-    // Always calculate foreground positions at start of build
-    // This ensures points are visible immediately and positions stay in sync
-    _calculateForegroundPositions(constraints);
+    // Note: _calculateForegroundPositions is called inside ValueListenableBuilder
+    // to ensure it's only calculated when the animation notifier changes
+    // This prevents double-calculation during builds
 
     // Try GPU rendering first
     final gpuWidget = _buildGpuSphere(constraints);
@@ -1543,6 +1566,11 @@ class RotatingGlobeState extends State<RotatingGlobe>
               return ValueListenableBuilder<Offset?>(
                 valueListenable: _hoverNotifier,
                 builder: (context, hoverValue, child) {
+                  // Also recalculate on hover change to ensure hit detection works
+                  // when globe is stationary
+                  if (hoverValue != null) {
+                    _calculateForegroundPositions(constraints);
+                  }
                   return ValueListenableBuilder<Offset?>(
                     valueListenable: _clickNotifier,
                     builder: (context, clickValue, child) {
@@ -1594,6 +1622,11 @@ class RotatingGlobeState extends State<RotatingGlobe>
                   return ValueListenableBuilder<Offset?>(
                     valueListenable: _hoverNotifier,
                     builder: (context, hoverValue, child) {
+                      // Also recalculate on hover change to ensure hit detection works
+                      // when globe is stationary
+                      if (hoverValue != null) {
+                        _calculateForegroundPositions(constraints);
+                      }
                       return ValueListenableBuilder<Offset?>(
                         valueListenable: _clickNotifier,
                         builder: (context, clickValue, child) {
@@ -1809,25 +1842,36 @@ class RotatingGlobeState extends State<RotatingGlobe>
                                   return null;
                                 }
 
-                                WidgetsBinding.instance
-                                    .addPostFrameCallback((_) {
-                                  final box = e.value.key.currentContext
-                                      ?.findRenderObject() as RenderBox?;
-                                  if ((e.value.size?.height !=
-                                              box?.size.height ||
-                                          e.value.size?.width !=
-                                              box?.size.width) &&
-                                      box?.size != null) {
-                                    if (visiblePoints.containsKey(e.key)) {
+                                // Only measure label size once when it first appears
+                                // This prevents setState loops during animation
+                                if (e.value.size == null &&
+                                    !_labelSizeUpdateScheduled) {
+                                  WidgetsBinding.instance
+                                      .addPostFrameCallback((_) {
+                                    if (!mounted) return;
+                                    final box = e.value.key.currentContext
+                                        ?.findRenderObject() as RenderBox?;
+                                    if (box?.size != null &&
+                                        visiblePoints.containsKey(e.key)) {
                                       visiblePoints.update(
                                           e.key,
                                           (value) => value.copyWith(
                                                 size: box?.size,
                                               ));
-                                      setState(() {});
+                                      // Only schedule one setState for all pending size updates
+                                      if (!_labelSizeUpdateScheduled) {
+                                        _labelSizeUpdateScheduled = true;
+                                        WidgetsBinding.instance
+                                            .addPostFrameCallback((_) {
+                                          if (mounted) {
+                                            _labelSizeUpdateScheduled = false;
+                                            setState(() {});
+                                          }
+                                        });
+                                      }
                                     }
-                                  }
-                                });
+                                  });
+                                }
 
                                 double width = e.value.size?.width ?? 0;
                                 double height = e.value.size?.height ?? 0;
@@ -1837,12 +1881,14 @@ class RotatingGlobeState extends State<RotatingGlobe>
                                         point.labelOffset.dx -
                                         (width / 2),
                                     top: pos.dy - point.labelOffset.dy - height,
-                                    child: point.labelBuilder!(
-                                            context,
-                                            point,
-                                            e.value.isHovering,
-                                            e.value.isVisible) ??
-                                        Container());
+                                    child: RepaintBoundary(
+                                      child: point.labelBuilder!(
+                                              context,
+                                              point,
+                                              e.value.isHovering,
+                                              e.value.isVisible) ??
+                                          Container(),
+                                    ));
                               },
                             ).whereType<Widget>(),
                           if (visibleConnections.isNotEmpty)
@@ -1860,26 +1906,37 @@ class RotatingGlobeState extends State<RotatingGlobe>
                                   return null;
                                 }
 
-                                WidgetsBinding.instance
-                                    .addPostFrameCallback((_) {
-                                  final box = e.value.key.currentContext
-                                      ?.findRenderObject() as RenderBox?;
-                                  if ((e.value.size?.height !=
-                                              box?.size.height ||
-                                          e.value.size?.width !=
-                                              box?.size.width) &&
-                                      box?.size != null) {
-                                    if (visibleConnections.containsKey(e.key)) {
+                                // Only measure label size once when it first appears
+                                // This prevents setState loops during animation
+                                if (e.value.size == null &&
+                                    !_labelSizeUpdateScheduled) {
+                                  WidgetsBinding.instance
+                                      .addPostFrameCallback((_) {
+                                    if (!mounted) return;
+                                    final box = e.value.key.currentContext
+                                        ?.findRenderObject() as RenderBox?;
+                                    if (box?.size != null &&
+                                        visibleConnections.containsKey(e.key)) {
                                       visibleConnections.update(
                                         e.key,
                                         (value) => value.copyWith(
                                           size: box?.size,
                                         ),
                                       );
-                                      setState(() {});
+                                      // Only schedule one setState for all pending size updates
+                                      if (!_labelSizeUpdateScheduled) {
+                                        _labelSizeUpdateScheduled = true;
+                                        WidgetsBinding.instance
+                                            .addPostFrameCallback((_) {
+                                          if (mounted) {
+                                            _labelSizeUpdateScheduled = false;
+                                            setState(() {});
+                                          }
+                                        });
+                                      }
                                     }
-                                  }
-                                });
+                                  });
+                                }
 
                                 double width = e.value.size?.width ?? 0;
                                 double height = e.value.size?.height ?? 0;
@@ -1891,12 +1948,14 @@ class RotatingGlobeState extends State<RotatingGlobe>
                                     top: pos.dy -
                                         connection.labelOffset.dy -
                                         height,
-                                    child: connection.labelBuilder!(
-                                            context,
-                                            connection,
-                                            e.value.isHovering,
-                                            e.value.isVisible) ??
-                                        Container());
+                                    child: RepaintBoundary(
+                                      child: connection.labelBuilder!(
+                                              context,
+                                              connection,
+                                              e.value.isHovering,
+                                              e.value.isVisible) ??
+                                          Container(),
+                                    ));
                               },
                             ).whereType<Widget>(),
                         ],

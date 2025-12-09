@@ -61,17 +61,23 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   double
       panSensitivity; // Sensitivity for panning/rotating the globe (default 1.0, higher = faster pan)
 
-  // Atmospheric glow properties
-  bool showAtmosphere; // Whether to show the atmospheric glow around the globe
+  // Atmospheric glow properties (private backing fields)
+  bool _showAtmosphere; // Whether to show the atmospheric glow around the globe
   Color
-      atmosphereColor; // Color of the atmospheric glow (default: Earth-like blue)
-  double atmosphereBlur; // Blur radius for the atmospheric glow (default: 25)
+      _atmosphereColor; // Color of the atmospheric glow (default: Earth-like blue)
+  double _atmosphereBlur; // Blur radius for the atmospheric glow (default: 25)
   double
-      atmosphereThickness; // Thickness of the atmosphere relative to globe radius (default: 0.15)
-  double atmosphereOpacity; // Opacity of the atmospheric glow (default: 0.6)
+      _atmosphereThickness; // Thickness of the atmosphere relative to globe radius (default: 0.15)
+  double _atmosphereOpacity; // Opacity of the atmospheric glow (default: 0.6)
 
   // Day/Night cycle properties
   bool isDayNightCycleEnabled; // Whether the day/night cycle is enabled.
+  DayNightMode
+      _dayNightMode; // The mode for rendering night side (textureSwap or simulated).
+  Color
+      _simulatedNightColor; // The tint color for simulated night mode (default: dark blue).
+  double
+      _simulatedNightIntensity; // How dark the night side is in simulated mode (0.0 = black, 1.0 = full brightness).
   double
       sunLongitude; // The current longitude of the sun (in degrees, -180 to 180).
   double
@@ -108,6 +114,9 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     this.backgroundConfiguration = const ImageConfiguration(),
     this.sphereStyle = const SphereStyle(),
     this.isDayNightCycleEnabled = false,
+    DayNightMode dayNightMode = DayNightMode.textureSwap,
+    Color simulatedNightColor = const ui.Color.fromARGB(255, 25, 38, 64),
+    double simulatedNightIntensity = 0.15,
     this.sunLongitude = 0.0,
     this.sunLatitude = 0.0,
     this.dayNightBlendFactor = 0.15,
@@ -118,12 +127,19 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     this.zoomToMousePosition = false,
     this.panOffsetX = 0.0,
     this.panOffsetY = 0.0,
-    this.showAtmosphere = true,
-    this.atmosphereColor = const ui.Color.fromARGB(255, 57, 123, 185),
-    this.atmosphereBlur = 30.0,
-    this.atmosphereThickness = 0.03,
-    this.atmosphereOpacity = 0.2,
-  }) {
+    bool showAtmosphere = true,
+    Color atmosphereColor = const ui.Color.fromARGB(255, 57, 123, 185),
+    double atmosphereBlur = 30.0,
+    double atmosphereThickness = 0.03,
+    double atmosphereOpacity = 0.2,
+  })  : _showAtmosphere = showAtmosphere,
+        _atmosphereColor = atmosphereColor,
+        _atmosphereBlur = atmosphereBlur,
+        _atmosphereThickness = atmosphereThickness,
+        _atmosphereOpacity = atmosphereOpacity,
+        _simulatedNightColor = simulatedNightColor,
+        _simulatedNightIntensity = simulatedNightIntensity,
+        _dayNightMode = dayNightMode {
     assert(minZoom < maxZoom);
     assert(zoom >= minZoom && zoom <= maxZoom);
     _isRotating = isRotating;
@@ -169,6 +185,98 @@ class FlutterEarthGlobeController extends ChangeNotifier {
 
   /// Returns true if the globe is ready
   bool get isReady => _isReady;
+
+  /// Whether to show the atmospheric glow around the globe
+  bool get showAtmosphere => _showAtmosphere;
+  set showAtmosphere(bool value) {
+    if (_showAtmosphere != value) {
+      _showAtmosphere = value;
+      notifyListeners();
+    }
+  }
+
+  /// Color of the atmospheric glow
+  Color get atmosphereColor => _atmosphereColor;
+  set atmosphereColor(Color value) {
+    if (_atmosphereColor != value) {
+      _atmosphereColor = value;
+      notifyListeners();
+    }
+  }
+
+  /// Blur radius for the atmospheric glow
+  double get atmosphereBlur => _atmosphereBlur;
+  set atmosphereBlur(double value) {
+    if (_atmosphereBlur != value) {
+      _atmosphereBlur = value;
+      notifyListeners();
+    }
+  }
+
+  /// Thickness of the atmosphere relative to globe radius
+  double get atmosphereThickness => _atmosphereThickness;
+  set atmosphereThickness(double value) {
+    if (_atmosphereThickness != value) {
+      _atmosphereThickness = value;
+      notifyListeners();
+    }
+  }
+
+  /// Opacity of the atmospheric glow
+  double get atmosphereOpacity => _atmosphereOpacity;
+  set atmosphereOpacity(double value) {
+    if (_atmosphereOpacity != value) {
+      _atmosphereOpacity = value;
+      notifyListeners();
+    }
+  }
+
+  /// Color tint for simulated night mode
+  Color get simulatedNightColor => _simulatedNightColor;
+  set simulatedNightColor(Color value) {
+    if (_simulatedNightColor != value) {
+      _simulatedNightColor = value;
+      notifyListeners();
+    }
+  }
+
+  /// Brightness/intensity of the night side in simulated mode (0.0 = very dark, 1.0 = full brightness)
+  double get simulatedNightIntensity => _simulatedNightIntensity;
+  set simulatedNightIntensity(double value) {
+    if (_simulatedNightIntensity != value) {
+      _simulatedNightIntensity = value.clamp(0.0, 1.0);
+      notifyListeners();
+    }
+  }
+
+  /// The mode for rendering night side (textureSwap or simulated)
+  DayNightMode get dayNightMode => _dayNightMode;
+  set dayNightMode(DayNightMode value) {
+    if (_dayNightMode != value) {
+      _dayNightMode = value;
+      notifyListeners();
+    }
+  }
+
+  /// Sets the simulated night style with both color and intensity in a single call.
+  /// This is more efficient than setting them separately when you need to change both.
+  ///
+  /// [color] - The tint color for the night side
+  /// [intensity] - How bright the night side is (0.0 = very dark, 1.0 = full brightness)
+  void setSimulatedNightStyle({Color? color, double? intensity}) {
+    bool changed = false;
+    if (color != null && _simulatedNightColor != color) {
+      _simulatedNightColor = color;
+      changed = true;
+    }
+    if (intensity != null && _simulatedNightIntensity != intensity) {
+      _simulatedNightIntensity = intensity.clamp(0.0, 1.0);
+      changed = true;
+    }
+    if (changed) {
+      notifyListeners();
+    }
+  }
 
   /// Resets the pan offset to center the globe in the view.
   /// This is useful after using zoom-to-cursor to return to the default centered position.

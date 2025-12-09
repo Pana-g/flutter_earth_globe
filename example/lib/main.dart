@@ -5,6 +5,7 @@ import 'package:flutter_earth_globe/point.dart';
 import 'package:flutter_earth_globe/point_connection.dart';
 import 'package:flutter_earth_globe/point_connection_style.dart';
 import 'package:flutter/material.dart';
+import 'app_theme.dart';
 import 'coordinate_state.dart';
 import 'coordinates_display.dart';
 import 'globe_controls_state.dart';
@@ -13,23 +14,34 @@ import 'control_widgets.dart';
 void main() {
   runApp(MaterialApp(
     title: 'Flutter Earth Globe',
-    theme: ThemeData(primarySwatch: Colors.blue),
+    theme: AppTheme.darkTheme,
     debugShowCheckedModeBanner: false,
     home: const Home(),
   ));
 }
 
 class Home extends StatefulWidget {
-  const Home({Key? key}) : super(key: key);
+  const Home({super.key});
 
   @override
-  // ignore: library_private_types_in_public_api
-  _HomeState createState() => _HomeState();
+  State<Home> createState() => _HomeState();
 }
 
 class _HomeState extends State<Home> with TickerProviderStateMixin {
-  final GlobalKey<ScaffoldState> _key = GlobalKey();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey();
   late FlutterEarthGlobeController _controller;
+
+  // Panel visibility
+  bool _leftPanelVisible = true;
+  bool _rightPanelVisible = true;
+
+  // Section expansion states
+  bool _rotationExpanded = true;
+  bool _dayNightExpanded = false;
+  bool _pointsExpanded = false;
+  bool _connectionsExpanded = false;
+  bool _atmosphereExpanded = false;
+
   final List<String> _textures = [
     'assets/2k_earth-day.jpg',
     'assets/2k_earth-night.jpg',
@@ -50,60 +62,131 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
 
   Widget pointLabelBuilder(
       BuildContext context, Point point, bool isHovering, bool visible) {
-    return Container(
-      padding: const EdgeInsets.all(8),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-          color: isHovering
-              ? Colors.blueAccent.withAlpha(204)
-              : Colors.blueAccent.withAlpha(128),
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withAlpha(51),
-                blurRadius: 10,
-                spreadRadius: 2)
-          ]),
-      child: Text(point.label ?? '',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Colors.white,
-              )),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isHovering
+              ? [AppTheme.accentCyan, AppTheme.accentPurple]
+              : [
+                  AppTheme.accentCyan.withAlpha(180),
+                  AppTheme.accentPurple.withAlpha(180)
+                ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.white.withAlpha(isHovering ? 180 : 80),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.accentCyan.withAlpha(isHovering ? 150 : 80),
+            blurRadius: isHovering ? 20 : 12,
+            spreadRadius: isHovering ? 2 : 0,
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.white.withAlpha(150),
+                  blurRadius: 6,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            point.label ?? '',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.3,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget connectionLabelBuilder(BuildContext context,
       PointConnection connection, bool isHovering, bool visible) {
-    return Container(
-      padding: const EdgeInsets.all(8),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-          color: isHovering
-              ? Colors.blueAccent.withAlpha(204)
-              : Colors.blueAccent.withAlpha(128),
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withAlpha(51),
-                blurRadius: 10,
-                spreadRadius: 2)
-          ]),
-      child: Text(
-        connection.label ?? '',
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isHovering
+              ? [AppTheme.accentPurple, AppTheme.accentPink]
+              : [
+                  AppTheme.accentPurple.withAlpha(180),
+                  AppTheme.accentPink.withAlpha(180)
+                ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withAlpha(isHovering ? 180 : 80),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.accentPurple.withAlpha(isHovering ? 150 : 80),
+            blurRadius: isHovering ? 16 : 10,
+            spreadRadius: isHovering ? 1 : 0,
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.flight_takeoff_rounded,
+            color: Colors.white.withAlpha(220),
+            size: 14,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            connection.label ?? '',
+            style: const TextStyle(
               color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0.2,
             ),
+          ),
+        ],
       ),
     );
   }
 
   @override
-  initState() {
+  void initState() {
     super.initState();
 
     _controller = FlutterEarthGlobeController(
       rotationSpeed: 0.05,
-      minZoom: -1.5, // Allow zooming out to see the whole globe small
+      minZoom: -1.5,
       maxZoom: 5,
       zoom: 0.5,
       isRotating: false,
+      atmosphereOpacity: 0.8,
       zoomToMousePosition: false,
       isBackgroundFollowingSphereRotation: true,
       background: Image.asset('assets/2k_stars.jpg').image,
@@ -115,246 +198,576 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
 
     points = [
       Point(
-          id: '1',
-          coordinates: const GlobeCoordinates(51.5072, 0.1276),
-          label: 'London',
-          style: const PointStyle(
-              color: Colors.red,
-              size: 6,
-              altitude: 0.1,
-              transitionDuration: 500)),
+        id: '1',
+        coordinates: const GlobeCoordinates(51.5072, 0.1276),
+        label: 'London',
+        labelBuilder: pointLabelBuilder,
+        isLabelVisible: true,
+        style: const PointStyle(
+          color: Colors.cyan,
+          size: 6,
+          altitude: 0.1,
+          transitionDuration: 500,
+        ),
+      ),
       Point(
-          id: '2',
-          coordinates: const GlobeCoordinates(40.7128, -74.0060),
-          style: const PointStyle(
-              color: Colors.green, altitude: 0.05, transitionDuration: 600),
-          onHover: () {},
-          label: 'New York'),
+        id: '2',
+        coordinates: const GlobeCoordinates(40.7128, -74.0060),
+        style: const PointStyle(
+          color: Colors.green,
+          altitude: 0.05,
+          transitionDuration: 600,
+        ),
+        labelBuilder: pointLabelBuilder,
+        isLabelVisible: true,
+        label: 'New York',
+      ),
       Point(
-          id: '3',
-          coordinates: const GlobeCoordinates(35.6895, 139.6917),
-          style: const PointStyle(
-              color: Colors.blue, altitude: 0.15, transitionDuration: 700),
-          onHover: () {},
-          label: 'Tokyo'),
+        id: '3',
+        coordinates: const GlobeCoordinates(35.6895, 139.6917),
+        style: const PointStyle(
+          color: Colors.purple,
+          altitude: 0.15,
+          transitionDuration: 700,
+        ),
+        labelBuilder: pointLabelBuilder,
+        isLabelVisible: true,
+        label: 'Tokyo',
+      ),
       Point(
-          id: '4',
-          isLabelVisible: false,
-          onTap: () {
-            Future.delayed(Duration.zero, () {
-              showDialog(
-                  // ignore: use_build_context_synchronously
-                  context: context,
-                  builder: (context) => const AlertDialog(
-                        title: Text('Center'),
-                        content: Text('This is the center of the globe'),
-                      ));
-            });
-          },
-          coordinates: const GlobeCoordinates(0, 0),
-          style: const PointStyle(
-              color: Colors.yellow, altitude: 0.0, transitionDuration: 400),
-          label: 'Center'),
+        id: '4',
+        isLabelVisible: false,
+        onTap: () {
+          Future.delayed(Duration.zero, () {
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                backgroundColor: AppTheme.primaryMedium,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                title: const Text('Center Point',
+                    style: TextStyle(color: Colors.white)),
+                content: const Text(
+                  'This is the center of the globe at coordinates (0, 0)',
+                  style: TextStyle(color: Colors.white70),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+            );
+          });
+        },
+        coordinates: const GlobeCoordinates(0, 0),
+        style: const PointStyle(
+          color: Colors.amber,
+          altitude: 0.0,
+          transitionDuration: 400,
+        ),
+        label: 'Center',
+      ),
     ];
 
     connections = [
       PointConnection(
-          id: '1',
-          onTap: () {
-            showDialog(
-                context: context,
-                builder: (context) => const AlertDialog(
-                      title: Text('London to New York'),
-                      content: Text(
-                          'This is a connection between London and New York'),
-                    ));
-          },
-          start: points[0].coordinates,
-          end: points[1].coordinates,
-          isMoving: true,
-          labelBuilder: connectionLabelBuilder,
-          isLabelVisible: false,
-          curveScale: 1.2,
-          style: const PointConnectionStyle(
-              type: PointConnectionType.dotted,
-              color: Colors.red,
-              lineWidth: 2,
-              dashSize: 6,
-              spacing: 10,
-              dashAnimateTime: 2000,
-              transitionDuration: 500,
-              animateOnAdd: true,
-              growthAnimationDuration: 1000),
-          label: 'London to New York'),
+        id: '1',
+        onTap: () {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              backgroundColor: AppTheme.primaryMedium,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: const Text('Flight Route',
+                  style: TextStyle(color: Colors.white)),
+              content: const Text(
+                'London → New York\nDistance: ~5,570 km',
+                style: TextStyle(color: Colors.white70),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+        },
+        start: points[0].coordinates,
+        end: points[1].coordinates,
+        isMoving: true,
+        labelBuilder: connectionLabelBuilder,
+        isLabelVisible: true,
+        curveScale: 1.2,
+        style: const PointConnectionStyle(
+          type: PointConnectionType.dotted,
+          lineWidth: 2,
+          dashSize: 6,
+          spacing: 10,
+          dashAnimateTime: 1000,
+          transitionDuration: 500,
+          animateOnAdd: true,
+          growthAnimationDuration: 1000,
+        ),
+        label: 'LDN → NYC',
+      ),
       PointConnection(
-          start: points[1].coordinates,
-          end: points[3].coordinates,
-          isMoving: true,
-          labelBuilder: connectionLabelBuilder,
-          id: '2',
-          style: const PointConnectionStyle(
-              type: PointConnectionType.dashed,
-              dashAnimateTime: 3000,
-              transitionDuration: 500,
-              animateOnAdd: true,
-              growthAnimationDuration: 800),
-          label: 'New York to Center'),
+        start: points[1].coordinates,
+        end: points[3].coordinates,
+        isMoving: true,
+        labelBuilder: connectionLabelBuilder,
+        isLabelVisible: true,
+        id: '2',
+        style: const PointConnectionStyle(
+          type: PointConnectionType.dashed,
+          dashAnimateTime: 1000,
+          transitionDuration: 500,
+          animateOnAdd: true,
+          growthAnimationDuration: 800,
+        ),
+        label: 'NYC → CTR',
+      ),
       PointConnection(
-          label: 'Tokyo to Center',
-          labelBuilder: connectionLabelBuilder,
-          start: points[2].coordinates,
-          end: points[3].coordinates,
-          curveScale: 0.5,
-          id: '3',
-          style: const PointConnectionStyle(
-              transitionDuration: 500,
-              animateOnAdd: true,
-              growthAnimationDuration: 1200))
+        label: 'TYO → CTR',
+        labelBuilder: connectionLabelBuilder,
+        isLabelVisible: true,
+        start: points[2].coordinates,
+        end: points[3].coordinates,
+        curveScale: 0.5,
+        id: '3',
+        style: const PointConnectionStyle(
+          transitionDuration: 500,
+          animateOnAdd: true,
+          growthAnimationDuration: 1200,
+        ),
+      ),
     ];
 
     _controller.onLoaded = () {
       GlobeControlsState.instance.setSelectedSurface(_textures[0]);
     };
 
-    // Initialize state with all points visible
     for (var point in points) {
       _controller.addPoint(point);
       GlobeControlsState.instance.addVisiblePoint(point.id);
     }
 
-    // Initialize control states
     GlobeControlsState.instance.setZoom(_controller.zoom);
     GlobeControlsState.instance.setRotationSpeed(_controller.rotationSpeed);
     GlobeControlsState.instance
         .setDayNightBlendFactor(_controller.dayNightBlendFactor);
   }
 
-  Widget leftSideContent() {
-    return SizedBox(
-      height: MediaQuery.of(context).size.height,
-      width: 220,
-      child: ListView(
-        shrinkWrap: true,
+  Widget _buildCollapsibleSection({
+    required String title,
+    required IconData icon,
+    required bool isExpanded,
+    required VoidCallback onToggle,
+    required List<Widget> children,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(
+          title: title,
+          icon: icon,
+          isExpanded: isExpanded,
+          onTap: onToggle,
+        ),
+        AnimatedCrossFade(
+          firstChild: Column(children: children),
+          secondChild: const SizedBox.shrink(),
+          crossFadeState:
+              isExpanded ? CrossFadeState.showFirst : CrossFadeState.showSecond,
+          duration: const Duration(milliseconds: 200),
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  Widget _buildLeftPanel() {
+    return GlassPanel(
+      width: 260,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          RotationControl(controller: _controller),
-          RotationSpeedControl(controller: _controller),
-          ZoomControl(controller: _controller),
-          const DividerText(text: 'Day/Night Cycle'),
-          DayNightEnableControl(controller: _controller),
-          DayNightAnimateControl(controller: _controller),
-          SunPositionControl(controller: _controller),
-          BlendFactorControl(controller: _controller),
-          RealTimeSunControl(controller: _controller),
-          const DividerText(text: 'Points'),
-          ...points.map((point) => PointControl(
-                controller: _controller,
-                point: point,
-              )),
-          const DividerText(text: 'Connections'),
-          ...connections.map((connection) => ConnectionControl(
-                controller: _controller,
-                connection: connection,
-              )),
-          const DividerText(text: 'Satellites'),
-          SatelliteControl(controller: _controller),
+          // Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: AppTheme.accentGradient,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.tune, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Controls',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.close, size: 20),
+                onPressed: () => setState(() => _leftPanelVisible = false),
+                color: AppTheme.accentBlue,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(color: Colors.white12),
+          const SizedBox(height: 8),
+
+          // Rotation Section
+          _buildCollapsibleSection(
+            title: 'Rotation & Zoom',
+            icon: Icons.rotate_right,
+            isExpanded: _rotationExpanded,
+            onToggle: () =>
+                setState(() => _rotationExpanded = !_rotationExpanded),
+            children: [
+              RotationControl(controller: _controller),
+              const SizedBox(height: 8),
+              RotationSpeedControl(controller: _controller),
+              const SizedBox(height: 8),
+              ZoomControl(controller: _controller),
+            ],
+          ),
+
+          // Day/Night Section
+          _buildCollapsibleSection(
+            title: 'Day/Night Cycle',
+            icon: Icons.brightness_4,
+            isExpanded: _dayNightExpanded,
+            onToggle: () =>
+                setState(() => _dayNightExpanded = !_dayNightExpanded),
+            children: [
+              DayNightEnableControl(controller: _controller),
+              DayNightModeControl(controller: _controller),
+              SimulatedNightColorControl(controller: _controller),
+              SimulatedNightIntensityControl(controller: _controller),
+              DayNightAnimateControl(controller: _controller),
+              SunPositionControl(controller: _controller),
+              BlendFactorControl(controller: _controller),
+              RealTimeSunControl(controller: _controller),
+            ],
+          ),
+
+          // Points Section
+          _buildCollapsibleSection(
+            title: 'Points',
+            icon: Icons.place,
+            isExpanded: _pointsExpanded,
+            onToggle: () => setState(() => _pointsExpanded = !_pointsExpanded),
+            children: points
+                .map((point) =>
+                    PointControl(controller: _controller, point: point))
+                .toList(),
+          ),
+
+          // Connections Section
+          _buildCollapsibleSection(
+            title: 'Connections',
+            icon: Icons.timeline,
+            isExpanded: _connectionsExpanded,
+            onToggle: () =>
+                setState(() => _connectionsExpanded = !_connectionsExpanded),
+            children: [
+              ...connections.map((connection) => ConnectionControl(
+                  controller: _controller, connection: connection)),
+              const SizedBox(height: 8),
+              SatelliteControl(controller: _controller),
+            ],
+          ),
+
+          // Atmosphere Section
+          _buildCollapsibleSection(
+            title: 'Atmosphere',
+            icon: Icons.blur_on,
+            isExpanded: _atmosphereExpanded,
+            onToggle: () =>
+                setState(() => _atmosphereExpanded = !_atmosphereExpanded),
+            children: [
+              AtmosphereColorControl(controller: _controller),
+              AtmosphereOpacityControl(controller: _controller),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget getLeftSide() {
-    if (MediaQuery.of(context).size.width < 800) {
-      return IconButton.filled(
-          onPressed: () {
-            _key.currentState?.openDrawer();
-          },
-          icon: const Icon(Icons.menu));
-    } else {
-      return leftSideContent();
-    }
-  }
-
-  Widget rightSideContent() {
-    return SizedBox(
-      width: 220,
-      height: MediaQuery.of(context).size.height - 10,
-      child: TextureSelector(
-        controller: _controller,
-        textures: _textures,
+  Widget _buildRightPanel() {
+    return GlassPanel(
+      width: 250,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: AppTheme.headerGradient,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.public, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Textures',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, size: 20),
+                onPressed: () => setState(() => _rightPanelVisible = false),
+                color: AppTheme.accentBlue,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(color: Colors.white12),
+          const SizedBox(height: 8),
+          TextureSelector(
+            controller: _controller,
+            textures: _textures,
+          ),
+        ],
       ),
     );
   }
 
-  Widget getRightSide() {
-    if (MediaQuery.of(context).size.width < 800) {
-      return IconButton.filled(
-          onPressed: () {
-            _key.currentState?.openEndDrawer();
-          },
-          icon: const Icon(Icons.menu));
-    } else {
-      return rightSideContent();
-    }
+  Widget _buildTitle() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      decoration: BoxDecoration(
+        gradient: AppTheme.headerGradient,
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF667eea).withAlpha(100),
+            blurRadius: 20,
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.public, color: Colors.white, size: 24),
+          SizedBox(width: 12),
+          Text(
+            'Flutter Earth Globe',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPanelToggle({
+    required IconData icon,
+    required bool isVisible,
+    required VoidCallback onTap,
+    required Alignment alignment,
+  }) {
+    return AnimatedOpacity(
+      opacity: isVisible ? 0 : 1,
+      duration: const Duration(milliseconds: 200),
+      child: IgnorePointer(
+        ignoring: isVisible,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: AppTheme.panelGradient,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.accentBlue.withAlpha(50)),
+            ),
+            child: Icon(icon, color: AppTheme.accentCyan, size: 24),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    double radius = MediaQuery.of(context).size.width < 500
-        ? ((MediaQuery.of(context).size.width / 3.8) - 20)
-        : 120;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 800;
+
+    double radius = screenWidth < 500 ? ((screenWidth / 3.5) - 20) : 140;
+
     return Scaffold(
-      key: _key,
-      drawerEnableOpenDragGesture: true,
-      endDrawerEnableOpenDragGesture: true,
-      drawer: MediaQuery.of(context).size.width < 800
-          ? Container(
-              color: Colors.white38,
-              child: leftSideContent(),
+      key: _scaffoldKey,
+      backgroundColor: AppTheme.primaryDark,
+      drawer: isSmallScreen
+          ? Drawer(
+              backgroundColor: Colors.transparent,
+              child: _buildLeftPanel(),
             )
           : null,
-      endDrawer: MediaQuery.of(context).size.width < 800
-          ? Container(
-              color: Colors.white38,
-              child: rightSideContent(),
+      endDrawer: isSmallScreen
+          ? Drawer(
+              backgroundColor: Colors.transparent,
+              child: _buildRightPanel(),
             )
           : null,
       body: SafeArea(
         child: Stack(
-          alignment: Alignment.topCenter,
           children: [
-            FlutterEarthGlobe(
-              onZoomChanged: (zoom) {
-                // Update zoom state without setState - only control widgets rebuild
-                GlobeControlsState.instance.setZoom(zoom);
-              },
-              onTap: (coordinates) {
-                // Use CoordinateState instead of setState for better performance
-                CoordinateState.instance.updateClickCoordinates(coordinates);
-              },
-              onHover: (coordinates) {
-                // Use CoordinateState instead of setState for better performance
-                CoordinateState.instance.updateHoverCoordinates(coordinates);
-              },
-              controller: _controller,
-              radius: radius,
-            ),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: Colors.blue.withAlpha(128)),
-              child: Text(
-                'Flutter Earth Globe',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(color: Colors.white),
+            // Globe - full screen background
+            Positioned.fill(
+              child: FlutterEarthGlobe(
+                onZoomChanged: (zoom) {
+                  GlobeControlsState.instance.setZoom(zoom);
+                },
+                onTap: (coordinates) {
+                  CoordinateState.instance.updateClickCoordinates(coordinates);
+                },
+                onHover: (coordinates) {
+                  CoordinateState.instance.updateHoverCoordinates(coordinates);
+                },
+                controller: _controller,
+                radius: radius,
               ),
             ),
-            Positioned(top: 10, left: 10, child: getLeftSide()),
-            Positioned(top: 10, right: 10, child: getRightSide()),
+
+            // Title at top
+            Positioned(
+              top: 16,
+              left: 0,
+              right: 0,
+              child: Center(child: _buildTitle()),
+            ),
+
+            // Left panel or toggle
+            if (!isSmallScreen)
+              Positioned(
+                top: 16,
+                left: 16,
+                bottom: 16,
+                child: AnimatedSlide(
+                  offset:
+                      _leftPanelVisible ? Offset.zero : const Offset(-1.1, 0),
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOutCubic,
+                  child: _buildLeftPanel(),
+                ),
+              ),
+
+            // Left toggle button
+            if (!isSmallScreen)
+              Positioned(
+                top: 80,
+                left: 16,
+                child: _buildPanelToggle(
+                  icon: Icons.chevron_right,
+                  isVisible: _leftPanelVisible,
+                  onTap: () => setState(() => _leftPanelVisible = true),
+                  alignment: Alignment.centerLeft,
+                ),
+              ),
+
+            // Right panel or toggle
+            if (!isSmallScreen)
+              Positioned(
+                top: 16,
+                right: 16,
+                bottom: 16,
+                child: AnimatedSlide(
+                  offset:
+                      _rightPanelVisible ? Offset.zero : const Offset(1.1, 0),
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOutCubic,
+                  child: _buildRightPanel(),
+                ),
+              ),
+
+            // Right toggle button
+            if (!isSmallScreen)
+              Positioned(
+                top: 16,
+                right: 16,
+                child: _buildPanelToggle(
+                  icon: Icons.chevron_left,
+                  isVisible: _rightPanelVisible,
+                  onTap: () => setState(() => _rightPanelVisible = true),
+                  alignment: Alignment.centerRight,
+                ),
+              ),
+
+            // Mobile menu buttons
+            if (isSmallScreen) ...[
+              Positioned(
+                top: 16,
+                left: 16,
+                child: GestureDetector(
+                  onTap: () => _scaffoldKey.currentState?.openDrawer(),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      gradient: AppTheme.panelGradient,
+                      borderRadius: BorderRadius.circular(12),
+                      border:
+                          Border.all(color: AppTheme.accentBlue.withAlpha(50)),
+                    ),
+                    child: const Icon(Icons.menu, color: AppTheme.accentCyan),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 16,
+                right: 16,
+                child: GestureDetector(
+                  onTap: () => _scaffoldKey.currentState?.openEndDrawer(),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      gradient: AppTheme.panelGradient,
+                      borderRadius: BorderRadius.circular(12),
+                      border:
+                          Border.all(color: AppTheme.accentBlue.withAlpha(50)),
+                    ),
+                    child: const Icon(Icons.public, color: AppTheme.accentCyan),
+                  ),
+                ),
+              ),
+            ],
+
+            // Coordinates display at bottom
             const Positioned(
-                bottom: 0, left: 0, right: 0, child: CoordinatesDisplay())
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: CoordinatesDisplay(),
+            ),
           ],
         ),
       ),

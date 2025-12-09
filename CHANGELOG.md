@@ -1,12 +1,27 @@
-## 2.1.2
+## 2.2.0
+
+### ✨ New Features
+
+- **Day/Night Mode Selection**: Choose between two day/night rendering modes:
+  - `textureSwap`: Uses separate day/night textures for maximum visual quality
+  - `simulated`: Applies a customizable color overlay, perfect for planets without dedicated night textures
+- **Simulated Night Customization**: Configure the simulated night overlay with `simulatedNightColor` and `simulatedNightIntensity`
+- **Atmosphere Color & Intensity**: Full control over atmosphere appearance with `setAtmosphereColor()` and `setAtmosphereOpacity()` for planet-appropriate glows
 
 ### 🐛 Bug Fixes
 
 - **Improved background parallax zoom**: Background (starry sky) now zooms at a reduced rate (15% of globe zoom) for a more realistic depth perception. Distant stars appear to stay in place while the globe zooms, creating a natural parallax effect.
+- **Fixed hover detection**: Hover callbacks now work correctly when the globe is stationary
+- **Optimized satellite rendering**: Added orbit path caching to prevent unnecessary recalculations, reducing potential flickering with many satellites
+- **Improved label rendering**: Labels are now wrapped in RepaintBoundary for smoother UI performance
 
 ---
 
-## 2.1.1
+## 2.1.2
+
+- Minor maintenance release
+
+---
 
 - Updated to `lints` package with `lints/core.yaml` for stricter analysis
 

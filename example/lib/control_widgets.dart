@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_earth_globe/flutter_earth_globe.dart';
 import 'package:flutter_earth_globe/flutter_earth_globe_controller.dart';
+import 'package:flutter_earth_globe/misc.dart';
 import 'package:flutter_earth_globe/point.dart';
 import 'package:flutter_earth_globe/point_connection.dart';
 import 'package:flutter_earth_globe/sphere_style.dart';
@@ -84,6 +85,8 @@ class RotationSpeedControl extends StatelessWidget {
                     ),
                     Slider(
                       value: speed,
+                      min: 0.0,
+                      max: 0.2,
                       onChanged: isRotating
                           ? (value) {
                               controller.rotationSpeed = value;
@@ -176,6 +179,239 @@ class DayNightEnableControl extends StatelessWidget {
               ],
             ),
           ),
+        );
+      },
+    );
+  }
+}
+
+/// Day/Night mode control (texture swap vs simulated)
+class DayNightModeControl extends StatelessWidget {
+  final FlutterEarthGlobeController controller;
+
+  const DayNightModeControl({Key? key, required this.controller})
+      : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: GlobeControlsState.instance.isDayNightCycleEnabled,
+      builder: (context, isEnabled, child) {
+        return ValueListenableBuilder<bool>(
+          valueListenable: GlobeControlsState.instance.isSimulatedNightMode,
+          builder: (context, isSimulated, child) {
+            return Card(
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Night Mode'),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ChoiceChip(
+                          label: const Text('Texture',
+                              style: TextStyle(fontSize: 11)),
+                          selected: !isSimulated,
+                          onSelected: isEnabled
+                              ? (value) {
+                                  if (value) {
+                                    controller.dayNightMode =
+                                        DayNightMode.textureSwap;
+                                    GlobeControlsState.instance
+                                        .setSimulatedNightMode(false);
+                                  }
+                                }
+                              : null,
+                        ),
+                        const SizedBox(width: 4),
+                        ChoiceChip(
+                          label: const Text('Simulated',
+                              style: TextStyle(fontSize: 11)),
+                          selected: isSimulated,
+                          onSelected: isEnabled
+                              ? (value) {
+                                  if (value) {
+                                    controller.dayNightMode =
+                                        DayNightMode.simulated;
+                                    GlobeControlsState.instance
+                                        .setSimulatedNightMode(true);
+                                  }
+                                }
+                              : null,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+/// Simulated night color control widget
+class SimulatedNightColorControl extends StatelessWidget {
+  final FlutterEarthGlobeController controller;
+
+  const SimulatedNightColorControl({Key? key, required this.controller})
+      : super(key: key);
+
+  static const List<Color> _presetColors = [
+    Color.fromARGB(255, 25, 38, 64), // Default dark blue
+    Color.fromARGB(255, 10, 15, 30), // Very dark blue
+    Color.fromARGB(255, 40, 20, 60), // Purple night
+    Color.fromARGB(255, 60, 30, 20), // Mars-like red
+    Color.fromARGB(255, 20, 40, 30), // Green tint
+    Color.fromARGB(255, 50, 40, 30), // Warm sepia
+    Color.fromARGB(255, 30, 30, 30), // Neutral gray
+    Color.fromARGB(255, 0, 0, 0), // Pure black
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: GlobeControlsState.instance.isDayNightCycleEnabled,
+      builder: (context, isEnabled, child) {
+        return ValueListenableBuilder<bool>(
+          valueListenable: GlobeControlsState.instance.isSimulatedNightMode,
+          builder: (context, isSimulated, child) {
+            return ValueListenableBuilder<Color>(
+              valueListenable: GlobeControlsState.instance.simulatedNightColor,
+              builder: (context, currentColor, child) {
+                final isActive = isEnabled && isSimulated;
+                return Card(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8.0, vertical: 4),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Night Tint Color',
+                          style: TextStyle(
+                            color: isActive ? null : Colors.grey,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 4,
+                          runSpacing: 4,
+                          children: _presetColors.map((color) {
+                            final isSelected =
+                                currentColor.value == color.value;
+                            return GestureDetector(
+                              onTap: isActive
+                                  ? () {
+                                      controller.simulatedNightColor = color;
+                                      GlobeControlsState.instance
+                                          .setSimulatedNightColor(color);
+                                    }
+                                  : null,
+                              child: Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color:
+                                        isSelected ? Colors.white : Colors.grey,
+                                    width: isSelected ? 2 : 1,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+/// Simulated night intensity control widget
+class SimulatedNightIntensityControl extends StatelessWidget {
+  final FlutterEarthGlobeController controller;
+
+  const SimulatedNightIntensityControl({Key? key, required this.controller})
+      : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: GlobeControlsState.instance.isDayNightCycleEnabled,
+      builder: (context, isEnabled, child) {
+        return ValueListenableBuilder<bool>(
+          valueListenable: GlobeControlsState.instance.isSimulatedNightMode,
+          builder: (context, isSimulated, child) {
+            return ValueListenableBuilder<double>(
+              valueListenable:
+                  GlobeControlsState.instance.simulatedNightIntensity,
+              builder: (context, intensity, child) {
+                final isActive = isEnabled && isSimulated;
+                return Card(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8.0, vertical: 4),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Night Brightness',
+                              style: TextStyle(
+                                color: isActive ? null : Colors.grey,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${(intensity * 100).round()}%',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color:
+                                    isActive ? Colors.grey : Colors.grey[400],
+                              ),
+                            ),
+                          ],
+                        ),
+                        Slider(
+                          value: intensity,
+                          min: 0.0,
+                          max: 0.5,
+                          divisions: 10,
+                          onChanged: isActive
+                              ? (value) {
+                                  controller.simulatedNightIntensity = value;
+                                  GlobeControlsState.instance
+                                      .setSimulatedNightIntensity(value);
+                                }
+                              : null,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
         );
       },
     );
@@ -936,6 +1172,122 @@ class _SatelliteControlState extends State<SatelliteControl> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Atmosphere color control widget
+class AtmosphereColorControl extends StatelessWidget {
+  final FlutterEarthGlobeController controller;
+
+  const AtmosphereColorControl({Key? key, required this.controller})
+      : super(key: key);
+
+  static const List<Color> _presetColors = [
+    Color.fromARGB(255, 57, 123, 185), // Default blue
+    Colors.blue,
+    Colors.cyan,
+    Colors.teal,
+    Colors.green,
+    Colors.orange,
+    Colors.red,
+    Colors.purple,
+    Colors.pink,
+    Colors.white,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<Color>(
+      valueListenable: GlobeControlsState.instance.atmosphereColor,
+      builder: (context, currentColor, child) {
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Glow Color'),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  children: _presetColors.map((color) {
+                    final isSelected = currentColor.value == color.value;
+                    return GestureDetector(
+                      onTap: () {
+                        controller.atmosphereColor = color;
+                        GlobeControlsState.instance.setAtmosphereColor(color);
+                      },
+                      child: Container(
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isSelected ? Colors.black : Colors.grey,
+                            width: isSelected ? 2 : 1,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Atmosphere opacity/intensity control widget
+class AtmosphereOpacityControl extends StatelessWidget {
+  final FlutterEarthGlobeController controller;
+
+  const AtmosphereOpacityControl({Key? key, required this.controller})
+      : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<double>(
+      valueListenable: GlobeControlsState.instance.atmosphereOpacity,
+      builder: (context, opacity, child) {
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Glow Intensity'),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${(opacity * 100).round()}%',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
+                ),
+                Slider(
+                  value: opacity,
+                  min: 0.0,
+                  max: 1.0,
+                  divisions: 20,
+                  onChanged: (value) {
+                    controller.atmosphereOpacity = value;
+                    GlobeControlsState.instance.setAtmosphereOpacity(value);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

@@ -3,7 +3,17 @@
 
 ## Overview
 
-Flutter Earth Globe is an interactive 3D sphere widget for Flutter applications. This widget is designed to be easy to use and highly customizable, making it ideal for any application that requires a visually appealing representation of a planet. This package was inspired by [Globe.GL](https://globe.gl/) and [Sphere](https://pub.dev/packages/sphere).
+Flutter Earth Globe is an interactive 3D sphere widget for Flutter applications. This widget is designed to be **easy to use** and **highly customizable**, making it ideal for any application that requires a visually appealing representation of a planet.
+
+### Why Flutter Earth Globe?
+
+- 🎨 **Fully Customizable** - Every aspect of the globe can be styled: colors, textures, atmosphere, points, connections, satellites, and more
+- 🚀 **GPU-Accelerated** - Leverages fragment shaders for smooth, high-performance rendering
+- 🌍 **Feature-Rich** - Day/night cycles, atmospheric effects, orbital satellites, animated connections
+- 📱 **Cross-Platform** - Works on iOS, Android, Web, and Desktop
+- 🔧 **Flexible API** - Simple defaults with deep customization options when you need them
+
+This package was inspired by [Globe.GL](https://globe.gl/) and [Sphere](https://pub.dev/packages/sphere).
 
 ## Table of Contents
 
@@ -19,6 +29,7 @@ Flutter Earth Globe is an interactive 3D sphere widget for Flutter applications.
 - [Globe Configuration](#globe-configuration)
   - [Loading Textures](#loading-textures)
   - [Day/Night Cycle](#daynight-cycle)
+  - [Atmosphere Customization](#atmosphere-customization)
   - [Sphere Style](#sphere-style)
 - [Contributors](#contributors)
   - [How to Contribute](#how-to-contribute)
@@ -29,9 +40,9 @@ Flutter Earth Globe is an interactive 3D sphere widget for Flutter applications.
 
 <img alt="image" src="https://raw.githubusercontent.com/Pana-g/flutter_earth_globe/master/screenshots/screenshotEarthDay.png" width="350">
 
-<img alt="image" src="https://raw.githubusercontent.com/Pana-g/flutter_earth_globe/master/screenshots/screenshotEarthNight.png" width="350">
-
 <img alt="Day/Night Cycle" src="https://raw.githubusercontent.com/Pana-g/flutter_earth_globe/master/screenshots/screenshotEarthDayNight.png" width="350">
+
+<img alt="image" src="https://raw.githubusercontent.com/Pana-g/flutter_earth_globe/master/screenshots/screenshots/screenshotJupiter.png" width="350">
 
 <img alt="Day/Night Cycle Animation" src="https://raw.githubusercontent.com/Pana-g/flutter_earth_globe/master/screenshots/earthDayNightCycle.gif" width="350">
 
@@ -52,8 +63,8 @@ Flutter Earth Globe is an interactive 3D sphere widget for Flutter applications.
 - **Connections Support**: Ability to create animated arc connections between different coordinates.
 - **Satellites Support**: Add orbiting satellites with customizable styles and orbital parameters.
 - **Custom Labels Support**: Ability to create custom widget labels for a **point**, **connection**, or **satellite**.
-- **Day/Night Cycle**: Realistic day/night cycle with smooth transitions between day and night textures based on sun position.
-- **Atmospheric Glow**: Optional atmospheric glow effect around the globe.
+- **Day/Night Cycle**: Realistic day/night cycle with two modes - texture swap for detailed night textures or simulated overlay for quick setup.
+- **Customizable Atmosphere**: Fully configurable atmospheric glow with adjustable color, intensity, opacity, and thickness.
 - **Responsive Design**: Ensures compatibility with a wide range of devices and screen sizes.
 - **Smooth Anti-aliased Edges**: High-quality rendering with smooth globe edges.
 
@@ -427,15 +438,39 @@ _controller.loadBackground(
 
 ### Day/Night Cycle
 
+Flutter Earth Globe supports two day/night modes:
+
+#### Texture Swap Mode (Default)
+
+Uses separate day and night textures for maximum visual quality:
+
 ```dart
-// Enable day/night cycle
 final _controller = FlutterEarthGlobeController(
   surface: Image.asset('assets/2k_earth-day.jpg').image,
   nightSurface: Image.asset('assets/2k_earth-night.jpg').image,
   isDayNightCycleEnabled: true,
+  dayNightMode: DayNightMode.textureSwap,
   dayNightBlendFactor: 0.15,
 );
+```
 
+#### Simulated Mode
+
+Applies a color overlay to simulate night without needing a separate texture - perfect for planets without a dedicated night texture:
+
+```dart
+final _controller = FlutterEarthGlobeController(
+  surface: Image.asset('assets/2k_mars.jpg').image,
+  isDayNightCycleEnabled: true,
+  dayNightMode: DayNightMode.simulated,
+  simulatedNightColor: const Color(0xFF0a1628),  // Deep blue night
+  simulatedNightIntensity: 0.7,  // 0.0 - 1.0
+);
+```
+
+#### Day/Night Controls
+
+```dart
 // Start animated cycle
 _controller.startDayNightCycle(cycleDuration: Duration(seconds: 30));
 
@@ -447,7 +482,33 @@ _controller.setSunPosition(longitude: 45.0, latitude: 10.0);
 
 // Use real-time sun position
 _controller.setUseRealTimeSunPosition(true);
+
+// Switch modes at runtime
+_controller.setDayNightMode(DayNightMode.simulated);
+_controller.setSimulatedNightColor(Colors.indigo.shade900);
+_controller.setSimulatedNightIntensity(0.8);
 ```
+
+### Atmosphere Customization
+
+The atmospheric glow is fully customizable:
+
+```dart
+final _controller = FlutterEarthGlobeController(
+  // Atmosphere settings
+  showAtmosphere: true,
+  atmosphereColor: Colors.cyan,        // Glow color
+  atmosphereOpacity: 0.8,              // 0.0 - 1.0
+  atmosphereThickness: 0.15,           // Relative to globe radius
+  atmosphereBlur: 25.0,                // Blur radius
+);
+
+// Update at runtime
+_controller.setAtmosphereColor(Colors.orange);  // Mars-like atmosphere
+_controller.setAtmosphereOpacity(0.6);
+```
+
+**Tip**: Match the atmosphere color to your planet's texture for a cohesive look - blue for Earth, orange for Mars, pale yellow for Venus.
 
 ### Sphere Style
 
@@ -481,7 +542,10 @@ _controller.setSphereStyle(SphereStyle(
 | `atmosphereThickness` | `double` | 0.15 | Atmosphere thickness |
 | `atmosphereOpacity` | `double` | 0.6 | Atmosphere opacity |
 | `isDayNightCycleEnabled` | `bool` | false | Enable day/night cycle |
+| `dayNightMode` | `DayNightMode` | textureSwap | Mode: `textureSwap` or `simulated` |
 | `dayNightBlendFactor` | `double` | 0.15 | Day/night transition sharpness |
+| `simulatedNightColor` | `Color` | dark blue | Overlay color for simulated mode |
+| `simulatedNightIntensity` | `double` | 0.6 | Overlay intensity (0.0 - 1.0) |
 | `useRealTimeSunPosition` | `bool` | false | Calculate sun from real time |
 
 #### Rotation Control

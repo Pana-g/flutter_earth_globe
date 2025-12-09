@@ -19,6 +19,11 @@ uniform float uSunLongitude;   // Sun longitude in radians
 uniform float uSunLatitude;    // Sun latitude in radians
 uniform float uBlendFactor;    // Day/night transition sharpness
 uniform float uDayNightEnabled; // 1.0 if day/night cycle enabled, 0.0 otherwise
+uniform float uDayNightMode;   // 0.0 = textureSwap, 1.0 = simulated
+uniform float uNightColorR;    // Simulated night tint color - Red component (0-1)
+uniform float uNightColorG;    // Simulated night tint color - Green component (0-1)
+uniform float uNightColorB;    // Simulated night tint color - Blue component (0-1)
+uniform float uNightIntensity; // Simulated night brightness (0 = dark, 1 = bright)
 
 // Samplers for textures (must come after float uniforms)
 uniform sampler2D uDaySurface;
@@ -128,11 +133,20 @@ void main() {
     
     // Apply day/night cycle if enabled
     if (uDayNightEnabled > 0.5) {
-        vec4 nightColor = texture(uNightSurface, uv);
         float dayFactor = calculateDayNightFactor(lat, lon);
         
-        // Blend between day and night
-        fragColor = mix(nightColor, dayColor, dayFactor);
+        if (uDayNightMode > 0.5) {
+            // Simulated mode: darken the day texture for night
+            // Use customizable night tint color and intensity
+            vec3 nightTint = vec3(uNightColorR, uNightColorG, uNightColorB);
+            float nightBrightness = uNightIntensity;
+            vec3 simulatedNight = dayColor.rgb * nightBrightness + nightTint * (1.0 - nightBrightness) * 0.5;
+            fragColor = vec4(mix(simulatedNight, dayColor.rgb, dayFactor), dayColor.a);
+        } else {
+            // Texture swap mode: blend between day and night textures
+            vec4 nightColor = texture(uNightSurface, uv);
+            fragColor = mix(nightColor, dayColor, dayFactor);
+        }
     } else {
         fragColor = dayColor;
     }
