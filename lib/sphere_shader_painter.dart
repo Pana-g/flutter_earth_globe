@@ -18,6 +18,10 @@ class SphereShaderPainter extends CustomPainter {
   final bool isSimulatedMode;
   final Color nightColor;
   final double nightIntensity;
+  final bool lightingEnabled;
+  final double lightAngle;
+  final double lightIntensity;
+  final double ambientLight;
   final void Function()? onPaintError;
 
   SphereShaderPainter({
@@ -33,6 +37,10 @@ class SphereShaderPainter extends CustomPainter {
     this.isSimulatedMode = false,
     this.nightColor = const Color.fromARGB(255, 25, 38, 64),
     this.nightIntensity = 0.15,
+    this.lightingEnabled = true,
+    this.lightAngle = -0.785,
+    this.lightIntensity = 0.3,
+    this.ambientLight = 0.7,
     this.onPaintError,
   });
 
@@ -102,6 +110,18 @@ class SphereShaderPainter extends CustomPainter {
       // uNightIntensity
       shader.setFloat(idx++, nightIntensity);
 
+      // uLightEnabled
+      shader.setFloat(idx++, lightingEnabled ? 1.0 : 0.0);
+
+      // uLightAngle (in radians)
+      shader.setFloat(idx++, lightAngle);
+
+      // uLightIntensity
+      shader.setFloat(idx++, lightIntensity);
+
+      // uAmbientLight
+      shader.setFloat(idx++, ambientLight);
+
       // Draw using the shader with proper alpha blending for anti-aliased edges
       final paint = Paint()
         ..shader = shader
@@ -130,7 +150,11 @@ class SphereShaderPainter extends CustomPainter {
         oldDelegate.isDayNightEnabled != isDayNightEnabled ||
         oldDelegate.isSimulatedMode != isSimulatedMode ||
         oldDelegate.nightColor != nightColor ||
-        oldDelegate.nightIntensity != nightIntensity;
+        oldDelegate.nightIntensity != nightIntensity ||
+        oldDelegate.lightingEnabled != lightingEnabled ||
+        oldDelegate.lightAngle != lightAngle ||
+        oldDelegate.lightIntensity != lightIntensity ||
+        oldDelegate.ambientLight != ambientLight;
   }
 }
 

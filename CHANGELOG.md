@@ -7,6 +7,7 @@
   - `simulated`: Applies a customizable color overlay, perfect for planets without dedicated night textures
 - **Simulated Night Customization**: Configure the simulated night overlay with `simulatedNightColor` and `simulatedNightIntensity`
 - **Atmosphere Color & Intensity**: Full control over atmosphere appearance with `setAtmosphereColor()` and `setAtmosphereOpacity()` for planet-appropriate glows
+- **Ring Light Effect**: New directional ring light around the globe creates enhanced 3D depth perception. Customizable color, intensity, and light angle via `ringLightColor`, `ringLightIntensity`, and `ringLightAngle` properties
 
 ### 🐛 Bug Fixes
 

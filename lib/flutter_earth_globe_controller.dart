@@ -70,6 +70,13 @@ class FlutterEarthGlobeController extends ChangeNotifier {
       _atmosphereThickness; // Thickness of the atmosphere relative to globe radius (default: 0.15)
   double _atmosphereOpacity; // Opacity of the atmospheric glow (default: 0.6)
 
+  // 3D Surface lighting properties (creates realistic 3D shading effect)
+  bool _surfaceLightingEnabled; // Whether to enable 3D surface lighting
+  double _lightAngle; // Angle of the light source in degrees (-45 = top-left)
+  double _lightIntensity; // How strong the light/shadow effect is (0.0 - 1.0)
+  double
+      _ambientLight; // Minimum brightness level (0.0 - 1.0), prevents total darkness
+
   // Day/Night cycle properties
   bool isDayNightCycleEnabled; // Whether the day/night cycle is enabled.
   DayNightMode
@@ -132,11 +139,19 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     double atmosphereBlur = 30.0,
     double atmosphereThickness = 0.03,
     double atmosphereOpacity = 0.2,
+    bool surfaceLightingEnabled = true,
+    double lightAngle = -45.0,
+    double lightIntensity = 0.75,
+    double ambientLight = 0.6,
   })  : _showAtmosphere = showAtmosphere,
         _atmosphereColor = atmosphereColor,
         _atmosphereBlur = atmosphereBlur,
         _atmosphereThickness = atmosphereThickness,
         _atmosphereOpacity = atmosphereOpacity,
+        _surfaceLightingEnabled = surfaceLightingEnabled,
+        _lightAngle = lightAngle,
+        _lightIntensity = lightIntensity,
+        _ambientLight = ambientLight,
         _simulatedNightColor = simulatedNightColor,
         _simulatedNightIntensity = simulatedNightIntensity,
         _dayNightMode = dayNightMode {
@@ -227,6 +242,42 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   set atmosphereOpacity(double value) {
     if (_atmosphereOpacity != value) {
       _atmosphereOpacity = value;
+      notifyListeners();
+    }
+  }
+
+  /// Whether to enable 3D surface lighting (creates realistic shading effect)
+  bool get surfaceLightingEnabled => _surfaceLightingEnabled;
+  set surfaceLightingEnabled(bool value) {
+    if (_surfaceLightingEnabled != value) {
+      _surfaceLightingEnabled = value;
+      notifyListeners();
+    }
+  }
+
+  /// Angle of the light source in degrees (-45 = top-left, 0 = right, 90 = bottom, etc.)
+  double get lightAngle => _lightAngle;
+  set lightAngle(double value) {
+    if (_lightAngle != value) {
+      _lightAngle = value;
+      notifyListeners();
+    }
+  }
+
+  /// Intensity of the light/shadow effect (0.0 - 1.0)
+  double get lightIntensity => _lightIntensity;
+  set lightIntensity(double value) {
+    if (_lightIntensity != value) {
+      _lightIntensity = value.clamp(0.0, 1.0);
+      notifyListeners();
+    }
+  }
+
+  /// Minimum brightness level (0.0 - 1.0), prevents total darkness on unlit side
+  double get ambientLight => _ambientLight;
+  set ambientLight(double value) {
+    if (_ambientLight != value) {
+      _ambientLight = value.clamp(0.0, 1.0);
       notifyListeners();
     }
   }

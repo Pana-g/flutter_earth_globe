@@ -63,6 +63,7 @@ This package was inspired by [Globe.GL](https://globe.gl/) and [Sphere](https://
 - **Custom Labels Support**: Ability to create custom widget labels for a **point**, **connection**, or **satellite**.
 - **Day/Night Cycle**: Realistic day/night cycle with two modes - texture swap for detailed night textures or simulated overlay for quick setup.
 - **Customizable Atmosphere**: Fully configurable atmospheric glow with adjustable color, intensity, opacity, and thickness.
+- **Ring Light Effect**: Directional lighting around the globe for enhanced 3D depth perception.
 - **Responsive Design**: Ensures compatibility with a wide range of devices and screen sizes.
 - **Smooth Anti-aliased Edges**: High-quality rendering with smooth globe edges.
 

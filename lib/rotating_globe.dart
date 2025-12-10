@@ -1138,6 +1138,10 @@ class RotatingGlobeState extends State<RotatingGlobe>
             widget.controller.dayNightMode == DayNightMode.simulated,
         nightColor: widget.controller.simulatedNightColor,
         nightIntensity: widget.controller.simulatedNightIntensity,
+        lightingEnabled: widget.controller.surfaceLightingEnabled,
+        lightAngle: widget.controller.lightAngle * 3.14159265359 / 180.0,
+        lightIntensity: widget.controller.lightIntensity,
+        ambientLight: widget.controller.ambientLight,
         onPaintError: _handleSphereShaderPaintError,
       ),
       size: Size(constraints.maxWidth, constraints.maxHeight),
@@ -1493,7 +1497,17 @@ class RotatingGlobeState extends State<RotatingGlobe>
 
   /// Build the atmospheric glow widget that wraps around the globe
   Widget _buildAtmosphericGlow(BoxConstraints constraints, Widget child) {
-    if (!widget.controller.showAtmosphere) {
+    final radius = convertedRadius();
+
+    // Safety check for invalid values
+    if (!radius.isFinite || radius <= 0) {
+      return child;
+    }
+
+    final showAtmosphere = widget.controller.showAtmosphere;
+
+    // If atmosphere is not enabled, just return the child
+    if (!showAtmosphere) {
       return child;
     }
 
@@ -1501,12 +1515,6 @@ class RotatingGlobeState extends State<RotatingGlobe>
     final glowBlur = widget.controller.atmosphereBlur;
     final glowOpacity = widget.controller.atmosphereOpacity;
     final glowThickness = widget.controller.atmosphereThickness;
-    final radius = convertedRadius();
-
-    // Safety check for invalid values
-    if (!radius.isFinite || radius <= 0) {
-      return child;
-    }
 
     // Calculate spread based on thickness relative to globe radius
     final glowSpread = radius * glowThickness;
@@ -1542,10 +1550,6 @@ class RotatingGlobeState extends State<RotatingGlobe>
 
   /// Build the sphere content widget (GPU or CPU rendering)
   Widget _buildSphereContent(BoxConstraints constraints) {
-    // Note: _calculateForegroundPositions is called inside ValueListenableBuilder
-    // to ensure it's only calculated when the animation notifier changes
-    // This prevents double-calculation during builds
-
     // Try GPU rendering first
     final gpuWidget = _buildGpuSphere(constraints);
     if (gpuWidget != null) {

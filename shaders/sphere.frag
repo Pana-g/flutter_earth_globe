@@ -25,6 +25,12 @@ uniform float uNightColorG;    // Simulated night tint color - Green component (
 uniform float uNightColorB;    // Simulated night tint color - Blue component (0-1)
 uniform float uNightIntensity; // Simulated night brightness (0 = dark, 1 = bright)
 
+// Uniforms - 3D surface lighting
+uniform float uLightEnabled;   // 1.0 if 3D lighting enabled, 0.0 otherwise
+uniform float uLightAngle;     // Light source angle in radians (0 = from right)
+uniform float uLightIntensity; // Light intensity (0.0 - 1.0)
+uniform float uAmbientLight;   // Ambient light level (0.0 - 1.0), prevents total darkness
+
 // Samplers for textures (must come after float uniforms)
 uniform sampler2D uDaySurface;
 uniform sampler2D uNightSurface;
@@ -149,6 +155,26 @@ void main() {
         }
     } else {
         fragColor = dayColor;
+    }
+    
+    // Apply 3D surface lighting if enabled
+    // This creates the appearance of a light source illuminating the sphere
+    if (uLightEnabled > 0.5) {
+        // Calculate surface normal (normalized position on sphere, pointing outward toward viewer)
+        vec3 normal = normalize(spherePoint);
+        
+        // Light direction coming FROM the light (pointing toward sphere center)
+        // Light angle is in screen space: 0 = from right, PI/2 = from top, PI = from left, etc.
+        vec3 lightDir = normalize(vec3(cos(uLightAngle), sin(uLightAngle), 0.5));
+        
+        // Calculate diffuse lighting (how much the surface faces the light)
+        float diffuse = max(dot(normal, lightDir), 0.0);
+        
+        // Apply intensity and ambient
+        float lighting = uAmbientLight + diffuse * uLightIntensity * (1.0 - uAmbientLight);
+        
+        // Apply lighting to the color
+        fragColor.rgb *= lighting;
     }
     
     // Apply anti-aliasing edge smoothing with premultiplied alpha
