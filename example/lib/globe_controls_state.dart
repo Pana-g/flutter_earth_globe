@@ -40,6 +40,10 @@ class GlobeControlsState {
       ValueNotifier<Color>(const Color.fromARGB(255, 57, 123, 185));
   final ValueNotifier<double> atmosphereOpacity = ValueNotifier<double>(0.8);
 
+  // Surface lighting controls (3D shading effect)
+  final ValueNotifier<bool> surfaceLightingEnabled = ValueNotifier<bool>(true);
+  final ValueNotifier<double> lightIntensity = ValueNotifier<double>(0.75);
+
   // Surface selection
   final ValueNotifier<String?> selectedSurface = ValueNotifier<String?>(null);
 
@@ -125,6 +129,16 @@ class GlobeControlsState {
     atmosphereOpacity.value = value;
   }
 
+  /// Update surface lighting enabled
+  void setSurfaceLightingEnabled(bool value) {
+    surfaceLightingEnabled.value = value;
+  }
+
+  /// Update light intensity
+  void setLightIntensity(double value) {
+    lightIntensity.value = value;
+  }
+
   /// Update selected surface
   void setSelectedSurface(String? value) {
     selectedSurface.value = value;
@@ -201,6 +215,8 @@ class GlobeControlsState {
     simulatedNightIntensity.value = 0.15;
     atmosphereColor.value = const Color.fromARGB(255, 57, 123, 185);
     atmosphereOpacity.value = 0.2;
+    surfaceLightingEnabled.value = true;
+    lightIntensity.value = 0.3;
     selectedSurface.value = null;
     visiblePoints.value = {};
     visibleConnections.value = {};
@@ -223,6 +239,8 @@ class GlobeControlsState {
     simulatedNightIntensity.dispose();
     atmosphereColor.dispose();
     atmosphereOpacity.dispose();
+    surfaceLightingEnabled.dispose();
+    lightIntensity.dispose();
     selectedSurface.dispose();
     visiblePoints.dispose();
     visibleConnections.dispose();

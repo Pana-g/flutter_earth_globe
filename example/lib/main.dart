@@ -494,7 +494,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
 
           // Atmosphere Section
           _buildCollapsibleSection(
-            title: 'Atmosphere',
+            title: 'Atmosphere & Lighting',
             icon: Icons.blur_on,
             isExpanded: _atmosphereExpanded,
             onToggle: () =>
@@ -502,6 +502,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
             children: [
               AtmosphereColorControl(controller: _controller),
               AtmosphereOpacityControl(controller: _controller),
+              SurfaceLightingControl(controller: _controller),
             ],
           ),
         ],

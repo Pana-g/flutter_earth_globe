@@ -1291,3 +1291,75 @@ class AtmosphereOpacityControl extends StatelessWidget {
     );
   }
 }
+
+/// Surface lighting toggle and intensity control widget
+class SurfaceLightingControl extends StatelessWidget {
+  final FlutterEarthGlobeController controller;
+
+  const SurfaceLightingControl({Key? key, required this.controller})
+      : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: GlobeControlsState.instance.surfaceLightingEnabled,
+      builder: (context, lightingEnabled, child) {
+        return ValueListenableBuilder<double>(
+          valueListenable: GlobeControlsState.instance.lightIntensity,
+          builder: (context, intensity, child) {
+            return Card(
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('3D Lighting'),
+                        const Spacer(),
+                        Switch(
+                          value: lightingEnabled,
+                          onChanged: (value) {
+                            controller.surfaceLightingEnabled = value;
+                            GlobeControlsState.instance
+                                .setSurfaceLightingEnabled(value);
+                          },
+                        ),
+                      ],
+                    ),
+                    if (lightingEnabled) ...[
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('Intensity'),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${(intensity * 100).round()}%',
+                            style: const TextStyle(
+                                fontSize: 12, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                      Slider(
+                        value: intensity,
+                        min: 0.0,
+                        max: 1.0,
+                        divisions: 20,
+                        onChanged: (value) {
+                          controller.lightIntensity = value;
+                          GlobeControlsState.instance.setLightIntensity(value);
+                        },
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
