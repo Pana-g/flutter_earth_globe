@@ -418,16 +418,19 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   /// The [coordinates] parameter represents the coordinates to focus on.
   /// The [animate] parameter represents whether the focus should be animated.
   /// The [duration] parameter represents the duration of the animation.
+  /// The [curve] parameter represents the animation curve to use (e.g. [Curves.easeInOutCubic]).
+  /// Defaults to [Curves.linear] to preserve existing behaviour.
   ///
   /// Example usage:
   /// ```dart
-  /// controller.focusOnCoordinates(GlobeCoordinates(0, 0), animate: true);
+  /// controller.focusOnCoordinates(GlobeCoordinates(0, 0), animate: true, duration: Duration(milliseconds: 800), curve: Curves.easeInOutCubic);
   /// ```
   void focusOnCoordinates(GlobeCoordinates coordinates,
       {bool animate = false,
-      Duration? duration = const Duration(milliseconds: 500)}) {
-    globeKey.currentState
-        ?.focusOnCoordinates(coordinates, animate: animate, duration: duration);
+      Duration? duration = const Duration(milliseconds: 500),
+      Curve curve = Curves.linear}) {
+    globeKey.currentState?.focusOnCoordinates(coordinates,
+        animate: animate, duration: duration, curve: curve);
   }
 
   /// Updates the [connection] between two [points] on the globe.

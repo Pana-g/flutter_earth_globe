@@ -59,6 +59,7 @@ class RotatingGlobe extends StatefulWidget {
 class RotatingGlobeState extends State<RotatingGlobe>
     with TickerProviderStateMixin {
   AnimationController? genericAnimationController;
+  CurvedAnimation? _genericCurvedAnimation;
   late double rotationX =
       0; // The rotation angle around the X-axis of the sphere.
   late double rotationZ =
@@ -450,7 +451,9 @@ class RotatingGlobeState extends State<RotatingGlobe>
 
   /// Focus on the specified coordinates on the sphere.
   void focusOnCoordinates(GlobeCoordinates coordinates,
-      {required bool animate, required Duration? duration}) {
+      {required bool animate,
+      required Duration? duration,
+      Curve curve = Curves.linear}) {
     double latRad = radians(coordinates.latitude);
     double lonRad = radians(-coordinates.longitude);
     final targetRotationZ = -lonRad;
@@ -465,19 +468,25 @@ class RotatingGlobeState extends State<RotatingGlobe>
       final rX = targetRotationX - initialRotationX;
       final rY = targetRotationY - initialRotationY;
 
+      _genericCurvedAnimation?.dispose();
+      genericAnimationController?.dispose();
       genericAnimationController = AnimationController(
         vsync: this,
         duration: duration,
-      )
-        ..addListener(() {
-          double animationFactor = genericAnimationController?.value ?? 1;
-          rotationX = initialRotationX + rX * animationFactor;
-          rotationY = initialRotationY + rY * animationFactor;
-          rotationZ = initialRotationZ + rZ * animationFactor;
+      );
+      _genericCurvedAnimation = CurvedAnimation(
+        parent: genericAnimationController!,
+        curve: curve,
+      );
+      _genericCurvedAnimation!.addListener(() {
+        double animationFactor = _genericCurvedAnimation!.value;
+        rotationX = initialRotationX + rX * animationFactor;
+        rotationY = initialRotationY + rY * animationFactor;
+        rotationZ = initialRotationZ + rZ * animationFactor;
 
-          setState(() {});
-        })
-        ..forward();
+        setState(() {});
+      });
+      genericAnimationController!.forward();
     } else {
       rotationX = targetRotationX;
       rotationY = targetRotationY;
@@ -527,6 +536,8 @@ class RotatingGlobeState extends State<RotatingGlobe>
     _decelerationController.dispose();
     _zoomAnimationController?.dispose();
     _dayNightCycleController?.dispose();
+    _genericCurvedAnimation?.dispose();
+    genericAnimationController?.dispose();
     _hoverNotifier.dispose();
     _clickNotifier.dispose();
     super.dispose();
