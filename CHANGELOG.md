@@ -1,3 +1,8 @@
+## 2.2.1
+
+- Added `curve` parameter to `focusOnCoordinates` for more controlled and smooth animations.
+- Fixed coordinate mapping issue where points on the globe were incorrectly placed or disappeared at certain rotations (Fixes #27).
+
 ## 2.2.0
 
 ### ✨ New Features

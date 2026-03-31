@@ -28,21 +28,28 @@ double radiansToDegrees(double radians) {
 /// Returns a [Vector3] representing the 3D position of the point on the sphere.
 Vector3 getSpherePosition3D(GlobeCoordinates coordinates, double radius,
     double rotationY, double rotationZ) {
-  // radius += 10;
   // Convert latitude and longitude to radians
   double lat = degreesToRadians(coordinates.latitude);
   double lon = degreesToRadians(coordinates.longitude);
 
   // Convert spherical coordinates (lat, lon, radius) to Cartesian coordinates (x, y, z)
-  Vector3 cartesian = Vector3(radius * cos(lat) * cos(lon),
-      radius * cos(lat) * sin(lon), radius * sin(lat));
+  // Standard spherical to cartesian conversion:
+  // x = R * cos(lat) * cos(lon)
+  // y = R * cos(lat) * sin(lon)
+  // z = R * sin(lat)
+  Vector3 cartesian = Vector3(
+    radius * cos(lat) * cos(lon),
+    radius * cos(lat) * sin(lon),
+    radius * sin(lat),
+  );
 
-  // Create rotation matrices for X, Y, and Z axes
-  Matrix3 rotationMatrixY = Matrix3.rotationY(-rotationY);
-  Matrix3 rotationMatrixZ = Matrix3.rotationZ(-rotationZ);
+  // Apply rotations
+  // Note: rotationY and rotationZ are in radians
+  Matrix4 rotationMatrix = Matrix4.identity()
+    ..rotateY(-rotationY)
+    ..rotateZ(-rotationZ);
 
-  // Apply the rotations
-  return rotationMatrixY.multiplied(rotationMatrixZ).transform(cartesian);
+  return rotationMatrix.transform3(cartesian);
 }
 
 /// Converts the 2D offset to spherical coordinates.
@@ -57,37 +64,34 @@ Vector3 getSpherePosition3D(GlobeCoordinates coordinates, double radius,
 /// Returns null if the point is not on the sphere.
 GlobeCoordinates? convert2DPointToSphereCoordinates(Offset hoverOffset,
     Offset sphereCenter, double radius, double rotationY, double rotationZ) {
-  // Convert the 2D offset back into 3D coordinates relative to the center
-  double x = hoverOffset.dx - sphereCenter.dx;
-  double y = hoverOffset.dy - sphereCenter.dy;
-  // Assuming z can be derived from x and y considering the radius and the spherical nature
-  double z = sqrt(radius * radius - x * x - y * y);
+  // Convert 2D screen coordinate to 3D position relative to center
+  double y = hoverOffset.dx - sphereCenter.dx;
+  double z = -(hoverOffset.dy - sphereCenter.dy);
 
-  // Convert back to the original Cartesian coordinate system before rotations were applied
-  Vector3 cartesian = Vector3(z, x, -y);
+  // Check if the point is within the circle in 2D
+  double distSq = y * y + z * z;
+  if (distSq > radius * radius) return null;
 
-  // Inverse the rotations using rotation matrices
-  Matrix3 rotationMatrixY = Matrix3.rotationY(rotationY); // Inverse rotation
-  Matrix3 rotationMatrixZ = Matrix3.rotationZ(rotationZ); // Inverse rotation
-  Vector3 originalCartesian =
-      rotationMatrixZ.multiplied(rotationMatrixY).transform(cartesian);
+  // Derive X coordinate from the sphere's equation: x^2 + y^2 + z^2 = R^2
+  // We take the positive root because it's the front of the sphere (facing the camera)
+  double x = sqrt(radius * radius - distSq);
 
-  // Convert Cartesian coordinates back to spherical coordinates
-  double lat = asin(originalCartesian.z / radius);
-  double lon;
-  if (radius * cos(lat) != 0) {
-    // Avoid division by zero
-    lon = atan2(originalCartesian.y, originalCartesian.x);
-  } else {
-    lon = 0;
-  }
+  Vector3 currentVec = Vector3(x, y, z);
 
-  // Convert radians back to degrees
-  double latitude = radiansToDegrees(lat);
-  double longitude = radiansToDegrees(lon);
-  if (latitude.isNaN || longitude.isNaN) return null;
-  // Return the GlobeCoordinates object
-  return GlobeCoordinates(latitude, longitude);
+  // Undo the rotation in reverse order: first undo Z, then undo Y
+  Matrix4 undoRotation = Matrix4.identity()
+    ..rotateZ(rotationZ)
+    ..rotateY(rotationY);
+
+  Vector3 originalVec = undoRotation.transform3(currentVec);
+
+  // Convert back to latitude and longitude
+  // lat = asin(z / R)
+  // lon = atan2(y, x)
+  double latRad = asin((originalVec.z / radius).clamp(-1.0, 1.0));
+  double lonRad = atan2(originalVec.y, originalVec.x);
+
+  return GlobeCoordinates(radiansToDegrees(latRad), radiansToDegrees(lonRad));
 }
 
 /// Calculates the scale factor for a point on the sphere.
