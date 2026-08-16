@@ -42,8 +42,8 @@ class SatelliteStyle {
   final Color orbitPathColor;
   final double orbitPathWidth;
   final bool orbitPathDashed;
-
   final PictureInfo? customImage;
+  final bool customImageRotated;
 
   const SatelliteStyle({
     this.size = 4.0,
@@ -59,6 +59,7 @@ class SatelliteStyle {
     this.orbitPathWidth = 1.0,
     this.orbitPathDashed = false,
     this.customImage,
+    this.customImageRotated = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -76,6 +77,7 @@ class SatelliteStyle {
       'orbitPathWidth': orbitPathWidth,
       'orbitPathDashed': orbitPathDashed,
       'customImage': customImage,
+      'customImageRotated': customImageRotated,
     };
   }
 
@@ -94,6 +96,7 @@ class SatelliteStyle {
       orbitPathWidth: map['orbitPathWidth'] as double? ?? 1.0,
       orbitPathDashed: map['orbitPathDashed'] as bool? ?? false,
       customImage: map['customImage'] as PictureInfo?,
+      customImageRotated: map['customImageRotated'] as bool? ?? false,
     );
   }
 

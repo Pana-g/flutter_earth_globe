@@ -1020,16 +1020,19 @@ class GpuForegroundPainter extends CustomPainter {
         break;
 
       case SatelliteShape.customImage:
-        _drawCustomImage(canvas, satellite.position2D, scaledSize, satellite.satellite.style.customImage, paint);
+        _drawCustomImage(canvas, satellite.position2D, scaledSize, satellite.satellite.style.customImage,
+            satellite.satellite.style.customImageRotated, paint);
         break;
     }
   }
 
   // Draw a custom image, you need to provide a [PictureInfo] instance preloaded before calling this method.
-  void _drawCustomImage(Canvas canvas, Offset center, double size, PictureInfo? customImage, Paint paint) {
+  void _drawCustomImage(Canvas canvas, Offset center, double size, PictureInfo? customImage, bool rotated, Paint paint) {
     if (customImage == null) return;
     canvas.save();
     canvas.translate(center.dx, center.dy);
+
+    if (rotated) canvas.rotate(math.pi / 4);
 
     final double scaleX = (size * 2) / customImage.size.width;
     final double scaleY = (size * 2) / customImage.size.height;
