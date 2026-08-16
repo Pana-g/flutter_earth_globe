@@ -947,6 +947,8 @@ class _SatelliteControlState extends State<SatelliteControl> {
         return '★ Star';
       case SatelliteShape.satelliteIcon:
         return '🛰 Satellite';
+      case SatelliteShape.svgImage:
+        return '🖼 SVG Image';
     }
   }
 
