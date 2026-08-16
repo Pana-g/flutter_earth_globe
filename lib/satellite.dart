@@ -24,8 +24,8 @@ enum SatelliteShape {
   /// A satellite icon shape.
   satelliteIcon,
 
-  /// A SVG image provided by user.
-  svgImage,
+  /// A custom image.
+  customImage,
 }
 
 /// Represents the style of a satellite.

@@ -1019,14 +1019,14 @@ class GpuForegroundPainter extends CustomPainter {
         _drawSatelliteIcon(canvas, satellite.position2D, scaledSize, paint);
         break;
 
-      case SatelliteShape.svgImage:
-        _drawSvgImage(canvas, satellite.position2D, scaledSize, satellite.satellite.style.customImage, paint);
+      case SatelliteShape.customImage:
+        _drawCustomImage(canvas, satellite.position2D, scaledSize, satellite.satellite.style.customImage, paint);
         break;
     }
   }
 
-  void _drawSvgImage(Canvas canvas, Offset center, double size, PictureInfo? customImage, Paint paint) {
-    // You need to have customImage to draw an SVG image into PictureInfo format
+  // Draw a custom image, you need to provide a [PictureInfo] instance preloaded before calling this method.
+  void _drawCustomImage(Canvas canvas, Offset center, double size, PictureInfo? customImage, Paint paint) {
     if (customImage == null) return;
     canvas.save();
     canvas.translate(center.dx, center.dy);
