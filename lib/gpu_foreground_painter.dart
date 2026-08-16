@@ -1020,39 +1020,24 @@ class GpuForegroundPainter extends CustomPainter {
         break;
 
       case SatelliteShape.svgImage:
-        _drawSvgImage(canvas, satellite.position2D, scaledSize, satellite.satellite.style.svgString, paint);
+        _drawSvgImage(canvas, satellite.position2D, scaledSize, satellite.satellite.style.customImage, paint);
         break;
     }
   }
 
-  void _drawSvgImage(Canvas canvas, Offset center, double size, String? svgString, Paint paint) {
-    final Map<String, PictureInfo> _svgCache = {};
-    final Set<String> _loadingSvgs = {};
+  void _drawSvgImage(Canvas canvas, Offset center, double size, PictureInfo? customImage, Paint paint) {
+    // You need to have customImage to draw an SVG image into PictureInfo format
+    if (customImage == null) return;
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
 
-    if (svgString == null || svgString.isEmpty) return;
+    final double scaleX = (size * 2) / customImage.size.width;
+    final double scaleY = (size * 2) / customImage.size.height;
+    canvas.scale(scaleX, scaleY);
+    canvas.translate(-customImage.size.width / 2, -customImage.size.height / 2);
 
-    final pictureInfo = _svgCache[svgString];
-    if (pictureInfo != null) {
-      canvas.save();
-      canvas.translate(center.dx, center.dy);
-
-      final double scaleX = (size * 2) / pictureInfo.size.width;
-      final double scaleY = (size * 2) / pictureInfo.size.height;
-      canvas.scale(scaleX, scaleY);
-      canvas.translate(-pictureInfo.size.width / 2, -pictureInfo.size.height / 2);
-
-      canvas.drawPicture(pictureInfo.picture);
-      canvas.restore();
-    } else if (!_loadingSvgs.contains(svgString)) {
-      _loadingSvgs.add(svgString);
-      vg.loadPicture(SvgStringLoader(svgString), null).then((loadedPictureInfo) {
-        _svgCache[svgString] = loadedPictureInfo;
-        _loadingSvgs.remove(svgString);
-        if (onRepaintNeeded != null) {
-          onRepaintNeeded!();
-        }
-      });
-    }
+    canvas.drawPicture(customImage.picture);
+    canvas.restore();
   }
 
   void _drawStar(Canvas canvas, Offset center, double size, Paint paint) {

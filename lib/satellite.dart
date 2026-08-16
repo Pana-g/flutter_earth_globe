@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 
 import 'globe_coordinates.dart';
 
@@ -42,7 +43,7 @@ class SatelliteStyle {
   final double orbitPathWidth;
   final bool orbitPathDashed;
 
-  final String? svgString;
+  final PictureInfo? customImage;
 
   const SatelliteStyle({
     this.size = 4.0,
@@ -57,7 +58,7 @@ class SatelliteStyle {
     this.orbitPathColor = const Color(0x4DFFFFFF),
     this.orbitPathWidth = 1.0,
     this.orbitPathDashed = false,
-    this.svgString,
+    this.customImage,
   });
 
   Map<String, dynamic> toMap() {
@@ -74,7 +75,7 @@ class SatelliteStyle {
       'orbitPathColor': orbitPathColor.toARGB32(),
       'orbitPathWidth': orbitPathWidth,
       'orbitPathDashed': orbitPathDashed,
-      'svgString': svgString,
+      'customImage': customImage,
     };
   }
 
@@ -92,7 +93,7 @@ class SatelliteStyle {
       orbitPathColor: Color(map['orbitPathColor'] as int? ?? 0x4DFFFFFF),
       orbitPathWidth: map['orbitPathWidth'] as double? ?? 1.0,
       orbitPathDashed: map['orbitPathDashed'] as bool? ?? false,
-      svgString: map['svgString'] as String?,
+      customImage: map['customImage'] as PictureInfo?,
     );
   }
 
@@ -113,7 +114,7 @@ class SatelliteStyle {
     Color? orbitPathColor,
     double? orbitPathWidth,
     bool? orbitPathDashed,
-    String? svgString,
+    PictureInfo? customImage,
   }) {
     return SatelliteStyle(
       size: size ?? this.size,
@@ -128,7 +129,7 @@ class SatelliteStyle {
       orbitPathColor: orbitPathColor ?? this.orbitPathColor,
       orbitPathWidth: orbitPathWidth ?? this.orbitPathWidth,
       orbitPathDashed: orbitPathDashed ?? this.orbitPathDashed,
-      svgString: svgString ?? this.svgString,
+      customImage: customImage ?? this.customImage,
     );
   }
 }
