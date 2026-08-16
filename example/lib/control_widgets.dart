@@ -58,8 +58,7 @@ class RotationControl extends StatelessWidget {
 class RotationSpeedControl extends StatelessWidget {
   final FlutterEarthGlobeController controller;
 
-  const RotationSpeedControl({Key? key, required this.controller})
-      : super(key: key);
+  const RotationSpeedControl({Key? key, required this.controller}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -71,8 +70,7 @@ class RotationSpeedControl extends StatelessWidget {
           builder: (context, speed, child) {
             return Card(
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -90,8 +88,7 @@ class RotationSpeedControl extends StatelessWidget {
                       onChanged: isRotating
                           ? (value) {
                               controller.rotationSpeed = value;
-                              GlobeControlsState.instance
-                                  .setRotationSpeed(value);
+                              GlobeControlsState.instance.setRotationSpeed(value);
                             }
                           : null,
                     ),
@@ -153,8 +150,7 @@ class ZoomControl extends StatelessWidget {
 class DayNightEnableControl extends StatelessWidget {
   final FlutterEarthGlobeController controller;
 
-  const DayNightEnableControl({Key? key, required this.controller})
-      : super(key: key);
+  const DayNightEnableControl({Key? key, required this.controller}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -189,8 +185,7 @@ class DayNightEnableControl extends StatelessWidget {
 class DayNightModeControl extends StatelessWidget {
   final FlutterEarthGlobeController controller;
 
-  const DayNightModeControl({Key? key, required this.controller})
-      : super(key: key);
+  const DayNightModeControl({Key? key, required this.controller}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -202,8 +197,7 @@ class DayNightModeControl extends StatelessWidget {
           builder: (context, isSimulated, child) {
             return Card(
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -214,32 +208,26 @@ class DayNightModeControl extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         ChoiceChip(
-                          label: const Text('Texture',
-                              style: TextStyle(fontSize: 11)),
+                          label: const Text('Texture', style: TextStyle(fontSize: 11)),
                           selected: !isSimulated,
                           onSelected: isEnabled
                               ? (value) {
                                   if (value) {
-                                    controller.dayNightMode =
-                                        DayNightMode.textureSwap;
-                                    GlobeControlsState.instance
-                                        .setSimulatedNightMode(false);
+                                    controller.dayNightMode = DayNightMode.textureSwap;
+                                    GlobeControlsState.instance.setSimulatedNightMode(false);
                                   }
                                 }
                               : null,
                         ),
                         const SizedBox(width: 4),
                         ChoiceChip(
-                          label: const Text('Simulated',
-                              style: TextStyle(fontSize: 11)),
+                          label: const Text('Simulated', style: TextStyle(fontSize: 11)),
                           selected: isSimulated,
                           onSelected: isEnabled
                               ? (value) {
                                   if (value) {
-                                    controller.dayNightMode =
-                                        DayNightMode.simulated;
-                                    GlobeControlsState.instance
-                                        .setSimulatedNightMode(true);
+                                    controller.dayNightMode = DayNightMode.simulated;
+                                    GlobeControlsState.instance.setSimulatedNightMode(true);
                                   }
                                 }
                               : null,
@@ -261,8 +249,7 @@ class DayNightModeControl extends StatelessWidget {
 class SimulatedNightColorControl extends StatelessWidget {
   final FlutterEarthGlobeController controller;
 
-  const SimulatedNightColorControl({Key? key, required this.controller})
-      : super(key: key);
+  const SimulatedNightColorControl({Key? key, required this.controller}) : super(key: key);
 
   static const List<Color> _presetColors = [
     Color.fromARGB(255, 25, 38, 64), // Default dark blue
@@ -289,8 +276,7 @@ class SimulatedNightColorControl extends StatelessWidget {
                 final isActive = isEnabled && isSimulated;
                 return Card(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8.0, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -306,14 +292,12 @@ class SimulatedNightColorControl extends StatelessWidget {
                           spacing: 4,
                           runSpacing: 4,
                           children: _presetColors.map((color) {
-                            final isSelected =
-                                currentColor.value == color.value;
+                            final isSelected = currentColor.value == color.value;
                             return GestureDetector(
                               onTap: isActive
                                   ? () {
                                       controller.simulatedNightColor = color;
-                                      GlobeControlsState.instance
-                                          .setSimulatedNightColor(color);
+                                      GlobeControlsState.instance.setSimulatedNightColor(color);
                                     }
                                   : null,
                               child: Container(
@@ -323,8 +307,7 @@ class SimulatedNightColorControl extends StatelessWidget {
                                   color: color,
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                    color:
-                                        isSelected ? Colors.white : Colors.grey,
+                                    color: isSelected ? Colors.white : Colors.grey,
                                     width: isSelected ? 2 : 1,
                                   ),
                                 ),
@@ -349,8 +332,7 @@ class SimulatedNightColorControl extends StatelessWidget {
 class SimulatedNightIntensityControl extends StatelessWidget {
   final FlutterEarthGlobeController controller;
 
-  const SimulatedNightIntensityControl({Key? key, required this.controller})
-      : super(key: key);
+  const SimulatedNightIntensityControl({Key? key, required this.controller}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -361,14 +343,12 @@ class SimulatedNightIntensityControl extends StatelessWidget {
           valueListenable: GlobeControlsState.instance.isSimulatedNightMode,
           builder: (context, isSimulated, child) {
             return ValueListenableBuilder<double>(
-              valueListenable:
-                  GlobeControlsState.instance.simulatedNightIntensity,
+              valueListenable: GlobeControlsState.instance.simulatedNightIntensity,
               builder: (context, intensity, child) {
                 final isActive = isEnabled && isSimulated;
                 return Card(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8.0, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -386,8 +366,7 @@ class SimulatedNightIntensityControl extends StatelessWidget {
                               '${(intensity * 100).round()}%',
                               style: TextStyle(
                                 fontSize: 12,
-                                color:
-                                    isActive ? Colors.grey : Colors.grey[400],
+                                color: isActive ? Colors.grey : Colors.grey[400],
                               ),
                             ),
                           ],
@@ -400,8 +379,7 @@ class SimulatedNightIntensityControl extends StatelessWidget {
                           onChanged: isActive
                               ? (value) {
                                   controller.simulatedNightIntensity = value;
-                                  GlobeControlsState.instance
-                                      .setSimulatedNightIntensity(value);
+                                  GlobeControlsState.instance.setSimulatedNightIntensity(value);
                                 }
                               : null,
                         ),
@@ -422,8 +400,7 @@ class SimulatedNightIntensityControl extends StatelessWidget {
 class DayNightAnimateControl extends StatelessWidget {
   final FlutterEarthGlobeController controller;
 
-  const DayNightAnimateControl({Key? key, required this.controller})
-      : super(key: key);
+  const DayNightAnimateControl({Key? key, required this.controller}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -435,8 +412,7 @@ class DayNightAnimateControl extends StatelessWidget {
           builder: (context, isAnimating, child) {
             return Card(
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -448,14 +424,11 @@ class DayNightAnimateControl extends StatelessWidget {
                           ? (value) {
                               if (value) {
                                 controller.startDayNightCycle(
-                                    cycleDuration: const Duration(seconds: 30),
-                                    direction:
-                                        DayNightCycleDirection.rightToLeft);
+                                    cycleDuration: const Duration(seconds: 30), direction: DayNightCycleDirection.rightToLeft);
                               } else {
                                 controller.stopDayNightCycle();
                               }
-                              GlobeControlsState.instance
-                                  .setDayNightAnimating(value);
+                              GlobeControlsState.instance.setDayNightAnimating(value);
                             }
                           : null,
                     ),
@@ -463,13 +436,11 @@ class DayNightAnimateControl extends StatelessWidget {
                       onPressed: isEnabled
                           ? () {
                               controller.stopDayNightCycle();
-                              controller.setSunPosition(
-                                  longitude: 0, latitude: 0);
+                              controller.setSunPosition(longitude: 0, latitude: 0);
                               GlobeControlsState.instance.setSunLongitude(0);
                               GlobeControlsState.instance.setSunLatitude(0);
                               if (isAnimating) {
-                                controller.startDayNightCycle(
-                                    cycleDuration: const Duration(seconds: 30));
+                                controller.startDayNightCycle(cycleDuration: const Duration(seconds: 30));
                               }
                             }
                           : null,
@@ -490,8 +461,7 @@ class DayNightAnimateControl extends StatelessWidget {
 class SunPositionControl extends StatelessWidget {
   final FlutterEarthGlobeController controller;
 
-  const SunPositionControl({Key? key, required this.controller})
-      : super(key: key);
+  const SunPositionControl({Key? key, required this.controller}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -506,8 +476,7 @@ class SunPositionControl extends StatelessWidget {
               builder: (context, latitude, child) {
                 return Card(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8.0, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -526,8 +495,7 @@ class SunPositionControl extends StatelessWidget {
                           onChanged: isEnabled
                               ? (value) {
                                   controller.setSunPosition(longitude: value);
-                                  GlobeControlsState.instance
-                                      .setSunLongitude(value);
+                                  GlobeControlsState.instance.setSunLongitude(value);
                                 }
                               : null,
                         ),
@@ -539,8 +507,7 @@ class SunPositionControl extends StatelessWidget {
                           onChanged: isEnabled
                               ? (value) {
                                   controller.setSunPosition(latitude: value);
-                                  GlobeControlsState.instance
-                                      .setSunLatitude(value);
+                                  GlobeControlsState.instance.setSunLatitude(value);
                                 }
                               : null,
                         ),
@@ -561,8 +528,7 @@ class SunPositionControl extends StatelessWidget {
 class BlendFactorControl extends StatelessWidget {
   final FlutterEarthGlobeController controller;
 
-  const BlendFactorControl({Key? key, required this.controller})
-      : super(key: key);
+  const BlendFactorControl({Key? key, required this.controller}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -574,8 +540,7 @@ class BlendFactorControl extends StatelessWidget {
           builder: (context, blendFactor, child) {
             return Card(
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -593,8 +558,7 @@ class BlendFactorControl extends StatelessWidget {
                       onChanged: isEnabled
                           ? (value) {
                               controller.setDayNightBlendFactor(value);
-                              GlobeControlsState.instance
-                                  .setDayNightBlendFactor(value);
+                              GlobeControlsState.instance.setDayNightBlendFactor(value);
                             }
                           : null,
                     ),
@@ -613,8 +577,7 @@ class BlendFactorControl extends StatelessWidget {
 class RealTimeSunControl extends StatelessWidget {
   final FlutterEarthGlobeController controller;
 
-  const RealTimeSunControl({Key? key, required this.controller})
-      : super(key: key);
+  const RealTimeSunControl({Key? key, required this.controller}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -626,8 +589,7 @@ class RealTimeSunControl extends StatelessWidget {
           builder: (context, useRealTime, child) {
             return Card(
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -638,8 +600,7 @@ class RealTimeSunControl extends StatelessWidget {
                       onChanged: isEnabled
                           ? (value) {
                               controller.setUseRealTimeSunPosition(value);
-                              GlobeControlsState.instance
-                                  .setUseRealTimeSunPosition(value);
+                              GlobeControlsState.instance.setUseRealTimeSunPosition(value);
                             }
                           : null,
                     ),
@@ -677,8 +638,7 @@ class PointControl extends StatelessWidget {
             final currentSize = pointSizes[point.id] ?? point.style.size;
             return Card(
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -692,19 +652,16 @@ class PointControl extends StatelessWidget {
                           onChanged: (value) {
                             if (value == true) {
                               controller.addPoint(point);
-                              GlobeControlsState.instance
-                                  .addVisiblePoint(point.id);
+                              GlobeControlsState.instance.addVisiblePoint(point.id);
                             } else {
                               controller.removePoint(point.id);
-                              GlobeControlsState.instance
-                                  .removeVisiblePoint(point.id);
+                              GlobeControlsState.instance.removeVisiblePoint(point.id);
                             }
                           },
                         ),
                         IconButton(
                           onPressed: () {
-                            controller.focusOnCoordinates(point.coordinates,
-                                animate: true);
+                            controller.focusOnCoordinates(point.coordinates, animate: true);
                           },
                           icon: const Icon(Icons.location_on),
                         ),
@@ -715,11 +672,9 @@ class PointControl extends StatelessWidget {
                         value: currentSize / 30,
                         onChanged: (value) {
                           final newSize = value * 30;
-                          controller.updatePoint(point.id,
-                              style: point.style.copyWith(size: newSize));
+                          controller.updatePoint(point.id, style: point.style.copyWith(size: newSize));
                           point.style = point.style.copyWith(size: newSize);
-                          GlobeControlsState.instance
-                              .setPointSize(point.id, newSize);
+                          GlobeControlsState.instance.setPointSize(point.id, newSize);
                         },
                       ),
                   ],
@@ -762,14 +717,11 @@ class ConnectionControl extends StatelessWidget {
                   value: isVisible,
                   onChanged: (value) {
                     if (value == true) {
-                      controller.addPointConnection(connection,
-                          animateDraw: true);
-                      GlobeControlsState.instance
-                          .addVisibleConnection(connection.id);
+                      controller.addPointConnection(connection, animateDraw: true);
+                      GlobeControlsState.instance.addVisibleConnection(connection.id);
                     } else {
                       controller.removePointConnection(connection.id);
-                      GlobeControlsState.instance
-                          .removeVisibleConnection(connection.id);
+                      GlobeControlsState.instance.removeVisibleConnection(connection.id);
                     }
                   },
                 ),
@@ -803,19 +755,13 @@ class TextureSelector extends StatelessWidget {
           children: textures
               .map((texture) => Card(
                     clipBehavior: Clip.hardEdge,
-                    color: selectedSurface == texture
-                        ? Colors.cyan.withAlpha(128)
-                        : Colors.white.withAlpha(128),
+                    color: selectedSurface == texture ? Colors.cyan.withAlpha(128) : Colors.white.withAlpha(128),
                     child: InkWell(
                       onTap: () {
                         controller.loadSurface(Image.asset(texture).image);
 
-                        if (texture.contains('sun') ||
-                            texture.contains('venus') ||
-                            texture.contains('mars')) {
-                          controller.setSphereStyle(SphereStyle(
-                              shadowColor: Colors.orange.withAlpha(204),
-                              shadowBlurSigma: 20));
+                        if (texture.contains('sun') || texture.contains('venus') || texture.contains('mars')) {
+                          controller.setSphereStyle(SphereStyle(shadowColor: Colors.orange.withAlpha(204), shadowBlurSigma: 20));
                         } else {
                           controller.setSphereStyle(const SphereStyle());
                         }
@@ -835,12 +781,7 @@ class TextureSelector extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 10),
-                          Text(texture
-                              .replaceFirst('assets/', '')
-                              .split('.')[0]
-                              .replaceAll('_', ' ')
-                              .split(' ')[1]
-                              .toUpperCase()),
+                          Text(texture.replaceFirst('assets/', '').split('.')[0].replaceAll('_', ' ').split(' ')[1].toUpperCase()),
                         ],
                       ),
                     ),
@@ -894,8 +835,7 @@ class DividerText extends StatelessWidget {
 class SatelliteControl extends StatefulWidget {
   final FlutterEarthGlobeController controller;
 
-  const SatelliteControl({Key? key, required this.controller})
-      : super(key: key);
+  const SatelliteControl({Key? key, required this.controller}) : super(key: key);
 
   @override
   State<SatelliteControl> createState() => _SatelliteControlState();
@@ -947,8 +887,8 @@ class _SatelliteControlState extends State<SatelliteControl> {
         return '★ Star';
       case SatelliteShape.satelliteIcon:
         return '🛰 Satellite';
-      case SatelliteShape.svgImage:
-        return '🖼 SVG Image';
+      case SatelliteShape.customImage:
+        return '🖼 Custom Image';
     }
   }
 
@@ -1182,8 +1122,7 @@ class _SatelliteControlState extends State<SatelliteControl> {
 class AtmosphereColorControl extends StatelessWidget {
   final FlutterEarthGlobeController controller;
 
-  const AtmosphereColorControl({Key? key, required this.controller})
-      : super(key: key);
+  const AtmosphereColorControl({Key? key, required this.controller}) : super(key: key);
 
   static const List<Color> _presetColors = [
     Color.fromARGB(255, 57, 123, 185), // Default blue
@@ -1250,8 +1189,7 @@ class AtmosphereColorControl extends StatelessWidget {
 class AtmosphereOpacityControl extends StatelessWidget {
   final FlutterEarthGlobeController controller;
 
-  const AtmosphereOpacityControl({Key? key, required this.controller})
-      : super(key: key);
+  const AtmosphereOpacityControl({Key? key, required this.controller}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -1298,8 +1236,7 @@ class AtmosphereOpacityControl extends StatelessWidget {
 class SurfaceLightingControl extends StatelessWidget {
   final FlutterEarthGlobeController controller;
 
-  const SurfaceLightingControl({Key? key, required this.controller})
-      : super(key: key);
+  const SurfaceLightingControl({Key? key, required this.controller}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -1311,8 +1248,7 @@ class SurfaceLightingControl extends StatelessWidget {
           builder: (context, intensity, child) {
             return Card(
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1325,8 +1261,7 @@ class SurfaceLightingControl extends StatelessWidget {
                           value: lightingEnabled,
                           onChanged: (value) {
                             controller.surfaceLightingEnabled = value;
-                            GlobeControlsState.instance
-                                .setSurfaceLightingEnabled(value);
+                            GlobeControlsState.instance.setSurfaceLightingEnabled(value);
                           },
                         ),
                       ],
@@ -1339,8 +1274,7 @@ class SurfaceLightingControl extends StatelessWidget {
                           const SizedBox(width: 8),
                           Text(
                             '${(intensity * 100).round()}%',
-                            style: const TextStyle(
-                                fontSize: 12, color: Colors.grey),
+                            style: const TextStyle(fontSize: 12, color: Colors.grey),
                           ),
                         ],
                       ),
