@@ -101,6 +101,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
   double _initialRotationX = 0.0;
   double _initialRotationY = 0.0;
   double _initialRotationZ = 0.0;
+  DateTime _lastRotationTick = DateTime.now();
 
   // Cached sphere image and parameters for performance
   SphereImage? _cachedSphereImage;
@@ -197,11 +198,18 @@ class RotatingGlobeState extends State<RotatingGlobe>
       vsync: this,
       duration: const Duration(seconds: 1),
     )..addListener(() {
+        final now = DateTime.now();
+        double dt = now.difference(_lastRotationTick).inMicroseconds / 1000000.0;
+        _lastRotationTick = now;
+        if (dt <= 0.0 || dt > 0.1) {
+          dt = 1 / 60.0;
+        }
+
         if (mounted) {
           setState(() {
             rotationZ = (rotationZ -
                     (widget.controller.rotationSpeed *
-                        ((math.pow((2 * math.pi), 2) / 360)))) %
+                        ((math.pow((2 * math.pi), 2) / 360)) * 60.0 * dt)) %
                 (2 * math.pi);
           });
 

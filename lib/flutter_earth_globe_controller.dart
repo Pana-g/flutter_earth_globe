@@ -582,7 +582,11 @@ class FlutterEarthGlobeController extends ChangeNotifier {
           .toString()
           .replaceAll('.', '-')
           .toUpperCase();
-      final String name = (properties['name'] ?? properties['name_en'] ?? properties['title'] ?? id).toString();
+      final String name = (properties['name'] ??
+              properties['name_en'] ??
+              properties['title'] ??
+              id)
+          .toString();
 
       if (id.isEmpty || coordinates == null) continue;
 
