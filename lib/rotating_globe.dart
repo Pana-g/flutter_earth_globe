@@ -107,6 +107,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
   double _initialRotationX = 0.0;
   double _initialRotationY = 0.0;
   double _initialRotationZ = 0.0;
+  DateTime _lastRotationTick = DateTime.now();
 
   // Cached sphere image and parameters for performance
   SphereImage? _cachedSphereImage;
@@ -201,11 +202,18 @@ class RotatingGlobeState extends State<RotatingGlobe>
       vsync: this,
       duration: const Duration(seconds: 1),
     )..addListener(() {
+        final now = DateTime.now();
+        double dt = now.difference(_lastRotationTick).inMicroseconds / 1000000.0;
+        _lastRotationTick = now;
+        if (dt <= 0.0 || dt > 0.1) {
+          dt = 1 / 60.0;
+        }
+
         if (mounted) {
           setState(() {
             rotationZ = (rotationZ -
                     (widget.controller.rotationSpeed *
-                        ((math.pow((2 * math.pi), 2) / 360)))) %
+                        ((math.pow((2 * math.pi), 2) / 360)) * 60.0 * dt)) %
                 (2 * math.pi);
           });
 
@@ -221,6 +229,11 @@ class RotatingGlobeState extends State<RotatingGlobe>
       });
 
     _attachController(widget.controller);
+
+    // Initialize animationProgress for any connections added before mounting
+    for (final connection in widget.controller.connections) {
+      connection.animationProgress = 1.0;
+    }
 
     // Globe.GL-style continuous animation controller
     // Uses a simple repeating animation to drive frame updates
@@ -509,6 +522,10 @@ class RotatingGlobeState extends State<RotatingGlobe>
       {required bool animate,
       required Duration? duration,
       Curve curve = Curves.linear}) {
+    // Stop auto-rotation during the transition to prevent conflicting animation updates
+    widget.controller.rotationController.stop();
+    _autoRotationDelayTimer?.cancel();
+
     double latRad = radians(coordinates.latitude);
     double lonRad = radians(-coordinates.longitude);
     final targetRotationZ = -lonRad;
@@ -519,9 +536,16 @@ class RotatingGlobeState extends State<RotatingGlobe>
       final initialRotationX = rotationX;
       final initialRotationY = rotationY;
 
-      final rZ = targetRotationZ - initialRotationZ;
-      final rX = targetRotationX - initialRotationX;
-      final rY = targetRotationY - initialRotationY;
+      // Shortest path interpolation for Z (longitude)
+      double rZ = targetRotationZ - initialRotationZ;
+      rZ = (rZ + math.pi) % (2 * math.pi) - math.pi;
+
+      // Shortest path interpolation for Y/X (latitude)
+      double rY = targetRotationY - initialRotationY;
+      rY = (rY + math.pi) % (2 * math.pi) - math.pi;
+
+      double rX = targetRotationX - initialRotationX;
+      rX = (rX + math.pi) % (2 * math.pi) - math.pi;
 
       _genericCurvedAnimation?.dispose();
       genericAnimationController?.dispose();
@@ -541,12 +565,26 @@ class RotatingGlobeState extends State<RotatingGlobe>
 
         setState(() {});
       });
+
+      genericAnimationController!.addStatusListener((status) {
+        if (status == AnimationStatus.completed && mounted) {
+          if (widget.controller.isRotating) {
+            _lastRotationTick = DateTime.now();
+            widget.controller.rotationController.repeat();
+          }
+        }
+      });
+
       genericAnimationController!.forward();
     } else {
       rotationX = targetRotationX;
       rotationY = targetRotationY;
       rotationZ = targetRotationZ;
       setState(() {});
+      if (widget.controller.isRotating) {
+        _lastRotationTick = DateTime.now();
+        widget.controller.rotationController.repeat();
+      }
     }
   }
 
@@ -1153,7 +1191,8 @@ class RotatingGlobeState extends State<RotatingGlobe>
     if (widget.controller.surface == null) return null;
 
     final hasDayNightCycle = widget.controller.isDayNightCycleEnabled &&
-        widget.controller.nightSurface != null;
+        (widget.controller.nightSurface != null ||
+            widget.controller.dayNightMode == DayNightMode.simulated);
 
     // Check if we need to recreate the shader (textures changed or shader needs recreation)
     final daySurface = widget.controller.surface!;
