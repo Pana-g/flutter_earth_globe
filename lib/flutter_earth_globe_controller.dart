@@ -14,6 +14,7 @@ import 'sphere_style.dart';
 import 'point_connection.dart';
 
 import 'point_connection_style.dart';
+import 'region.dart';
 
 /// This class is the controller of the [RotatingGlobe] widget.
 ///
@@ -29,6 +30,12 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   List<AnimatedPointConnection> connections =
       []; // The connections between points.
   List<Satellite> satellites = []; // The satellites orbiting the globe.
+  List<GlobeRegion> regions = []; // The geographic regions on the globe.
+  Set<String> selectedRegionIds = {};
+  int _regionRevision = 0;
+  int get regionRevision => _regionRevision;
+  void Function(GlobeRegion region)? onRegionTap;
+  void Function(GlobeRegion region)? onRegionHover;
   SphereStyle sphereStyle; // The style of the sphere.
   ui.Image? surface; // The surface image of the sphere.
   ui.Image? nightSurface; // The night surface image of the sphere.
@@ -557,6 +564,200 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   /// ```
   void addPoint(Point point) {
     points.add(point);
+    notifyListeners();
+  }
+
+  void addRegion(GlobeRegion region) {
+    _regionRevision++;
+    regions.add(region);
+    notifyListeners();
+  }
+
+  void addRegions(List<GlobeRegion> newRegions) {
+    _regionRevision++;
+    regions.addAll(newRegions);
+    notifyListeners();
+  }
+
+  void removeRegion(String id) {
+    _regionRevision++;
+    regions.removeWhere((element) => element.id == id);
+    notifyListeners();
+  }
+
+  void clearRegions() {
+    _regionRevision++;
+    regions.clear();
+    notifyListeners();
+  }
+
+  void selectRegions(List<String> regionIds) {
+    _regionRevision++;
+    selectedRegionIds = regionIds.toSet();
+    notifyListeners();
+  }
+
+  /// Load and parse a standard GeoJSON map object into GlobeRegion objects.
+  /// This parses both 'Polygon' and 'MultiPolygon' geometries.
+  /// Keys in properties to search for the ID: 'code', 'id', 'iso_a2', 'iso_a3', 'adm0_a3', etc.
+  /// Keys in properties to search for the Name: 'name', 'name_en', 'title', etc.
+  void loadRegionDataset(
+    Map<String, dynamic> geojson, {
+    Color defaultBorderColor = Colors.white,
+    double defaultBorderWidth = 1.0,
+    Color? defaultFillColor,
+    Color? defaultHighlightColor,
+    bool defaultIsVisible = true,
+    List<String> Function(String regionId)? clipAgainstBuilder,
+  }) {
+    final features = geojson['features'] as List<dynamic>? ?? [];
+    final List<GlobeRegion> parsed = [];
+
+    for (final feature in features) {
+      final properties = feature['properties'] as Map<String, dynamic>? ?? {};
+      final geometry = feature['geometry'] as Map<String, dynamic>? ?? {};
+      final geometryType = geometry['type'] as String? ?? '';
+      final coordinates = geometry['coordinates'];
+
+      final String id = (properties['iso_3166_2'] ??
+              properties['code_hasc'] ??
+              properties['code'] ??
+              properties['id'] ??
+              properties['iso_a2'] ??
+              properties['iso_a3'] ??
+              properties['adm0_a3'] ??
+              '')
+          .toString()
+          .replaceAll('.', '-')
+          .toUpperCase();
+      final String name = (properties['name'] ??
+              properties['name_en'] ??
+              properties['title'] ??
+              id)
+          .toString();
+
+      if (id.isEmpty || coordinates == null) continue;
+
+      final polygons = <List<List<double>>>[];
+
+      if (geometryType == 'Polygon') {
+        for (final ring in coordinates) {
+          polygons.add(
+            (ring as List)
+                .map<List<double>>(
+                  (point) => [
+                    (point[0] as num).toDouble(),
+                    (point[1] as num).toDouble(),
+                  ],
+                )
+                .toList(),
+          );
+        }
+      } else if (geometryType == 'MultiPolygon') {
+        for (final polygon in coordinates) {
+          for (final ring in polygon) {
+            polygons.add(
+              (ring as List)
+                  .map<List<double>>(
+                    (point) => [
+                      (point[0] as num).toDouble(),
+                      (point[1] as num).toDouble(),
+                    ],
+                  )
+                  .toList(),
+            );
+          }
+        }
+      } else {
+        continue;
+      }
+
+      if (polygons.isNotEmpty) {
+        parsed.add(
+          GlobeRegion(
+            id: id,
+            name: name,
+            polygons: polygons,
+            borderColor: defaultBorderColor,
+            borderWidth: defaultBorderWidth,
+            fillColor: defaultFillColor,
+            highlightColor: defaultHighlightColor,
+            isVisible: defaultIsVisible,
+            clipAgainst: clipAgainstBuilder?.call(id) ?? const [],
+          ),
+        );
+      }
+    }
+
+    addRegions(parsed);
+  }
+
+  /// Show regions matching specified IDs
+  void showRegions(List<String> ids) {
+    _regionRevision++;
+    final upperIds = ids.map((e) => e.toUpperCase()).toSet();
+    for (int i = 0; i < regions.length; i++) {
+      if (upperIds.contains(regions[i].id.toUpperCase())) {
+        regions[i] = regions[i].copyWith(isVisible: true);
+      }
+    }
+    notifyListeners();
+  }
+
+  /// Hide regions matching specified IDs
+  void hideRegions(List<String> ids) {
+    _regionRevision++;
+    final upperIds = ids.map((e) => e.toUpperCase()).toSet();
+    for (int i = 0; i < regions.length; i++) {
+      if (upperIds.contains(regions[i].id.toUpperCase())) {
+        regions[i] = regions[i].copyWith(isVisible: false);
+      }
+    }
+    notifyListeners();
+  }
+
+  /// Show all regions
+  void showAllRegions() {
+    _regionRevision++;
+    for (int i = 0; i < regions.length; i++) {
+      regions[i] = regions[i].copyWith(isVisible: true);
+    }
+    notifyListeners();
+  }
+
+  /// Hide all regions
+  void hideAllRegions() {
+    _regionRevision++;
+    for (int i = 0; i < regions.length; i++) {
+      regions[i] = regions[i].copyWith(isVisible: false);
+    }
+    notifyListeners();
+  }
+
+  /// Dynamically update region styles
+  void updateRegionStyle(
+    String id, {
+    Color? borderColor,
+    double? borderWidth,
+    Color? fillColor,
+    Color? highlightColor,
+    bool? isVisible,
+    List<String>? clipAgainst,
+  }) {
+    _regionRevision++;
+    final upperId = id.toUpperCase();
+    for (int i = 0; i < regions.length; i++) {
+      if (regions[i].id.toUpperCase() == upperId) {
+        regions[i] = regions[i].copyWith(
+          borderColor: borderColor,
+          borderWidth: borderWidth,
+          fillColor: fillColor,
+          highlightColor: highlightColor,
+          isVisible: isVisible,
+          clipAgainst: clipAgainst,
+        );
+      }
+    }
     notifyListeners();
   }
 

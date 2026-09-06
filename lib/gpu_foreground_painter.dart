@@ -1,6 +1,8 @@
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:vector_math/vector_math_64.dart' show Vector3;
 
 import 'globe_coordinates.dart';
 import 'line_helper.dart';
@@ -9,6 +11,7 @@ import 'point.dart';
 import 'point_connection.dart';
 import 'point_connection_style.dart';
 import 'satellite.dart';
+import 'region.dart';
 
 /// Calculated position data for a point on the globe
 class PointRenderData {
@@ -153,11 +156,68 @@ class CachedOrbitPath {
   }
 }
 
+class RegionRenderData {
+  final String id;
+  final String baseId;
+  final GlobeRegion region;
+  final List<Path> visiblePaths;
+  final Path? fillPath;
+  final Path? polygonPath;
+  final Color borderColor;
+  final double borderWidth;
+  final Color? fillColor;
+  final Color? highlightColor;
+  final bool isSelected;
+  final bool isVisible;
+  final List<String> clipAgainst;
+
+  const RegionRenderData({
+    required this.id,
+    required this.baseId,
+    required this.region,
+    required this.visiblePaths,
+    this.fillPath,
+    this.polygonPath,
+    required this.borderColor,
+    required this.borderWidth,
+    required this.fillColor,
+    required this.highlightColor,
+    required this.isSelected,
+    required this.isVisible,
+    required this.clipAgainst,
+  });
+}
+
+class CachedPolygonData {
+  final List<Vector3> vertices;
+  final Vector3 center;
+  final double sinThetaMax;
+
+  CachedPolygonData({
+    required this.vertices,
+    required this.center,
+    required this.sinThetaMax,
+  });
+}
+
 /// Globe.GL-style foreground renderer for points and connections.
 ///
 /// This class calculates positions for all elements and renders them
 /// with proper animations, transitions, and GPU acceleration where possible.
 class GlobeForegroundRenderer {
+  final Map<String, List<CachedPolygonData>> _regionCoordinateCache = {};
+
+  // Cache for region calculation to avoid recalculating when globe is stationary
+  List<RegionRenderData>? _cachedRegionRenderData;
+  double? _lastRegionRadius;
+  double? _lastRegionRotationY;
+  double? _lastRegionRotationZ;
+  Size? _lastRegionCanvasSize;
+  Set? _lastRegionSelectedIds;
+  List? _lastRegions;
+  int? _lastRegionLength;
+  int? _lastRegionRevision;
+
   // Transition states for animations
   final Map<String, TransitionState> _pointTransitions = {};
   final Map<String, TransitionState> _connectionTransitions = {};
@@ -244,6 +304,295 @@ class GlobeForegroundRenderer {
 
     // Sort by depth (back to front) for proper overlapping
     result.sort((a, b) => a.depth.compareTo(b.depth));
+
+    return result;
+  }
+
+  List<CachedPolygonData> _getCachedRegionCoordinates(GlobeRegion region) {
+    final cached = _regionCoordinateCache[region.id];
+
+    if (cached != null) {
+      return cached;
+    }
+
+    final result = <CachedPolygonData>[];
+
+    // TODO: Dynamic zoom-based simplification threshold. Currently fixed and computed
+    // once upon loading, which can cause outlines to appear coarse when heavily zoomed in.
+    // Pre-simplification threshold on the unit sphere (in radians squared)
+    // 0.004 radians corresponds to ~0.6 screen pixels at default zoom.
+    const simplifyThresholdSq = 0.000016; // 0.004 * 0.004
+
+    for (final polygon in region.polygons) {
+      final rawCoordinates = <Vector3>[];
+
+      for (final coordinate in polygon) {
+        final latitude = degreesToRadians(coordinate[1]);
+        final longitude = degreesToRadians(coordinate[0]);
+
+        final cosLatitude = math.cos(latitude);
+
+        rawCoordinates.add(
+          Vector3(
+            cosLatitude * math.cos(longitude),
+            cosLatitude * math.sin(longitude),
+            math.sin(latitude),
+          ),
+        );
+      }
+
+      // Simplify the unit vectors on the sphere
+      final polygonCoordinates = <Vector3>[];
+      if (rawCoordinates.isNotEmpty) {
+        polygonCoordinates.add(rawCoordinates.first);
+        for (int i = 1; i < rawCoordinates.length - 1; i++) {
+          final current = rawCoordinates[i];
+          final lastKept = polygonCoordinates.last;
+          final dx = current.x - lastKept.x;
+          final dy = current.y - lastKept.y;
+          final dz = current.z - lastKept.z;
+          final distSq = dx * dx + dy * dy + dz * dz;
+          if (distSq >= simplifyThresholdSq) {
+            polygonCoordinates.add(current);
+          }
+        }
+        if (rawCoordinates.length > 1) {
+          polygonCoordinates.add(rawCoordinates.last);
+        }
+      }
+
+      // Precompute polygon center
+      var sumX = 0.0;
+      var sumY = 0.0;
+      var sumZ = 0.0;
+      for (final v in polygonCoordinates) {
+        sumX += v.x;
+        sumY += v.y;
+        sumZ += v.z;
+      }
+      final count = polygonCoordinates.length;
+      var centerVec = Vector3(sumX / count, sumY / count, sumZ / count);
+      final len = math.sqrt(centerVec.x * centerVec.x +
+          centerVec.y * centerVec.y +
+          centerVec.z * centerVec.z);
+      if (len > 0.0001) {
+        centerVec =
+            Vector3(centerVec.x / len, centerVec.y / len, centerVec.z / len);
+      } else if (polygonCoordinates.isNotEmpty) {
+        centerVec = polygonCoordinates.first;
+      } else {
+        centerVec = Vector3(0.0, 0.0, 0.0);
+      }
+
+      // Precompute sinThetaMax
+      var minDot = 1.0;
+      for (final v in polygonCoordinates) {
+        final dot = v.x * centerVec.x + v.y * centerVec.y + v.z * centerVec.z;
+        if (dot < minDot) {
+          minDot = dot;
+        }
+      }
+      double sinThetaMax;
+      if (minDot < 0.0) {
+        sinThetaMax = 1.0;
+      } else {
+        sinThetaMax = math.sqrt((1.0 - minDot * minDot).clamp(0.0, 1.0));
+      }
+
+      result.add(
+        CachedPolygonData(
+          vertices: polygonCoordinates,
+          center: centerVec,
+          sinThetaMax: sinThetaMax,
+        ),
+      );
+    }
+
+    _regionCoordinateCache[region.id] = result;
+
+    return result;
+  }
+
+  List<RegionRenderData> calculateRegionPositions({
+    required List<GlobeRegion> regions,
+    required double radius,
+    required double rotationY,
+    required double rotationZ,
+    required Size canvasSize,
+    Set<String> selectedRegionIds = const {},
+    int regionRevision = 0,
+  }) {
+    // Check if cache is still valid (stationary state)
+    final isCacheValid = _cachedRegionRenderData != null &&
+        _lastRegionRadius == radius &&
+        _lastRegionRotationY == rotationY &&
+        _lastRegionRotationZ == rotationZ &&
+        _lastRegionCanvasSize == canvasSize &&
+        _lastRegionRevision == regionRevision &&
+        identical(_lastRegions, regions) &&
+        _lastRegionLength == regions.length &&
+        setEquals(_lastRegionSelectedIds, selectedRegionIds);
+
+    if (isCacheValid) {
+      return _cachedRegionRenderData!;
+    }
+
+    final center = Offset(
+      canvasSize.width / 2,
+      canvasSize.height / 2,
+    );
+
+    final List<RegionRenderData> result = [];
+
+    // Precompute trigonometric functions
+    final cosY = math.cos(rotationY);
+    final sinY = math.sin(rotationY);
+    final cosZ = math.cos(rotationZ);
+    final sinZ = math.sin(rotationZ);
+
+    // Rotation matrix elements for R = Ry * Rz
+    final r00 = cosY * cosZ;
+    final r01 = -cosY * sinZ;
+    final r02 = -sinY;
+    final r10 = sinZ;
+    final r11 = cosZ;
+    final r20 = sinY * cosZ;
+    final r21 = -sinY * sinZ;
+    final r22 = cosY;
+
+    // Combined rotation and projection factors
+    final m10 = radius * r10;
+    final m11 = radius * r11;
+    final m20 = -radius * r20;
+    final m21 = -radius * r21;
+    final m22 = -radius * r22;
+
+    for (final region in regions) {
+      if (!region.isVisible) continue;
+
+      final cachedPolygons = _getCachedRegionCoordinates(region);
+
+      for (int polygonIndex = 0;
+          polygonIndex < cachedPolygons.length;
+          polygonIndex++) {
+        final polygon = cachedPolygons[polygonIndex];
+
+        // Bounding spherical cap check (filter out polygons entirely on the back side of the globe)
+        final polyCenter = polygon.center;
+        final centerRotatedX =
+            r00 * polyCenter.x + r01 * polyCenter.y + r02 * polyCenter.z;
+
+        // If the center is sufficiently on the back side, the entire polygon is invisible.
+        if (centerRotatedX <= -polygon.sinThetaMax) {
+          continue;
+        }
+
+        final fillColor = selectedRegionIds.contains(region.id) && region.highlightColor != null
+            ? region.highlightColor!
+            : region.fillColor;
+        final needsFill = fillColor != null;
+
+        final List<Path> borderPaths = [];
+        Path? currentBorderPath;
+        final polygonPath = Path();
+        bool isFirst = true;
+
+        for (final unitVector in polygon.vertices) {
+          final x = unitVector.x;
+          final y = unitVector.y;
+          final z = unitVector.z;
+
+          // Perform rotation directly
+          final rotatedX = r00 * x + r01 * y + r02 * z;
+
+          // Project for borders (only front-facing)
+          if (rotatedX > 0) {
+            final px = center.dx + m10 * x + m11 * y;
+            final py = center.dy + m20 * x + m21 * y + m22 * z;
+
+            if (currentBorderPath == null) {
+              currentBorderPath = Path();
+              currentBorderPath.moveTo(px, py);
+            } else {
+              currentBorderPath.lineTo(px, py);
+            }
+          } else {
+            if (currentBorderPath != null) {
+              borderPaths.add(currentBorderPath);
+              currentBorderPath = null;
+            }
+          }
+
+          // Project for polygon (clamp back-facing to horizon circle for fill & hit-testing)
+          double fpx, fpy;
+          if (rotatedX > 0) {
+            fpx = center.dx + m10 * x + m11 * y;
+            fpy = center.dy + m20 * x + m21 * y + m22 * z;
+          } else {
+            final ry = r10 * x + r11 * y;
+            final rzVal = r20 * x + r21 * y + r22 * z;
+            final d = math.sqrt(ry * ry + rzVal * rzVal);
+            if (d > 0.0001) {
+              fpx = center.dx + (ry / d) * radius;
+              fpy = center.dy - (rzVal / d) * radius;
+            } else {
+              fpx = center.dx;
+              fpy = center.dy;
+            }
+          }
+
+          if (isFirst) {
+            polygonPath.moveTo(fpx, fpy);
+            isFirst = false;
+          } else {
+            polygonPath.lineTo(fpx, fpy);
+          }
+        }
+
+        if (currentBorderPath != null) {
+          borderPaths.add(currentBorderPath);
+        }
+        if (!isFirst) {
+          polygonPath.close();
+        }
+
+        // If no parts of the polygon are visible, skip adding it
+        if (borderPaths.isEmpty) {
+          continue;
+        }
+
+        final fillPath = needsFill ? polygonPath : null;
+
+        result.add(
+          RegionRenderData(
+            id: '${region.id}_$polygonIndex',
+            baseId: region.id,
+            region: region,
+            visiblePaths: borderPaths,
+            fillPath: fillPath,
+            polygonPath: polygonPath,
+            borderColor: region.borderColor,
+            borderWidth: region.borderWidth,
+            fillColor: region.fillColor,
+            highlightColor: region.highlightColor,
+            isSelected: selectedRegionIds.contains(region.id),
+            isVisible: region.isVisible,
+            clipAgainst: region.clipAgainst,
+          ),
+        );
+      }
+    }
+
+    // Update stationary cache
+    _cachedRegionRenderData = result;
+    _lastRegionRadius = radius;
+    _lastRegionRotationY = rotationY;
+    _lastRegionRotationZ = rotationZ;
+    _lastRegionCanvasSize = canvasSize;
+    _lastRegions = regions;
+    _lastRegionLength = regions.length;
+    _lastRegionRevision = regionRevision;
+    _lastRegionSelectedIds = Set.from(selectedRegionIds);
 
     return result;
   }
@@ -595,10 +944,10 @@ class GlobeForegroundRenderer {
     return result;
   }
 
-  /// Clean up transitions for removed elements
+  /// Clean up transitions and cached geometry for removed elements
   void cleanupRemovedElements(
       List<Point> points, List<AnimatedPointConnection> connections,
-      [List<Satellite>? satellites]) {
+      [List<Satellite>? satellites, List<GlobeRegion>? regions]) {
     final pointIds = points.map((p) => p.id).toSet();
     final connectionIds = connections.map((c) => c.id).toSet();
 
@@ -614,6 +963,21 @@ class GlobeForegroundRenderer {
       // Also cleanup orbit path cache
       _orbitPathCache.removeWhere((key, _) => !satelliteIds.contains(key));
     }
+
+    if (regions != null) {
+      final regionIds = regions.map((r) => r.id).toSet();
+      _regionCoordinateCache.removeWhere((key, _) => !regionIds.contains(key));
+    }
+  }
+
+  /// Explicitly clear all cached region coordinates
+  void clearRegionCoordinateCache() {
+    _regionCoordinateCache.clear();
+  }
+
+  /// Explicitly remove cached coordinates for a specific region ID
+  void removeRegionCoordinate(String id) {
+    _regionCoordinateCache.remove(id);
   }
 }
 
@@ -622,6 +986,7 @@ class GpuForegroundPainter extends CustomPainter {
   final List<PointRenderData> points;
   final List<ArcRenderData> arcs;
   final List<SatelliteRenderData> satellites;
+  final List<RegionRenderData> regions;
   final double radius;
   final Offset center;
   final Offset? hoverPoint;
@@ -640,16 +1005,20 @@ class GpuForegroundPainter extends CustomPainter {
   final void Function(String satelliteId, Offset? position, bool isHovering,
       bool isVisible)? onSatelliteHover;
   final VoidCallback? onPointClicked;
+  final void Function(GlobeRegion region)? onRegionTap;
+  final void Function(GlobeRegion? region)? onRegionHover;
 
   // Previous state for change detection
   final String? previousHoveredPointId;
   final String? previousHoveredConnectionId;
   final String? previousHoveredSatelliteId;
+  final String? previousHoveredRegionId;
 
   GpuForegroundPainter({
     required this.points,
     required this.arcs,
     required this.satellites,
+    required this.regions,
     required this.radius,
     required this.center,
     this.hoverPoint,
@@ -659,9 +1028,12 @@ class GpuForegroundPainter extends CustomPainter {
     this.onConnectionHover,
     this.onSatelliteHover,
     this.onPointClicked,
+    this.onRegionTap,
+    this.onRegionHover,
     this.previousHoveredPointId,
     this.previousHoveredConnectionId,
     this.previousHoveredSatelliteId,
+    this.previousHoveredRegionId,
   });
 
   @override
@@ -669,6 +1041,59 @@ class GpuForegroundPainter extends CustomPainter {
     String? currentHoveredPointId;
     String? currentHoveredConnectionId;
     bool clickHandled = false;
+
+    // Cache to avoid rebuilding the combined clip paths repeatedly on the same frame
+    final Map<String, Path?> frameClipPathCache = {};
+
+    // Draw all visible regions with generic clipping
+    for (final region in regions) {
+      if (!region.isVisible) continue;
+
+      Path? inverseClipPath;
+      if (region.clipAgainst.isNotEmpty) {
+        final clipKey = (List<String>.from(region.clipAgainst)..sort()).join(',');
+
+        if (frameClipPathCache.containsKey(clipKey)) {
+          inverseClipPath = frameClipPathCache[clipKey];
+        } else {
+          final clipIds = region.clipAgainst.toSet();
+          final combinedClipPath = Path();
+          bool hasClips = false;
+
+          for (final otherRegion in regions) {
+            final otherBaseId = otherRegion.baseId;
+            if (clipIds.contains(otherBaseId)) {
+              if (otherRegion.polygonPath != null) {
+                combinedClipPath.addPath(otherRegion.polygonPath!, Offset.zero);
+                hasClips = true;
+              } else {
+                for (final path in otherRegion.visiblePaths) {
+                  combinedClipPath.addPath(path, Offset.zero);
+                  hasClips = true;
+                }
+              }
+            }
+          }
+
+          if (hasClips) {
+            inverseClipPath = Path()
+              ..addRect(Rect.fromLTWH(-size.width, -size.height, size.width * 3, size.height * 3))
+              ..addPath(combinedClipPath, Offset.zero);
+            inverseClipPath.fillType = PathFillType.evenOdd;
+          }
+          frameClipPathCache[clipKey] = inverseClipPath;
+        }
+      }
+
+      if (inverseClipPath != null) {
+        canvas.save();
+        canvas.clipPath(inverseClipPath);
+        _drawRegion(canvas, region);
+        canvas.restore();
+      } else {
+        _drawRegion(canvas, region);
+      }
+    }
 
     // Draw points first (behind arcs)
     for (final point in points) {
@@ -841,6 +1266,73 @@ class GpuForegroundPainter extends CustomPainter {
         }
         onPointClicked?.call();
         clickHandled = true;
+      }
+    }
+
+    // Handle click on regions (only if not already handled by arcs, points, or satellites)
+    if (!clickHandled && clickPoint != null && onRegionTap != null) {
+      for (int i = regions.length - 1; i >= 0; i--) {
+        final regionData = regions[i];
+        if (!regionData.isVisible || regionData.polygonPath == null) continue;
+
+        if (regionData.polygonPath!.contains(clickPoint!)) {
+          final clipKey = regionData.clipAgainst.isNotEmpty
+              ? (List<String>.from(regionData.clipAgainst)..sort()).join(',')
+              : null;
+          final clipPath = clipKey != null ? frameClipPathCache[clipKey] : null;
+          if (clipPath != null && !clipPath.contains(clickPoint!)) {
+            continue;
+          }
+
+          final callback = onRegionTap;
+          final regionObj = regionData.region;
+          SchedulerBinding.instance.addPostFrameCallback((_) {
+            callback?.call(regionObj);
+          });
+          onPointClicked?.call();
+          clickHandled = true;
+          break;
+        }
+      }
+    }
+
+    // Handle hover on regions (only if no arc, point, or satellite is hovered)
+    if (hoverPoint != null &&
+        currentHoveredConnectionId == null &&
+        currentHoveredPointId == null &&
+        currentHoveredSatelliteId == null &&
+        onRegionHover != null) {
+      String? currentHoveredRegionId;
+      for (int i = regions.length - 1; i >= 0; i--) {
+        final regionData = regions[i];
+        if (!regionData.isVisible || regionData.polygonPath == null) continue;
+
+        if (regionData.polygonPath!.contains(hoverPoint!)) {
+          final clipKey = regionData.clipAgainst.isNotEmpty
+              ? (List<String>.from(regionData.clipAgainst)..sort()).join(',')
+              : null;
+          final clipPath = clipKey != null ? frameClipPathCache[clipKey] : null;
+          if (clipPath != null && !clipPath.contains(hoverPoint!)) {
+            continue;
+          }
+
+          currentHoveredRegionId = regionData.baseId;
+          if (currentHoveredRegionId != previousHoveredRegionId) {
+            final callback = onRegionHover;
+            final regionObj = regionData.region;
+            SchedulerBinding.instance.addPostFrameCallback((_) {
+              callback?.call(regionObj);
+            });
+          }
+          break;
+        }
+      }
+
+      if (currentHoveredRegionId == null && previousHoveredRegionId != null) {
+        final callback = onRegionHover;
+        SchedulerBinding.instance.addPostFrameCallback((_) {
+          callback?.call(null);
+        });
       }
     }
   }
@@ -1291,9 +1783,42 @@ class GpuForegroundPainter extends CustomPainter {
     return points != oldDelegate.points ||
         arcs != oldDelegate.arcs ||
         satellites != oldDelegate.satellites ||
+        regions != oldDelegate.regions ||
         hoverPoint != oldDelegate.hoverPoint ||
         clickPoint != oldDelegate.clickPoint ||
         radius != oldDelegate.radius ||
         center != oldDelegate.center;
+  }
+
+  void _drawRegion(
+    Canvas canvas,
+    RegionRenderData region,
+  ) {
+    // Draw the fill first so the border remains visible on top.
+    final fillColor = region.isSelected && region.highlightColor != null
+        ? region.highlightColor!
+        : region.fillColor;
+
+    if (fillColor != null && region.fillPath != null) {
+      final fillPaint = Paint()
+        ..style = PaintingStyle.fill
+        ..color = fillColor;
+
+      canvas.drawPath(region.fillPath!, fillPaint);
+    }
+
+    if (region.visiblePaths.isNotEmpty) {
+      // Draw the border on top.
+      final borderPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = region.borderWidth
+        ..color = region.borderColor
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+
+      for (final path in region.visiblePaths) {
+        canvas.drawPath(path, borderPaint);
+      }
+    }
   }
 }

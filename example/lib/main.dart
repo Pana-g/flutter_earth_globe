@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter_earth_globe/flutter_earth_globe.dart';
 import 'package:flutter_earth_globe/flutter_earth_globe_controller.dart';
 import 'package:flutter_earth_globe/globe_coordinates.dart';
@@ -361,6 +362,52 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     GlobeControlsState.instance.setRotationSpeed(_controller.rotationSpeed);
     GlobeControlsState.instance
         .setDayNightBlendFactor(_controller.dayNightBlendFactor);
+    _loadRegions();
+  }
+
+  Future<void> _loadRegions() async {
+    try {
+      final jsonString = await DefaultAssetBundle.of(context)
+          .loadString('assets/geo/countries.geojson');
+      if (!mounted) return;
+      final geojson = jsonDecode(jsonString) as Map<String, dynamic>;
+      _controller.loadRegionDataset(
+        geojson,
+        defaultBorderColor: const Color.fromARGB(128, 255, 255, 255),
+        defaultBorderWidth: 0.5,
+        defaultFillColor: const Color.fromARGB(26, 33, 150, 243),
+        defaultHighlightColor: const Color.fromARGB(102, 255, 152, 0),
+        clipAgainstBuilder: (id) {
+          if (id.startsWith('PAK') || id.startsWith('CHN')) {
+            return ['IND'];
+          }
+          return [];
+        },
+      );
+
+      _controller.onRegionTap = (region) {
+        debugPrint('Region tapped: ${region.name} (${region.id})');
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Tapped region: ${region.name} (${region.id})'),
+            duration: const Duration(seconds: 1),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        if (_controller.selectedRegionIds.contains(region.id)) {
+          _controller.selectRegions([]);
+        } else {
+          _controller.selectRegions([region.id]);
+        }
+      };
+
+      _controller.onRegionHover = (region) {
+        debugPrint('Region hovered: ${region.name}');
+      };
+    } catch (e) {
+      debugPrint('Error loading regions: $e');
+    }
   }
 
   Widget _buildCollapsibleSection({

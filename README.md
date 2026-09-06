@@ -423,6 +423,79 @@ _controller.clearSatellites();
 
 ---
 
+### Region Outlines and Highlights
+
+Region outlines allow you to draw, style, and highlight geographic country or state boundaries on the globe using standard GeoJSON polygon/multipolygon coordinate datasets.
+
+```dart
+// 1. Load GeoJSON coordinate maps (e.g., lightweight 110m countries dataset)
+final jsonString = await DefaultAssetBundle.of(context)
+    .loadString('assets/geo/countries.geojson');
+final Map<String, dynamic> geojson = jsonDecode(jsonString);
+
+// 2. Parse and load boundaries into the controller
+_controller.loadRegionDataset(
+  geojson,
+  defaultBorderColor: Colors.white70,
+  defaultBorderWidth: 0.5,
+  defaultFillColor: Colors.cyan.withOpacity(0.1),
+  defaultHighlightColor: Colors.cyanAccent.withOpacity(0.35),
+  defaultIsVisible: true,
+  clipAgainstBuilder: (id) {
+    // Prevent overlapping boundary lines (e.g. clip Pakistan/China boundaries against India)
+    if (id.startsWith('PAK') || id.startsWith('CHN')) {
+      return ['IND'];
+    }
+    return [];
+  },
+);
+
+// 3. Control visibility or style individual regions dynamically
+_controller.hideAllRegions();
+_controller.showRegions(['IND', 'USA', 'BRA']);
+
+_controller.updateRegionStyle(
+  'IND',
+  borderColor: Colors.orangeAccent,
+  borderWidth: 1.2,
+  fillColor: Colors.deepOrange.withOpacity(0.4),
+);
+```
+
+<details>
+<summary><strong>📖 Region API Reference</strong></summary>
+
+#### Region Controller Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `loadRegionDataset(geojson, {defaultBorderColor, defaultBorderWidth, defaultFillColor, defaultHighlightColor, defaultIsVisible, clipAgainstBuilder})` | `void` | Parses and caches GeoJSON coordinates into GlobeRegion objects. |
+| `showRegions(List<String> ids)` | `void` | Makes specified regions visible on the globe. |
+| `hideRegions(List<String> ids)` | `void` | Hides specified regions from rendering. |
+| `showAllRegions()` | `void` | Makes all loaded regions visible. |
+| `hideAllRegions()` | `void` | Hides all loaded regions. |
+| `updateRegionStyle(String id, {borderColor, borderWidth, fillColor, highlightColor})` | `void` | Dynamically updates the styling of a specific region. |
+| `selectRegions(List<String> ids)` | `void` | Programmatically selects a list of regions (applies highlightColor). |
+
+#### Region Interactions (Gestures)
+You can listen to taps or hover events on specific outlined boundaries:
+
+```dart
+_controller.onRegionTap = (GlobeRegion region) {
+  print('Tapped region: ${region.name} (${region.id})');
+};
+
+_controller.onRegionHover = (GlobeRegion region) {
+  print('Hovering over: ${region.name}');
+};
+```
+
+> **Note on GeoJSON Datasets:** The example app includes a lightweight 110m resolution world boundaries dataset (`countries.geojson`, ~689 KB) to keep package and repo sizes minimal. If your application requires high-resolution outlines (50m or 10m) or sub-national state/province boundaries, download the free datasets directly from [Natural Earth](https://www.naturalearthdata.com/downloads/).
+
+</details>
+
+---
+
 ## Globe Configuration
 
 ### Loading Textures

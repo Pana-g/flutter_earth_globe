@@ -163,10 +163,12 @@ class RotatingGlobeState extends State<RotatingGlobe>
   List<PointRenderData> _pointRenderData = [];
   List<ArcRenderData> _arcRenderData = [];
   List<SatelliteRenderData> _satelliteRenderData = [];
+  List<RegionRenderData> _regionRenderData = [];
 
   // Track currently hovered elements to avoid redundant callbacks
   String? _currentHoveredPointId;
   String? _currentHoveredConnectionId;
+  String? _currentHoveredRegionId;
   // TODO: Add satellite hover support in future
   // String? _currentHoveredSatelliteId;
 
@@ -1317,6 +1319,17 @@ class RotatingGlobeState extends State<RotatingGlobe>
       now: now,
     );
 
+    // Calculate geographic region positions
+    _regionRenderData = _foregroundRenderer.calculateRegionPositions(
+      regions: widget.controller.regions,
+      radius: convertedRadius(),
+      rotationY: rotationY,
+      rotationZ: rotationZ,
+      canvasSize: canvasSize,
+      selectedRegionIds: widget.controller.selectedRegionIds,
+      regionRevision: widget.controller.regionRevision,
+    );
+
     // Calculate arc positions
     _arcRenderData = _foregroundRenderer.calculateConnectionPositions(
       connections: widget.controller.connections,
@@ -1401,6 +1414,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
       widget.controller.points,
       widget.controller.connections,
       widget.controller.satellites,
+      widget.controller.regions,
     );
   }
 
@@ -1411,6 +1425,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
       points: _pointRenderData,
       arcs: _arcRenderData,
       satellites: _satelliteRenderData,
+      regions: _regionRenderData,
       radius: convertedRadius(),
       center: center,
       hoverPoint: _hoverNotifier.value,
@@ -1418,6 +1433,19 @@ class RotatingGlobeState extends State<RotatingGlobe>
       skipSatelliteShapes: skipSatelliteShapes,
       previousHoveredPointId: _currentHoveredPointId,
       previousHoveredConnectionId: _currentHoveredConnectionId,
+      previousHoveredRegionId: _currentHoveredRegionId,
+      onRegionTap: widget.controller.onRegionTap,
+      onRegionHover: (region) {
+        if (!mounted) return;
+        if (region != null) {
+          if (_currentHoveredRegionId != region.id) {
+            _currentHoveredRegionId = region.id;
+            widget.controller.onRegionHover?.call(region);
+          }
+        } else {
+          _currentHoveredRegionId = null;
+        }
+      },
       onPointHover: (pointId, position, isHovering, isVisible) {
         if (!mounted) return;
 

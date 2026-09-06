@@ -14,6 +14,9 @@ export 'misc.dart' show DayNightCycleDirection;
 export 'satellite.dart'
     show Satellite, SatelliteStyle, SatelliteOrbit, SatelliteShape;
 
+// Export region classes for external use
+export 'region.dart' show GlobeRegion;
+
 /// This is the main widget of the package. It is a sphere that can be rotated and animated.
 class FlutterEarthGlobe extends StatefulWidget {
   final double radius;
