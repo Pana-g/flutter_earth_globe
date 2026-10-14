@@ -1705,8 +1705,16 @@ class RotatingGlobeState extends State<RotatingGlobe>
       children: [
         // Background - stays fixed, fills the screen
         LayoutBuilder(builder: (context, constraints) {
+          // Without a background, still take the space the background would
+          // (the globe itself is Positioned and does not size the Stack), so
+          // the widget is not 0x0 and keeps receiving pointer events.
           return widget.controller.background == null
-              ? const SizedBox.shrink()
+              ? SizedBox(
+                  width:
+                      constraints.hasBoundedWidth ? constraints.maxWidth : 0,
+                  height:
+                      constraints.hasBoundedHeight ? constraints.maxHeight : 0,
+                )
               : RepaintBoundary(
                   child: _buildBackground(constraints),
                 );
