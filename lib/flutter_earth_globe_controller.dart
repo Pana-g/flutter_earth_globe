@@ -638,34 +638,48 @@ class FlutterEarthGlobeController extends ChangeNotifier {
 
       if (id.isEmpty || coordinates == null) continue;
 
-      final polygons = <List<List<double>>>[];
+      final polygons = <List<List<List<double>>>>[];
 
       if (geometryType == 'Polygon') {
+        // GeoJSON Polygon: coordinates is an array of linear rings.
+        // The first ring is the exterior boundary; subsequent rings are interior holes.
+        final rings = <List<List<double>>>[];
         for (final ring in coordinates) {
-          polygons.add(
-            (ring as List)
+          final ringPoints = (ring as List)
+              .map<List<double>>(
+                (point) => [
+                  (point[0] as num).toDouble(),
+                  (point[1] as num).toDouble(),
+                ],
+              )
+              .toList();
+          if (ringPoints.isNotEmpty) {
+            rings.add(ringPoints);
+          }
+        }
+        if (rings.isNotEmpty) {
+          polygons.add(rings);
+        }
+      } else if (geometryType == 'MultiPolygon') {
+        // GeoJSON MultiPolygon: coordinates is an array of polygons,
+        // each having an array of rings: [exterior, hole1, hole2, ...]
+        for (final polygon in coordinates) {
+          final rings = <List<List<double>>>[];
+          for (final ring in polygon) {
+            final ringPoints = (ring as List)
                 .map<List<double>>(
                   (point) => [
                     (point[0] as num).toDouble(),
                     (point[1] as num).toDouble(),
                   ],
                 )
-                .toList(),
-          );
-        }
-      } else if (geometryType == 'MultiPolygon') {
-        for (final polygon in coordinates) {
-          for (final ring in polygon) {
-            polygons.add(
-              (ring as List)
-                  .map<List<double>>(
-                    (point) => [
-                      (point[0] as num).toDouble(),
-                      (point[1] as num).toDouble(),
-                    ],
-                  )
-                  .toList(),
-            );
+                .toList();
+            if (ringPoints.isNotEmpty) {
+              rings.add(ringPoints);
+            }
+          }
+          if (rings.isNotEmpty) {
+            polygons.add(rings);
           }
         }
       } else {

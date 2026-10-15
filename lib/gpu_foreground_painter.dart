@@ -189,14 +189,31 @@ class RegionRenderData {
 }
 
 class CachedPolygonData {
-  final List<Vector3> vertices;
+  /// All rings belonging to this polygon:
+  /// - `rings[0]`: exterior boundary
+  /// - `rings[1..n]`: interior holes
+  final List<List<Vector3>> rings;
+
+  /// Convenience getter for exterior ring vertices.
+  List<Vector3> get vertices => rings.isNotEmpty ? rings.first : const [];
+
   final Vector3 center;
   final double sinThetaMax;
 
   CachedPolygonData({
-    required this.vertices,
+    required this.rings,
     required this.center,
     required this.sinThetaMax,
+  });
+}
+
+class _CachedRegionEntry {
+  final List<List<List<List<double>>>> polygons;
+  final List<CachedPolygonData> data;
+
+  _CachedRegionEntry({
+    required this.polygons,
+    required this.data,
   });
 }
 
@@ -205,7 +222,7 @@ class CachedPolygonData {
 /// This class calculates positions for all elements and renders them
 /// with proper animations, transitions, and GPU acceleration where possible.
 class GlobeForegroundRenderer {
-  final Map<String, List<CachedPolygonData>> _regionCoordinateCache = {};
+  final Map<String, _CachedRegionEntry> _regionCoordinateCache = {};
 
   // Cache for region calculation to avoid recalculating when globe is stationary
   List<RegionRenderData>? _cachedRegionRenderData;
@@ -308,11 +325,44 @@ class GlobeForegroundRenderer {
     return result;
   }
 
+  bool _isSameGeometry(
+    List<List<List<List<double>>>> a,
+    List<List<List<List<double>>>> b,
+  ) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (int p = 0; p < a.length; p++) {
+      final polyA = a[p];
+      final polyB = b[p];
+      if (identical(polyA, polyB)) continue;
+      if (polyA.length != polyB.length) return false;
+      for (int r = 0; r < polyA.length; r++) {
+        final ringA = polyA[r];
+        final ringB = polyB[r];
+        if (identical(ringA, ringB)) continue;
+        if (ringA.length != ringB.length) return false;
+        for (int pt = 0; pt < ringA.length; pt++) {
+          final ptA = ringA[pt];
+          final ptB = ringB[pt];
+          if (identical(ptA, ptB)) continue;
+          if (ptA.length != ptB.length ||
+              ptA[0] != ptB[0] ||
+              ptA[1] != ptB[1]) {
+            return false;
+          }
+        }
+      }
+    }
+    return true;
+  }
+
   List<CachedPolygonData> _getCachedRegionCoordinates(GlobeRegion region) {
     final cached = _regionCoordinateCache[region.id];
 
-    if (cached != null) {
-      return cached;
+    if (cached != null &&
+        (identical(cached.polygons, region.polygons) ||
+            _isSameGeometry(cached.polygons, region.polygons))) {
+      return cached.data;
     }
 
     final result = <CachedPolygonData>[];
@@ -324,53 +374,64 @@ class GlobeForegroundRenderer {
     const simplifyThresholdSq = 0.000016; // 0.004 * 0.004
 
     for (final polygon in region.polygons) {
-      final rawCoordinates = <Vector3>[];
+      final cachedRings = <List<Vector3>>[];
 
-      for (final coordinate in polygon) {
-        final latitude = degreesToRadians(coordinate[1]);
-        final longitude = degreesToRadians(coordinate[0]);
+      for (final ring in polygon) {
+        final rawCoordinates = <Vector3>[];
 
-        final cosLatitude = math.cos(latitude);
+        for (final coordinate in ring) {
+          final latitude = degreesToRadians(coordinate[1]);
+          final longitude = degreesToRadians(coordinate[0]);
 
-        rawCoordinates.add(
-          Vector3(
-            cosLatitude * math.cos(longitude),
-            cosLatitude * math.sin(longitude),
-            math.sin(latitude),
-          ),
-        );
-      }
+          final cosLatitude = math.cos(latitude);
 
-      // Simplify the unit vectors on the sphere
-      final polygonCoordinates = <Vector3>[];
-      if (rawCoordinates.isNotEmpty) {
-        polygonCoordinates.add(rawCoordinates.first);
-        for (int i = 1; i < rawCoordinates.length - 1; i++) {
-          final current = rawCoordinates[i];
-          final lastKept = polygonCoordinates.last;
-          final dx = current.x - lastKept.x;
-          final dy = current.y - lastKept.y;
-          final dz = current.z - lastKept.z;
-          final distSq = dx * dx + dy * dy + dz * dz;
-          if (distSq >= simplifyThresholdSq) {
-            polygonCoordinates.add(current);
+          rawCoordinates.add(
+            Vector3(
+              cosLatitude * math.cos(longitude),
+              cosLatitude * math.sin(longitude),
+              math.sin(latitude),
+            ),
+          );
+        }
+
+        // Simplify the unit vectors on the sphere
+        final ringCoordinates = <Vector3>[];
+        if (rawCoordinates.isNotEmpty) {
+          ringCoordinates.add(rawCoordinates.first);
+          for (int i = 1; i < rawCoordinates.length - 1; i++) {
+            final current = rawCoordinates[i];
+            final lastKept = ringCoordinates.last;
+            final dx = current.x - lastKept.x;
+            final dy = current.y - lastKept.y;
+            final dz = current.z - lastKept.z;
+            final distSq = dx * dx + dy * dy + dz * dz;
+            if (distSq >= simplifyThresholdSq) {
+              ringCoordinates.add(current);
+            }
+          }
+          if (rawCoordinates.length > 1) {
+            ringCoordinates.add(rawCoordinates.last);
           }
         }
-        if (rawCoordinates.length > 1) {
-          polygonCoordinates.add(rawCoordinates.last);
+
+        if (ringCoordinates.isNotEmpty) {
+          cachedRings.add(ringCoordinates);
         }
       }
 
-      // Precompute polygon center
+      if (cachedRings.isEmpty) continue;
+
+      // Precompute polygon center & sinThetaMax using exterior ring
+      final exteriorRing = cachedRings.first;
       var sumX = 0.0;
       var sumY = 0.0;
       var sumZ = 0.0;
-      for (final v in polygonCoordinates) {
+      for (final v in exteriorRing) {
         sumX += v.x;
         sumY += v.y;
         sumZ += v.z;
       }
-      final count = polygonCoordinates.length;
+      final count = exteriorRing.length;
       var centerVec = Vector3(sumX / count, sumY / count, sumZ / count);
       final len = math.sqrt(centerVec.x * centerVec.x +
           centerVec.y * centerVec.y +
@@ -378,15 +439,15 @@ class GlobeForegroundRenderer {
       if (len > 0.0001) {
         centerVec =
             Vector3(centerVec.x / len, centerVec.y / len, centerVec.z / len);
-      } else if (polygonCoordinates.isNotEmpty) {
-        centerVec = polygonCoordinates.first;
+      } else if (exteriorRing.isNotEmpty) {
+        centerVec = exteriorRing.first;
       } else {
         centerVec = Vector3(0.0, 0.0, 0.0);
       }
 
       // Precompute sinThetaMax
       var minDot = 1.0;
-      for (final v in polygonCoordinates) {
+      for (final v in exteriorRing) {
         final dot = v.x * centerVec.x + v.y * centerVec.y + v.z * centerVec.z;
         if (dot < minDot) {
           minDot = dot;
@@ -401,14 +462,17 @@ class GlobeForegroundRenderer {
 
       result.add(
         CachedPolygonData(
-          vertices: polygonCoordinates,
+          rings: cachedRings,
           center: centerVec,
           sinThetaMax: sinThetaMax,
         ),
       );
     }
 
-    _regionCoordinateCache[region.id] = result;
+    _regionCoordinateCache[region.id] = _CachedRegionEntry(
+      polygons: region.polygons,
+      data: result,
+    );
 
     return result;
   }
@@ -493,67 +557,71 @@ class GlobeForegroundRenderer {
         final needsFill = fillColor != null;
 
         final List<Path> borderPaths = [];
-        Path? currentBorderPath;
         final polygonPath = Path();
-        bool isFirst = true;
+        polygonPath.fillType = PathFillType.evenOdd;
 
-        for (final unitVector in polygon.vertices) {
-          final x = unitVector.x;
-          final y = unitVector.y;
-          final z = unitVector.z;
+        for (final ring in polygon.rings) {
+          Path? currentBorderPath;
+          bool isRingFirst = true;
 
-          // Perform rotation directly
-          final rotatedX = r00 * x + r01 * y + r02 * z;
+          for (final unitVector in ring) {
+            final x = unitVector.x;
+            final y = unitVector.y;
+            final z = unitVector.z;
 
-          // Project for borders (only front-facing)
-          if (rotatedX > 0) {
-            final px = center.dx + m10 * x + m11 * y;
-            final py = center.dy + m20 * x + m21 * y + m22 * z;
+            // Perform rotation directly
+            final rotatedX = r00 * x + r01 * y + r02 * z;
 
-            if (currentBorderPath == null) {
-              currentBorderPath = Path();
-              currentBorderPath.moveTo(px, py);
+            // Project for borders (only front-facing)
+            if (rotatedX > 0) {
+              final px = center.dx + m10 * x + m11 * y;
+              final py = center.dy + m20 * x + m21 * y + m22 * z;
+
+              if (currentBorderPath == null) {
+                currentBorderPath = Path();
+                currentBorderPath.moveTo(px, py);
+              } else {
+                currentBorderPath.lineTo(px, py);
+              }
             } else {
-              currentBorderPath.lineTo(px, py);
+              if (currentBorderPath != null) {
+                borderPaths.add(currentBorderPath);
+                currentBorderPath = null;
+              }
             }
-          } else {
-            if (currentBorderPath != null) {
-              borderPaths.add(currentBorderPath);
-              currentBorderPath = null;
-            }
-          }
 
-          // Project for polygon (clamp back-facing to horizon circle for fill & hit-testing)
-          double fpx, fpy;
-          if (rotatedX > 0) {
-            fpx = center.dx + m10 * x + m11 * y;
-            fpy = center.dy + m20 * x + m21 * y + m22 * z;
-          } else {
-            final ry = r10 * x + r11 * y;
-            final rzVal = r20 * x + r21 * y + r22 * z;
-            final d = math.sqrt(ry * ry + rzVal * rzVal);
-            if (d > 0.0001) {
-              fpx = center.dx + (ry / d) * radius;
-              fpy = center.dy - (rzVal / d) * radius;
+            // Project for polygon (clamp back-facing to horizon circle for fill & hit-testing)
+            double fpx, fpy;
+            if (rotatedX > 0) {
+              fpx = center.dx + m10 * x + m11 * y;
+              fpy = center.dy + m20 * x + m21 * y + m22 * z;
             } else {
-              fpx = center.dx;
-              fpy = center.dy;
+              final ry = r10 * x + r11 * y;
+              final rzVal = r20 * x + r21 * y + r22 * z;
+              final d = math.sqrt(ry * ry + rzVal * rzVal);
+              if (d > 0.0001) {
+                fpx = center.dx + (ry / d) * radius;
+                fpy = center.dy - (rzVal / d) * radius;
+              } else {
+                fpx = center.dx;
+                fpy = center.dy;
+              }
+            }
+
+            if (isRingFirst) {
+              polygonPath.moveTo(fpx, fpy);
+              isRingFirst = false;
+            } else {
+              polygonPath.lineTo(fpx, fpy);
             }
           }
 
-          if (isFirst) {
-            polygonPath.moveTo(fpx, fpy);
-            isFirst = false;
-          } else {
-            polygonPath.lineTo(fpx, fpy);
+          if (currentBorderPath != null) {
+            borderPaths.add(currentBorderPath);
           }
-        }
-
-        if (currentBorderPath != null) {
-          borderPaths.add(currentBorderPath);
-        }
-        if (!isFirst) {
-          polygonPath.close();
+          if (!isRingFirst) {
+            polygonPath.close();
+          }
         }
 
         // If no parts of the polygon are visible, skip adding it

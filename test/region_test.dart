@@ -57,7 +57,8 @@ void main() {
       expect(region.fillColor, Colors.green);
       expect(region.isVisible, isTrue);
       expect(region.polygons.length, 1);
-      expect(region.polygons.first.length, 5);
+      expect(region.polygons.first.length, 1); // 1 ring (exterior boundary)
+      expect(region.polygons.first.first.length, 5); // 5 points
       expect(controller.regionRevision, greaterThan(0));
     });
 
@@ -476,6 +477,240 @@ void main() {
       await tester.pump();
       expect(tappedRegion, isNotNull);
       expect(tappedRegion!.id, 'IND');
+    });
+
+    testWidgets('GeoJSON inner rings (holes) are preserved in one polygon and taps inside hole are ignored', (tester) async {
+      GlobeRegion? tappedRegion;
+
+      final sampleGeoJsonWithHole = {
+        'type': 'FeatureCollection',
+        'features': [
+          {
+            'type': 'Feature',
+            'properties': {'id': 'DONUT_COUNTRY', 'name': 'Donut Country'},
+            'geometry': {
+              'type': 'Polygon',
+              'coordinates': [
+                // Exterior ring: square around (0,0)
+                [
+                  [-20.0, -20.0],
+                  [20.0, -20.0],
+                  [20.0, 20.0],
+                  [-20.0, 20.0],
+                  [-20.0, -20.0],
+                ],
+                // Interior ring (hole): smaller square centered at (0,0)
+                [
+                  [-5.0, -5.0],
+                  [5.0, -5.0],
+                  [5.0, 5.0],
+                  [-5.0, 5.0],
+                  [-5.0, -5.0],
+                ],
+              ]
+            }
+          }
+        ]
+      };
+
+      controller.loadRegionDataset(
+        sampleGeoJsonWithHole,
+        defaultFillColor: Colors.purple,
+      );
+
+      expect(controller.regions.length, 1);
+      final region = controller.regions.first;
+      // Must be 1 polygon containing 2 rings (exterior + hole)
+      expect(region.polygons.length, 1);
+      expect(region.polygons.first.length, 2);
+
+      final renderer = GlobeForegroundRenderer();
+      final renderData = renderer.calculateRegionPositions(
+        regions: controller.regions,
+        radius: 100,
+        rotationY: 0,
+        rotationZ: 0,
+        canvasSize: const Size(200, 200),
+      );
+
+      // Must produce exactly 1 RegionRenderData for this polygon (not 2 separate ones)
+      expect(renderData.length, 1);
+      final data = renderData.first;
+      expect(data.polygonPath?.fillType, PathFillType.evenOdd);
+
+      // Center (100, 100) corresponds to (lat: 0, lon: 0) which is inside the hole
+      await tester.pumpWidget(
+        CustomPaint(
+          size: const Size(200, 200),
+          painter: GpuForegroundPainter(
+            points: const [],
+            arcs: const [],
+            satellites: const [],
+            regions: renderData,
+            radius: 100,
+            center: const Offset(100, 100),
+            clickPoint: const Offset(100, 100), // inside hole
+            onRegionTap: (r) => tappedRegion = r,
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(tappedRegion, isNull, reason: 'Click inside hole must NOT trigger onRegionTap');
+
+      // Click in filled area outside hole (e.g. at Offset(115, 115))
+      await tester.pumpWidget(
+        CustomPaint(
+          size: const Size(200, 200),
+          painter: GpuForegroundPainter(
+            points: const [],
+            arcs: const [],
+            satellites: const [],
+            regions: renderData,
+            radius: 100,
+            center: const Offset(100, 100),
+            clickPoint: const Offset(115, 115), // in filled region outside hole
+            onRegionTap: (r) => tappedRegion = r,
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(tappedRegion, isNotNull);
+      expect(tappedRegion!.id, 'DONUT_COUNTRY');
+    });
+
+    testWidgets('reloading region under the same ID with modified geometry invalidates cache', (tester) async {
+      GlobeRegion? tappedRegion;
+      final renderer = GlobeForegroundRenderer();
+
+      // First version: centered at (0, 0)
+      final initialRegion = GlobeRegion(
+        id: 'SHAPE_A',
+        name: 'Shape A',
+        fillColor: Colors.blue,
+        polygons: const [
+          [
+            [
+              [-5.0, -5.0],
+              [5.0, -5.0],
+              [5.0, 5.0],
+              [-5.0, 5.0],
+              [-5.0, -5.0],
+            ]
+          ]
+        ],
+      );
+
+      controller.addRegion(initialRegion);
+
+      var renderData = renderer.calculateRegionPositions(
+        regions: controller.regions,
+        radius: 100,
+        rotationY: 0,
+        rotationZ: 0,
+        canvasSize: const Size(200, 200),
+        regionRevision: controller.regionRevision,
+      );
+
+      // Verify click at (100, 100) hits initialRegion
+      await tester.pumpWidget(
+        CustomPaint(
+          size: const Size(200, 200),
+          painter: GpuForegroundPainter(
+            points: const [],
+            arcs: const [],
+            satellites: const [],
+            regions: renderData,
+            radius: 100,
+            center: const Offset(100, 100),
+            clickPoint: const Offset(100, 100),
+            onRegionTap: (r) => tappedRegion = r,
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(tappedRegion?.id, 'SHAPE_A');
+
+      // Now reload region under same ID 'SHAPE_A' but moved to [30..40, 30..40]
+      final updatedRegion = GlobeRegion(
+        id: 'SHAPE_A',
+        name: 'Shape A (Moved)',
+        fillColor: Colors.blue,
+        polygons: const [
+          [
+            [
+              [30.0, 30.0],
+              [40.0, 30.0],
+              [40.0, 40.0],
+              [30.0, 40.0],
+              [30.0, 30.0],
+            ]
+          ]
+        ],
+      );
+
+      controller.removeRegion('SHAPE_A');
+      controller.addRegion(updatedRegion);
+
+      renderData = renderer.calculateRegionPositions(
+        regions: controller.regions,
+        radius: 100,
+        rotationY: 0,
+        rotationZ: 0,
+        canvasSize: const Size(200, 200),
+        regionRevision: controller.regionRevision,
+      );
+
+      // Hit at old location (100, 100) must now be FALSE because shape moved and cache refreshed
+      tappedRegion = null;
+      await tester.pumpWidget(
+        CustomPaint(
+          size: const Size(200, 200),
+          painter: GpuForegroundPainter(
+            points: const [],
+            arcs: const [],
+            satellites: const [],
+            regions: renderData,
+            radius: 100,
+            center: const Offset(100, 100),
+            clickPoint: const Offset(100, 100),
+            onRegionTap: (r) => tappedRegion = r,
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(tappedRegion, isNull, reason: 'Old vertices must not persist after reloading geometry under same ID');
+    });
+
+    test('GlobeRegion.normalizePolygons correctly handles 3-level and 4-level lists', () {
+      final threeLevel = [
+        [
+          [0.0, 0.0],
+          [1.0, 1.0],
+          [0.0, 0.0],
+        ]
+      ];
+      final normalizedFrom3 = GlobeRegion.normalizePolygons(threeLevel);
+      expect(normalizedFrom3.length, 1);
+      expect(normalizedFrom3.first.length, 1);
+      expect(normalizedFrom3.first.first.length, 3);
+
+      final fourLevel = [
+        [
+          [
+            [0.0, 0.0],
+            [10.0, 10.0],
+            [0.0, 0.0],
+          ],
+          [
+            [2.0, 2.0],
+            [3.0, 3.0],
+            [2.0, 2.0],
+          ]
+        ]
+      ];
+      final normalizedFrom4 = GlobeRegion.normalizePolygons(fourLevel);
+      expect(normalizedFrom4.length, 1);
+      expect(normalizedFrom4.first.length, 2);
     });
   });
 }
