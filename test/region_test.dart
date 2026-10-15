@@ -712,5 +712,68 @@ void main() {
       expect(normalizedFrom4.length, 1);
       expect(normalizedFrom4.first.length, 2);
     });
+
+    test('selectRegions works case-insensitively when calculating render data', () {
+      final renderer = GlobeForegroundRenderer();
+      final region = GlobeRegion(
+        id: 'TEST_ID',
+        name: 'Test',
+        fillColor: Colors.blue,
+        highlightColor: Colors.amber,
+        polygons: const [
+          [
+            [
+              [0.0, 0.0],
+              [10.0, 0.0],
+              [10.0, 10.0],
+              [0.0, 10.0],
+              [0.0, 0.0],
+            ]
+          ]
+        ],
+      );
+
+      final renderData = renderer.calculateRegionPositions(
+        regions: [region],
+        radius: 100,
+        rotationY: 0,
+        rotationZ: 0,
+        canvasSize: const Size(200, 200),
+        selectedRegionIds: {'test_id'}, // lowercase selection
+      );
+
+      expect(renderData.first.isSelected, isTrue);
+      expect(renderData.first.highlightColor, Colors.amber);
+    });
+
+    test('clipping safeguard prevents region from clipping against itself if self ID is in clipAgainst', () {
+      final renderer = GlobeForegroundRenderer();
+      final region = GlobeRegion(
+        id: 'SELF',
+        name: 'Self Region',
+        clipAgainst: const ['SELF'], // accidentally contains self
+        polygons: const [
+          [
+            [
+              [0.0, 0.0],
+              [10.0, 0.0],
+              [10.0, 10.0],
+              [0.0, 10.0],
+              [0.0, 0.0],
+            ]
+          ]
+        ],
+      );
+
+      final renderData = renderer.calculateRegionPositions(
+        regions: [region],
+        radius: 100,
+        rotationY: 0,
+        rotationZ: 0,
+        canvasSize: const Size(200, 200),
+      );
+
+      expect(renderData.first.visiblePaths, isNotEmpty);
+    });
   });
 }

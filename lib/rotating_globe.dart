@@ -1443,7 +1443,10 @@ class RotatingGlobeState extends State<RotatingGlobe>
             widget.controller.onRegionHover?.call(region);
           }
         } else {
-          _currentHoveredRegionId = null;
+          if (_currentHoveredRegionId != null) {
+            _currentHoveredRegionId = null;
+            widget.controller.onRegionHover?.call(null);
+          }
         }
       },
       onPointHover: (pointId, position, isHovering, isVisible) {

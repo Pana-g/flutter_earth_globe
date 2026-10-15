@@ -403,7 +403,9 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       };
 
       _controller.onRegionHover = (region) {
-        debugPrint('Region hovered: ${region.name}');
+        if (region != null) {
+          debugPrint('Region hovered: ${region.name}');
+        }
       };
     } catch (e) {
       debugPrint('Error loading regions: $e');

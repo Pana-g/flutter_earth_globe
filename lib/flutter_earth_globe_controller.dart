@@ -35,7 +35,7 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   int _regionRevision = 0;
   int get regionRevision => _regionRevision;
   void Function(GlobeRegion region)? onRegionTap;
-  void Function(GlobeRegion region)? onRegionHover;
+  void Function(GlobeRegion? region)? onRegionHover;
   SphereStyle sphereStyle; // The style of the sphere.
   ui.Image? surface; // The surface image of the sphere.
   ui.Image? nightSurface; // The night surface image of the sphere.
@@ -1276,6 +1276,10 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     onStopDayNightCycleAnimation = null;
 
     onLoaded = null;
+    onRegionTap = null;
+    onRegionHover = null;
+    regions.clear();
+    selectedRegionIds.clear();
     super.dispose();
   }
 }

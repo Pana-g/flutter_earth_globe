@@ -551,7 +551,10 @@ class GlobeForegroundRenderer {
           continue;
         }
 
-        final fillColor = selectedRegionIds.contains(region.id) && region.highlightColor != null
+        final isSelected = selectedRegionIds.contains(region.id) ||
+            selectedRegionIds.contains(region.id.toUpperCase()) ||
+            selectedRegionIds.contains(region.id.toLowerCase());
+        final fillColor = isSelected && region.highlightColor != null
             ? region.highlightColor!
             : region.fillColor;
         final needsFill = fillColor != null;
@@ -643,7 +646,7 @@ class GlobeForegroundRenderer {
             borderWidth: region.borderWidth,
             fillColor: region.fillColor,
             highlightColor: region.highlightColor,
-            isSelected: selectedRegionIds.contains(region.id),
+            isSelected: isSelected,
             isVisible: region.isVisible,
             clipAgainst: region.clipAgainst,
           ),
@@ -1113,45 +1116,49 @@ class GpuForegroundPainter extends CustomPainter {
     // Cache to avoid rebuilding the combined clip paths repeatedly on the same frame
     final Map<String, Path?> frameClipPathCache = {};
 
+    Path? getInverseClipPath(List<String> clipAgainst, String baseId) {
+      if (clipAgainst.isEmpty) return null;
+      final clipKey = (List<String>.from(clipAgainst)..sort()).join(',');
+      if (frameClipPathCache.containsKey(clipKey)) {
+        return frameClipPathCache[clipKey];
+      }
+
+      final clipIds = clipAgainst.toSet();
+      final combinedClipPath = Path();
+      bool hasClips = false;
+
+      for (final otherRegion in regions) {
+        final otherBaseId = otherRegion.baseId;
+        if (clipIds.contains(otherBaseId) && otherBaseId != baseId) {
+          if (otherRegion.polygonPath != null) {
+            combinedClipPath.addPath(otherRegion.polygonPath!, Offset.zero);
+            hasClips = true;
+          } else {
+            for (final path in otherRegion.visiblePaths) {
+              combinedClipPath.addPath(path, Offset.zero);
+              hasClips = true;
+            }
+          }
+        }
+      }
+
+      Path? inverseClipPath;
+      if (hasClips) {
+        inverseClipPath = Path()
+          ..addRect(const Rect.fromLTRB(-100000, -100000, 100000, 100000))
+          ..addPath(combinedClipPath, Offset.zero);
+        inverseClipPath.fillType = PathFillType.evenOdd;
+      }
+      frameClipPathCache[clipKey] = inverseClipPath;
+      return inverseClipPath;
+    }
+
     // Draw all visible regions with generic clipping
     for (final region in regions) {
       if (!region.isVisible) continue;
 
-      Path? inverseClipPath;
-      if (region.clipAgainst.isNotEmpty) {
-        final clipKey = (List<String>.from(region.clipAgainst)..sort()).join(',');
-
-        if (frameClipPathCache.containsKey(clipKey)) {
-          inverseClipPath = frameClipPathCache[clipKey];
-        } else {
-          final clipIds = region.clipAgainst.toSet();
-          final combinedClipPath = Path();
-          bool hasClips = false;
-
-          for (final otherRegion in regions) {
-            final otherBaseId = otherRegion.baseId;
-            if (clipIds.contains(otherBaseId)) {
-              if (otherRegion.polygonPath != null) {
-                combinedClipPath.addPath(otherRegion.polygonPath!, Offset.zero);
-                hasClips = true;
-              } else {
-                for (final path in otherRegion.visiblePaths) {
-                  combinedClipPath.addPath(path, Offset.zero);
-                  hasClips = true;
-                }
-              }
-            }
-          }
-
-          if (hasClips) {
-            inverseClipPath = Path()
-              ..addRect(Rect.fromLTWH(-size.width, -size.height, size.width * 3, size.height * 3))
-              ..addPath(combinedClipPath, Offset.zero);
-            inverseClipPath.fillType = PathFillType.evenOdd;
-          }
-          frameClipPathCache[clipKey] = inverseClipPath;
-        }
-      }
+      final inverseClipPath =
+          getInverseClipPath(region.clipAgainst, region.baseId);
 
       if (inverseClipPath != null) {
         canvas.save();
@@ -1344,10 +1351,8 @@ class GpuForegroundPainter extends CustomPainter {
         if (!regionData.isVisible || regionData.polygonPath == null) continue;
 
         if (regionData.polygonPath!.contains(clickPoint!)) {
-          final clipKey = regionData.clipAgainst.isNotEmpty
-              ? (List<String>.from(regionData.clipAgainst)..sort()).join(',')
-              : null;
-          final clipPath = clipKey != null ? frameClipPathCache[clipKey] : null;
+          final clipPath =
+              getInverseClipPath(regionData.clipAgainst, regionData.baseId);
           if (clipPath != null && !clipPath.contains(clickPoint!)) {
             continue;
           }
@@ -1376,10 +1381,8 @@ class GpuForegroundPainter extends CustomPainter {
         if (!regionData.isVisible || regionData.polygonPath == null) continue;
 
         if (regionData.polygonPath!.contains(hoverPoint!)) {
-          final clipKey = regionData.clipAgainst.isNotEmpty
-              ? (List<String>.from(regionData.clipAgainst)..sort()).join(',')
-              : null;
-          final clipPath = clipKey != null ? frameClipPathCache[clipKey] : null;
+          final clipPath =
+              getInverseClipPath(regionData.clipAgainst, regionData.baseId);
           if (clipPath != null && !clipPath.contains(hoverPoint!)) {
             continue;
           }
