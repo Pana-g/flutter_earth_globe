@@ -235,6 +235,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
       connection.animationProgress = 1.0;
     }
 
+
     // Globe.GL-style continuous animation controller
     // Uses a simple repeating animation to drive frame updates
     _lineMovingController = AnimationController(
@@ -335,6 +336,9 @@ class RotatingGlobeState extends State<RotatingGlobe>
     controller.onResetGlobeRotation = resetRotation;
     controller.onStartDayNightCycleAnimation = startDayNightCycleAnimation;
     controller.onStopDayNightCycleAnimation = stopDayNightCycleAnimation;
+    if (controller.isRotating) {
+      _rotationController.repeat();
+    }
   }
 
   /// Undoes [_attachController], leaving callbacks another globe may have
@@ -524,6 +528,9 @@ class RotatingGlobeState extends State<RotatingGlobe>
       Curve curve = Curves.linear}) {
     // Stop auto-rotation during the transition to prevent conflicting animation updates
     _rotationController.stop();
+    if (_decelerationController.isAnimating) {
+      _decelerationController.stop();
+    }
 
     double latRad = radians(coordinates.latitude);
     double lonRad = radians(-coordinates.longitude);
@@ -1051,7 +1058,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
   }
 
   /// Handle hover event
-  void onHover(PointerEvent event) {
+  void onHover(PointerHoverEvent event) {
     hoveringPoint = event.localPosition;
     _hoverNotifier.value = event.localPosition;
     // Don't call setState - the ValueNotifier will trigger foreground repaint
@@ -1064,6 +1071,13 @@ class RotatingGlobeState extends State<RotatingGlobe>
         rotationZ,
       ),
     );
+  }
+
+  /// Handle pointer exit event
+  void onPointerExit(PointerExitEvent event) {
+    hoveringPoint = null;
+    _hoverNotifier.value = null;
+    widget.onHover?.call(null);
   }
 
   /// Apply smooth animated zoom like globe.gl
@@ -1963,8 +1977,9 @@ class RotatingGlobeState extends State<RotatingGlobe>
               },
               child: GestureDetector(
                 onTapDown: onTapEvent,
-                child: Listener(
-                  onPointerHover: onHover,
+                child: MouseRegion(
+                  onHover: onHover,
+                  onExit: onPointerExit,
                   child: LayoutBuilder(
                     builder:
                         (BuildContext context, BoxConstraints constraints) {

@@ -883,7 +883,7 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   void startRotation({double? rotationSpeed}) {
     _isRotating = true;
     this.rotationSpeed = rotationSpeed ?? this.rotationSpeed;
-    _rotationController?.forward();
+    _rotationController?.repeat();
     notifyListeners();
   }
 
