@@ -209,5 +209,113 @@ void main() {
       await tester.pump();
       await tester.pump(Duration.zero);
     });
+
+    testWidgets('resetRotation() cancels in-flight focus animation and maintains zero angles', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 200,
+                height: 200,
+                child: FlutterEarthGlobe(
+                  controller: controller,
+                  radius: 80,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump();
+      await tester.pump(Duration.zero);
+
+      final state = controller.globeKey.currentState!;
+
+      // Start an animated focus to (45, 90) over 1000ms
+      controller.focusOnCoordinates(
+        const GlobeCoordinates(45, 90),
+        animate: true,
+        duration: const Duration(milliseconds: 1000),
+      );
+
+      // Start ticker and advance partway through the focus animation
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(state.rotationZ, isNot(0.0));
+
+      // Call resetRotation() while the focus animation is actively running
+      controller.resetRotation();
+      await tester.pump();
+
+      // Verify angles immediately reset to 0
+      expect(state.rotationX, 0.0);
+      expect(state.rotationY, 0.0);
+      expect(state.rotationZ, 0.0);
+
+      // Advance time past the original focus animation duration
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 600));
+
+      // Verify angles were NOT overwritten by the canceled focus animation
+      expect(state.rotationX, 0.0);
+      expect(state.rotationY, 0.0);
+      expect(state.rotationZ, 0.0);
+    });
+
+    testWidgets('resetRotation() during animated focus resumes auto-rotation from 0 when isRotating is true', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 200,
+                height: 200,
+                child: FlutterEarthGlobe(
+                  controller: controller,
+                  radius: 80,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump();
+      await tester.pump(Duration.zero);
+
+      final state = controller.globeKey.currentState!;
+
+      // Start auto-rotation
+      controller.startRotation(rotationSpeed: 0.1);
+      await tester.pump();
+      expect(controller.isRotating, isTrue);
+
+      // Focus on coordinates pauses rotationController during transition
+      controller.focusOnCoordinates(
+        const GlobeCoordinates(45, 90),
+        animate: true,
+        duration: const Duration(milliseconds: 1000),
+      );
+
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(controller.rotationController.isAnimating, isFalse);
+
+      // Reset rotation should cancel focus animation and resume auto-rotation
+      controller.resetRotation();
+      expect(state.rotationX, 0.0);
+      expect(state.rotationY, 0.0);
+      expect(state.rotationZ, 0.0);
+
+      await tester.pump();
+      expect(controller.rotationController.isAnimating, isTrue);
+
+      // Stop rotation for clean test teardown
+      controller.stopRotation();
+      await tester.pump();
+      await tester.pump(Duration.zero);
+    });
   });
 }
