@@ -1825,6 +1825,13 @@ class RotatingGlobeState extends State<RotatingGlobe>
                   child: LayoutBuilder(
                     builder:
                         (BuildContext context, BoxConstraints constraints) {
+                      // The labels below read visiblePoints in this build, but
+                      // the foreground builders inside _buildSphereContent only
+                      // run after it returns. Compute positions first so labels
+                      // match the rotation painted in this frame.
+                      if (widget.controller.surface != null) {
+                        _calculateForegroundPositions(constraints);
+                      }
                       final updatedCenter = Offset(
                           constraints.maxWidth / 2, constraints.maxHeight / 2);
                       if (updatedCenter != center) {
