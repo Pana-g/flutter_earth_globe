@@ -413,11 +413,18 @@ class RotatingGlobeState extends State<RotatingGlobe>
   /// moves a quarter of a degree per minute, so a minute timer is enough.
   void _syncRealTimeSunTimer() {
     if (widget.controller.useRealTimeSunPosition) {
-      _realTimeSunTimer ??= Timer.periodic(const Duration(minutes: 1), (_) {
+      if (_realTimeSunTimer != null) return;
+      void update() {
         if (mounted && widget.controller.useRealTimeSunPosition) {
           widget.controller.updateSunPositionFromRealTime();
         }
-      });
+      }
+
+      _realTimeSunTimer =
+          Timer.periodic(const Duration(minutes: 1), (_) => update());
+      // Apply the current position right away rather than after the first
+      // tick, without notifying listeners synchronously during a build.
+      Future.microtask(update);
     } else {
       _realTimeSunTimer?.cancel();
       _realTimeSunTimer = null;
@@ -564,7 +571,13 @@ class RotatingGlobeState extends State<RotatingGlobe>
         ..addListener(() {
           if (!mounted) return;
           setState(() {
-            connection.animationProgress = animation.value;
+            // updatePointConnection replaces the list entry, so write to the
+            // connection currently in the list rather than the captured one.
+            for (final current in widget.controller.connections) {
+              if (current.id == connection.id) {
+                current.animationProgress = animation.value;
+              }
+            }
           });
         })
         ..addStatusListener((status) {

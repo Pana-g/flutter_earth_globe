@@ -172,7 +172,7 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
 
-    testWidgets('swapping the controller moves the globe to the new one',
+    testWidgets('a globe built with another controller takes over rotation',
         (tester) async {
       final first = FlutterEarthGlobeController();
       final second = FlutterEarthGlobeController(isRotating: true);
@@ -214,6 +214,31 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
 
+    testWidgets('updating a connection mid-draw keeps the animation going',
+        (tester) async {
+      final controller = FlutterEarthGlobeController();
+      await pumpGlobe(tester, controller);
+
+      controller.addPointConnection(
+        PointConnection(
+          id: 'c',
+          start: const GlobeCoordinates(0, 0),
+          end: const GlobeCoordinates(10, 10),
+        ),
+        animateDraw: true,
+        animateDrawDuration: const Duration(milliseconds: 300),
+      );
+      await tester.pump(); // The draw animation's ticker starts here.
+      await tester.pump(const Duration(milliseconds: 100));
+      controller.updatePointConnection('c', label: 'updated');
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(controller.connections.single.label, 'updated');
+      expect(controller.connections.single.animationProgress, 1.0);
+
+      await tester.pumpWidget(const SizedBox());
+    });
+
     testWidgets('a draw animation completes', (tester) async {
       final controller = FlutterEarthGlobeController();
       await pumpGlobe(tester, controller);
@@ -230,6 +255,22 @@ void main() {
       await tester.pump(); // The draw animation's ticker starts here.
       await tester.pump(const Duration(milliseconds: 400));
       expect(controller.connections.single.animationProgress, 1.0);
+
+      await tester.pumpWidget(const SizedBox());
+    });
+  });
+
+  group('sun', () {
+    testWidgets('real-time sun position is applied as soon as the globe mounts',
+        (tester) async {
+      final controller =
+          FlutterEarthGlobeController(useRealTimeSunPosition: true);
+      final expected = FlutterEarthGlobeController()
+        ..updateSunPositionFromRealTime();
+      await pumpGlobe(tester, controller);
+
+      expect(controller.sunLatitude, closeTo(expected.sunLatitude, 0.5));
+      expect(controller.sunLongitude, closeTo(expected.sunLongitude, 0.5));
 
       await tester.pumpWidget(const SizedBox());
     });

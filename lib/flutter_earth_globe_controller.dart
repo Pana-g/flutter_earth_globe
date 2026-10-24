@@ -1057,6 +1057,9 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     onPointConnectionAdded = null;
 
     onResetGlobeRotation = null;
+    onStartDayNightCycleAnimation = null;
+    onStopDayNightCycleAnimation = null;
+
     onLoaded = null;
     super.dispose();
   }
