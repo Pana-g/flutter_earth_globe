@@ -1,7 +1,41 @@
+## 2.2.2
+
+### ⚠️ Requirements
+
+- The minimum supported versions are now **Dart 3.6** and **Flutter 3.27**. The package already used APIs from these versions (`Color.withValues`, `Color.r/g/b`), so older SDKs could resolve it but not compile it.
+- Removed the unused `http` dependency.
+
+### 🐛 Bug Fixes
+
+- `updatePoint()` and `updatePointConnection()` now actually apply the update. Previously they created the updated copy and discarded it.
+- `loadBackground(isBackgroundFollowingSphereRotation: ...)` now stores the flag instead of ignoring it.
+- Setting `controller.isRotating` now starts or stops the rotation. Previously the setter did nothing.
+- `setZoom()` clamps values outside `minZoom`..`maxZoom` instead of asserting in debug and ignoring them in release.
+- Calling `startRotation()`, `stopRotation()`, `toggleRotation()` or `resetRotation()` before the globe is mounted or after it unmounts no longer throws (#27). The rotation state is kept and applied when a globe mounts.
+- A controller can be reused by a new globe, or swapped on an existing `FlutterEarthGlobe`, without errors.
+- `FlutterEarthGlobeController.dispose()` no longer throws when the globe has already been removed, or was never built (#15, #43).
+- Connections added with `animateDraw: true` no longer leak an `AnimationController`, and removing the globe mid-animation no longer throws.
+- Image loads no longer race: a slower, older `loadSurface`/`loadNightSurface`/`loadBackground` cannot overwrite a newer one, `removeBackground()` wins over a pending load, loads finishing after `dispose()` are ignored, and load errors are reported through `FlutterError` instead of being thrown unhandled.
+- `setUseRealTimeSunPosition(true)` now starts tracking the sun even when called after the globe is built.
+- Grabbing the globe mid-fling no longer snaps it back for a frame (#41, part of #33).
+- Point labels are placed for the current frame's rotation instead of trailing one frame behind (#42).
+- A globe without a background now receives gestures under loose constraints (#44).
+
+### ⚡ Performance
+
+- The animation ticker for moving connections and orbiting satellites stops when nothing is animating, so an idle globe no longer renders every frame.
+- Real-time sun tracking updates once a minute instead of on every frame.
+- Satellite transition and orbit-path caches are cleaned up when satellites are removed.
+
+### 📚 Docs
+
+- Fixed README atmosphere example (`atmosphereColor`/`atmosphereOpacity` are properties, not `set...()` methods) and added `dispose()` to the Quick Start.
+- Added a test suite and a CI workflow (analyze, format, test).
+
 ## 2.2.1
 
 - Added `curve` parameter to `focusOnCoordinates` for more controlled and smooth animations.
-- Fixed coordinate mapping issue where points on the globe were incorrectly placed or disappeared at certain rotations (Fixes #27).
+- Fixed coordinate mapping issue where points on the globe were incorrectly placed or disappeared at certain rotations.
 
 ## 2.2.0
 
@@ -11,8 +45,8 @@
   - `textureSwap`: Uses separate day/night textures for maximum visual quality
   - `simulated`: Applies a customizable color overlay, perfect for planets without dedicated night textures
 - **Simulated Night Customization**: Configure the simulated night overlay with `simulatedNightColor` and `simulatedNightIntensity`
-- **Atmosphere Color & Intensity**: Full control over atmosphere appearance with `setAtmosphereColor()` and `setAtmosphereOpacity()` for planet-appropriate glows
-- **Ring Light Effect**: New directional ring light around the globe creates enhanced 3D depth perception. Customizable color, intensity, and light angle via `ringLightColor`, `ringLightIntensity`, and `ringLightAngle` properties
+- **Atmosphere Color & Intensity**: Full control over atmosphere appearance with the `atmosphereColor` and `atmosphereOpacity` properties for planet-appropriate glows
+
 
 ### 🐛 Bug Fixes
 

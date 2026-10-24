@@ -47,8 +47,8 @@ Future<FlutterEarthGlobeController> pumpGlobeWithLabel(
   ));
   // Let the shaders load and the label be measured.
   for (var i = 0; i < 5; i++) {
-    await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester
+        .runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
     await tester.pump(const Duration(milliseconds: 16));
   }
   return controller;

@@ -45,8 +45,34 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   ImageConfiguration
       backgroundConfiguration; // The configuration of the background image.
 
-  late AnimationController
-      rotationController; // The animation controller for sphere rotation.
+  AnimationController?
+      _rotationController; // The animation controller for sphere rotation.
+
+  /// The animation controller that drives the auto-rotation.
+  ///
+  /// It is created and owned by the globe widget, so it is only available while
+  /// a globe using this controller is mounted.
+  AnimationController get rotationController {
+    final controller = _rotationController;
+    if (controller == null) {
+      throw StateError(
+          'rotationController is only available while a FlutterEarthGlobe '
+          'using this controller is mounted.');
+    }
+    return controller;
+  }
+
+  set rotationController(AnimationController controller) {
+    _rotationController = controller;
+  }
+
+  bool _isDisposed = false;
+
+  // Incremented on each load call so that a slow, older image load cannot
+  // overwrite a newer one when it finally resolves.
+  int _surfaceLoadId = 0;
+  int _nightSurfaceLoadId = 0;
+  int _backgroundLoadId = 0;
 
   double rotationSpeed; // The speed of the rotation.
 
@@ -190,13 +216,28 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     }
   }
 
+  /// Called by the globe widget when it unmounts.
+  ///
+  /// After this, rotation calls only update [isRotating] until a globe is
+  /// mounted again, instead of driving an animation controller that has been
+  /// disposed.
+  void detachGlobe(AnimationController rotationController) {
+    if (identical(_rotationController, rotationController)) {
+      _rotationController = null;
+      _isReady = false;
+    }
+  }
+
   // external calls
 
   /// Returns true if the globe is rotating
   bool get isRotating => _isRotating;
 
-  /// Sets the rotation of the globe
-  set isRotating(bool value) => _isRotating;
+  /// Starts or stops the rotation of the globe
+  set isRotating(bool value) {
+    if (value == _isRotating) return;
+    value ? startRotation() : stopRotation();
+  }
 
   /// Returns true if the globe is ready
   bool get isReady => _isReady;
@@ -395,9 +436,8 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   ///   start: GlobeCoordinates(0, 0),
   ///   end: GlobeCoordinates(0, 0),
   ///   id: 'id',
-  ///   title: 'title',
-  ///   isTitleVisible: true,
-  ///   showTitleOnHover: true,
+  ///   label: 'label',
+  ///   isLabelVisible: true,
   ///   isMoving: true),
   ///   animateDraw: true,
   ///  );
@@ -449,9 +489,9 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   /// Example usage:
   /// ```dart
   /// controller.updatePointConnection('id',
-  ///   title: 'title',
-  ///   textStyle: TextStyle(color: Colors.red),
-  ///   isTitleVisible: true,
+  ///   label: 'label',
+  ///   labelTextStyle: TextStyle(color: Colors.red),
+  ///   isLabelVisible: true,
   ///   isMoving: true,
   ///   style: PointConnectionStyle(color: Colors.red),
   ///  );
@@ -470,7 +510,9 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     VoidCallback? onTap,
     VoidCallback? onHover,
   }) {
-    connections.firstWhere((element) => element.id == id).copyWith(
+    final index = connections.indexWhere((element) => element.id == id);
+    if (index == -1) return;
+    connections[index] = connections[index].copyWith(
         label: label,
         isMoving: isMoving,
         labelBuilder: labelBuilder,
@@ -479,7 +521,7 @@ class FlutterEarthGlobeController extends ChangeNotifier {
         style: style,
         labelTextStyle: labelTextStyle,
         onTap: onTap,
-        onHover: onHover);
+        onHover: onHover) as AnimatedPointConnection;
     notifyListeners();
   }
 
@@ -505,11 +547,10 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   /// controller.addPoint(Point(
   ///  coordinates: GlobeCoordinates(0, 0),
   /// id: 'id',
-  /// title: 'title',
-  /// isTitleVisible: true,
-  /// showTitleOnHover: true,
+  /// label: 'label',
+  /// isLabelVisible: true,
   /// style: PointStyle(color: Colors.red),
-  /// textStyle: TextStyle(color: Colors.red),
+  /// labelTextStyle: TextStyle(color: Colors.red),
   /// onTap: () {},
   /// onHover: () {},
   /// ));
@@ -534,10 +575,9 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   /// Example usage:
   /// ```dart
   ///  controller.updatePoint('id',
-  ///  title: 'title',
-  /// textStyle: TextStyle(color: Colors.red),
-  /// isTitleVisible: true,
-  /// showTitleOnHover: true,
+  ///  label: 'label',
+  /// labelTextStyle: TextStyle(color: Colors.red),
+  /// isLabelVisible: true,
   /// style: PointStyle(color: Colors.red),
   /// );
   /// ```
@@ -554,7 +594,9 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     VoidCallback? onTap,
     VoidCallback? onHover,
   }) {
-    points.firstWhere((element) => element.id == id).copyWith(
+    final index = points.indexWhere((element) => element.id == id);
+    if (index == -1) return;
+    points[index] = points[index].copyWith(
         label: label,
         labelBuilder: labelBuilder,
         isLabelVisible: isLabelVisible,
@@ -696,11 +738,10 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   /// final satellite = controller.getSatellite('iss');
   /// ```
   Satellite? getSatellite(String id) {
-    try {
-      return satellites.firstWhere((element) => element.id == id);
-    } catch (_) {
-      return null;
+    for (final satellite in satellites) {
+      if (satellite.id == id) return satellite;
     }
+    return null;
   }
 
   /// Loads the [image] as the surface of the globe.
@@ -718,14 +759,15 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     ImageProvider image, {
     ImageConfiguration configuration = const ImageConfiguration(),
   }) {
-    image
-        .resolve(configuration)
-        .addListener(ImageStreamListener((info, _) async {
-      surface = info.image;
+    final loadId = ++_surfaceLoadId;
+    _resolveImage(image, configuration, (image) async {
+      final processed = await convertImageToUint32List(image);
+      if (_isDisposed || loadId != _surfaceLoadId) return;
+      surface = image;
       surfaceConfiguration = configuration;
-      surfaceProcessed = await convertImageToUint32List(info.image);
+      surfaceProcessed = processed;
       notifyListeners();
-    }));
+    });
   }
 
   /// Loads the [image] as the night surface of the globe for day/night cycle effect.
@@ -743,14 +785,15 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     ImageProvider image, {
     ImageConfiguration configuration = const ImageConfiguration(),
   }) {
-    image
-        .resolve(configuration)
-        .addListener(ImageStreamListener((info, _) async {
-      nightSurface = info.image;
+    final loadId = ++_nightSurfaceLoadId;
+    _resolveImage(image, configuration, (image) async {
+      final processed = await convertImageToUint32List(image);
+      if (_isDisposed || loadId != _nightSurfaceLoadId) return;
+      nightSurface = image;
       nightSurfaceConfiguration = configuration;
-      nightSurfaceProcessed = await convertImageToUint32List(info.image);
+      nightSurfaceProcessed = processed;
       notifyListeners();
-    }));
+    });
   }
 
   /// Loads the background image for the rotating globe.
@@ -770,12 +813,37 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     ImageConfiguration configuration = const ImageConfiguration(),
     bool isBackgroundFollowingSphereRotation = false,
   }) {
-    image.resolve(configuration).addListener(ImageStreamListener((info, _) {
-      background = info.image;
+    final loadId = ++_backgroundLoadId;
+    _resolveImage(image, configuration, (image) async {
+      if (_isDisposed || loadId != _backgroundLoadId) return;
+      background = image;
       backgroundConfiguration = configuration;
-      isBackgroundFollowingSphereRotation = isBackgroundFollowingSphereRotation;
+      this.isBackgroundFollowingSphereRotation =
+          isBackgroundFollowingSphereRotation;
       notifyListeners();
-    }));
+    });
+  }
+
+  /// Resolves [provider] once, hands the first frame to [onImage] and removes
+  /// the listener again. Load errors are reported instead of being thrown
+  /// unhandled from the image stream.
+  void _resolveImage(ImageProvider provider, ImageConfiguration configuration,
+      Future<void> Function(ui.Image image) onImage) {
+    final stream = provider.resolve(configuration);
+    late final ImageStreamListener listener;
+    listener = ImageStreamListener((info, _) {
+      stream.removeListener(listener);
+      onImage(info.image);
+    }, onError: (Object error, StackTrace? stackTrace) {
+      stream.removeListener(listener);
+      FlutterError.reportError(FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'flutter_earth_globe',
+        context: ErrorDescription('while loading a globe image'),
+      ));
+    });
+    stream.addListener(listener);
   }
 
   /// Removes the background of the rotating globe.
@@ -786,6 +854,7 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   /// ```
 
   void removeBackground() {
+    _backgroundLoadId++;
     background = null;
     notifyListeners();
   }
@@ -814,7 +883,7 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   void startRotation({double? rotationSpeed}) {
     _isRotating = true;
     this.rotationSpeed = rotationSpeed ?? this.rotationSpeed;
-    rotationController.forward();
+    _rotationController?.forward();
     notifyListeners();
   }
 
@@ -827,7 +896,7 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   /// ```
   void stopRotation() {
     _isRotating = false;
-    rotationController.stop();
+    _rotationController?.stop();
     notifyListeners();
   }
 
@@ -839,13 +908,7 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   /// controller.toggleRotation();
   /// ```
   void toggleRotation() {
-    _isRotating = !_isRotating;
-    if (_isRotating) {
-      rotationController.forward();
-    } else {
-      rotationController.stop();
-    }
-    notifyListeners();
+    _isRotating ? stopRotation() : startRotation();
   }
 
   /// Resets the rotation of the globe.
@@ -875,7 +938,8 @@ class FlutterEarthGlobeController extends ChangeNotifier {
 
   /// Sets the zoom level of the globe.
   ///
-  /// The [zoom] parameter specifies the new zoom level of the globe.
+  /// The [zoom] parameter specifies the new zoom level of the globe. Values
+  /// outside [minZoom]..[maxZoom] are clamped.
   ///
   /// Example usage:
   /// ```dart
@@ -883,14 +947,7 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   /// controller.setZoom(2);
   /// ```
   void setZoom(double zoom) {
-    assert(zoom >= minZoom && zoom <= maxZoom);
-    if (zoom < minZoom) {
-      zoom = minZoom;
-    } else if (zoom > maxZoom) {
-      zoom = maxZoom;
-    } else {
-      this.zoom = zoom;
-    }
+    this.zoom = zoom.clamp(minZoom, maxZoom);
     notifyListeners();
   }
 
@@ -996,8 +1053,13 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   /// and disposes it when it unmounts.
   @override
   void dispose() {
+    _isDisposed = true;
     onPointConnectionAdded = null;
+
     onResetGlobeRotation = null;
+    onStartDayNightCycleAnimation = null;
+    onStopDayNightCycleAnimation = null;
+
     onLoaded = null;
     super.dispose();
   }

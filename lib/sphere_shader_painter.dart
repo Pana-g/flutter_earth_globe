@@ -103,9 +103,9 @@ class SphereShaderPainter extends CustomPainter {
       shader.setFloat(idx++, isSimulatedMode ? 1.0 : 0.0);
 
       // uNightColorR, uNightColorG, uNightColorB (normalized 0-1)
-      shader.setFloat(idx++, nightColor.red / 255.0);
-      shader.setFloat(idx++, nightColor.green / 255.0);
-      shader.setFloat(idx++, nightColor.blue / 255.0);
+      shader.setFloat(idx++, nightColor.r);
+      shader.setFloat(idx++, nightColor.g);
+      shader.setFloat(idx++, nightColor.b);
 
       // uNightIntensity
       shader.setFloat(idx++, nightIntensity);

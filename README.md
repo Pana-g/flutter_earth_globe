@@ -131,6 +131,12 @@ class _MyGlobeState extends State<MyGlobe> {
   }
 
   @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
@@ -503,8 +509,9 @@ final _controller = FlutterEarthGlobeController(
 );
 
 // Update at runtime
-_controller.setAtmosphereColor(Colors.orange);  // Mars-like atmosphere
-_controller.setAtmosphereOpacity(0.6);
+_controller.atmosphereColor = Colors.orange;  // Mars-like atmosphere
+_controller.atmosphereOpacity = 0.6;
+
 ```
 
 **Tip**: Match the atmosphere color to your planet's texture for a cohesive look - blue for Earth, orange for Mars, pale yellow for Venus.
