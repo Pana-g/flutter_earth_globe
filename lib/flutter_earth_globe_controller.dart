@@ -436,9 +436,8 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   ///   start: GlobeCoordinates(0, 0),
   ///   end: GlobeCoordinates(0, 0),
   ///   id: 'id',
-  ///   title: 'title',
-  ///   isTitleVisible: true,
-  ///   showTitleOnHover: true,
+  ///   label: 'label',
+  ///   isLabelVisible: true,
   ///   isMoving: true),
   ///   animateDraw: true,
   ///  );
@@ -490,9 +489,9 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   /// Example usage:
   /// ```dart
   /// controller.updatePointConnection('id',
-  ///   title: 'title',
-  ///   textStyle: TextStyle(color: Colors.red),
-  ///   isTitleVisible: true,
+  ///   label: 'label',
+  ///   labelTextStyle: TextStyle(color: Colors.red),
+  ///   isLabelVisible: true,
   ///   isMoving: true,
   ///   style: PointConnectionStyle(color: Colors.red),
   ///  );
@@ -548,11 +547,10 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   /// controller.addPoint(Point(
   ///  coordinates: GlobeCoordinates(0, 0),
   /// id: 'id',
-  /// title: 'title',
-  /// isTitleVisible: true,
-  /// showTitleOnHover: true,
+  /// label: 'label',
+  /// isLabelVisible: true,
   /// style: PointStyle(color: Colors.red),
-  /// textStyle: TextStyle(color: Colors.red),
+  /// labelTextStyle: TextStyle(color: Colors.red),
   /// onTap: () {},
   /// onHover: () {},
   /// ));
@@ -577,10 +575,9 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   /// Example usage:
   /// ```dart
   ///  controller.updatePoint('id',
-  ///  title: 'title',
-  /// textStyle: TextStyle(color: Colors.red),
-  /// isTitleVisible: true,
-  /// showTitleOnHover: true,
+  ///  label: 'label',
+  /// labelTextStyle: TextStyle(color: Colors.red),
+  /// isLabelVisible: true,
   /// style: PointStyle(color: Colors.red),
   /// );
   /// ```
