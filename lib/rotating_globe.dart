@@ -1396,6 +1396,11 @@ class RotatingGlobeState extends State<RotatingGlobe>
           }
         });
       },
+      onRepaintNeeded: () {
+        if (mounted) {
+          _animationNotifier.value = (_animationNotifier.value + 1) % 1000000;
+        }
+      },
     );
   }
 

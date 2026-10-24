@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 
 import 'globe_coordinates.dart';
 
@@ -22,6 +23,9 @@ enum SatelliteShape {
 
   /// A satellite icon shape.
   satelliteIcon,
+
+  /// A custom image.
+  customImage,
 }
 
 /// Represents the style of a satellite.
@@ -38,6 +42,8 @@ class SatelliteStyle {
   final Color orbitPathColor;
   final double orbitPathWidth;
   final bool orbitPathDashed;
+  final PictureInfo? customImage;
+  final bool customImageRotated;
 
   const SatelliteStyle({
     this.size = 4.0,
@@ -52,6 +58,8 @@ class SatelliteStyle {
     this.orbitPathColor = const Color(0x4DFFFFFF),
     this.orbitPathWidth = 1.0,
     this.orbitPathDashed = false,
+    this.customImage,
+    this.customImageRotated = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -68,6 +76,8 @@ class SatelliteStyle {
       'orbitPathColor': orbitPathColor.toARGB32(),
       'orbitPathWidth': orbitPathWidth,
       'orbitPathDashed': orbitPathDashed,
+      'customImage': customImage,
+      'customImageRotated': customImageRotated,
     };
   }
 
@@ -76,8 +86,7 @@ class SatelliteStyle {
       size: map['size'] as double? ?? 4.0,
       color: Color(map['color'] as int? ?? 0xFFFFFFFF),
       hasGlow: map['hasGlow'] as bool? ?? false,
-      glowColor:
-          map['glowColor'] != null ? Color(map['glowColor'] as int) : null,
+      glowColor: map['glowColor'] != null ? Color(map['glowColor'] as int) : null,
       glowIntensity: map['glowIntensity'] as double? ?? 0.5,
       sizeAttenuation: map['sizeAttenuation'] as bool? ?? true,
       transitionDuration: map['transitionDuration'] as int? ?? 500,
@@ -86,13 +95,14 @@ class SatelliteStyle {
       orbitPathColor: Color(map['orbitPathColor'] as int? ?? 0x4DFFFFFF),
       orbitPathWidth: map['orbitPathWidth'] as double? ?? 1.0,
       orbitPathDashed: map['orbitPathDashed'] as bool? ?? false,
+      customImage: map['customImage'] as PictureInfo?,
+      customImageRotated: map['customImageRotated'] as bool? ?? false,
     );
   }
 
   String toJson() => json.encode(toMap());
 
-  factory SatelliteStyle.fromJson(String source) =>
-      SatelliteStyle.fromMap(json.decode(source) as Map<String, dynamic>);
+  factory SatelliteStyle.fromJson(String source) => SatelliteStyle.fromMap(json.decode(source) as Map<String, dynamic>);
 
   SatelliteStyle copyWith({
     double? size,
@@ -107,6 +117,7 @@ class SatelliteStyle {
     Color? orbitPathColor,
     double? orbitPathWidth,
     bool? orbitPathDashed,
+    PictureInfo? customImage,
   }) {
     return SatelliteStyle(
       size: size ?? this.size,
@@ -121,6 +132,7 @@ class SatelliteStyle {
       orbitPathColor: orbitPathColor ?? this.orbitPathColor,
       orbitPathWidth: orbitPathWidth ?? this.orbitPathWidth,
       orbitPathDashed: orbitPathDashed ?? this.orbitPathDashed,
+      customImage: customImage ?? this.customImage,
     );
   }
 }
@@ -151,8 +163,7 @@ class SatelliteOrbit {
       return const GlobeCoordinates(0, 0);
     }
 
-    final phaseRad =
-        (initialPhase * math.pi / 180) + (2 * math.pi * elapsedMs / periodMs);
+    final phaseRad = (initialPhase * math.pi / 180) + (2 * math.pi * elapsedMs / periodMs);
     final trueAnomaly = phaseRad;
 
     final incRad = inclination * math.pi / 180;
@@ -162,10 +173,7 @@ class SatelliteOrbit {
     final u = trueAnomaly + argPeriRad;
 
     final latitude = math.asin(math.sin(incRad) * math.sin(u)) * 180 / math.pi;
-    final longitude =
-        (raanRad + math.atan2(math.cos(incRad) * math.sin(u), math.cos(u))) *
-            180 /
-            math.pi;
+    final longitude = (raanRad + math.atan2(math.cos(incRad) * math.sin(u), math.cos(u))) * 180 / math.pi;
 
     var normalizedLon = longitude % 360;
     if (normalizedLon > 180) normalizedLon -= 360;
@@ -198,16 +206,14 @@ class SatelliteOrbit {
 
   String toJson() => json.encode(toMap());
 
-  factory SatelliteOrbit.fromJson(String source) =>
-      SatelliteOrbit.fromMap(json.decode(source) as Map<String, dynamic>);
+  factory SatelliteOrbit.fromJson(String source) => SatelliteOrbit.fromMap(json.decode(source) as Map<String, dynamic>);
 }
 
 /// Represents a satellite orbiting around the globe.
 class Satellite {
   final String id;
   final String? label;
-  final Widget? Function(BuildContext context, Satellite satellite,
-      bool isHovering, bool isVisible)? labelBuilder;
+  final Widget? Function(BuildContext context, Satellite satellite, bool isHovering, bool isVisible)? labelBuilder;
   final bool isLabelVisible;
   final Offset labelOffset;
   final TextStyle? labelTextStyle;
@@ -247,9 +253,7 @@ class Satellite {
     GlobeCoordinates? coordinates,
     double? altitude,
     String? label,
-    Widget? Function(BuildContext context, Satellite satellite, bool isHovering,
-            bool isVisible)?
-        labelBuilder,
+    Widget? Function(BuildContext context, Satellite satellite, bool isHovering, bool isVisible)? labelBuilder,
     bool? isLabelVisible,
     Offset? labelOffset,
     SatelliteStyle? style,

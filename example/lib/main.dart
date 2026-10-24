@@ -5,6 +5,7 @@ import 'package:flutter_earth_globe/point.dart';
 import 'package:flutter_earth_globe/point_connection.dart';
 import 'package:flutter_earth_globe/point_connection_style.dart';
 import 'package:flutter/material.dart';
+
 import 'app_theme.dart';
 import 'coordinate_state.dart';
 import 'coordinates_display.dart';
@@ -12,12 +13,7 @@ import 'globe_controls_state.dart';
 import 'control_widgets.dart';
 
 void main() {
-  runApp(MaterialApp(
-    title: 'Flutter Earth Globe',
-    theme: AppTheme.darkTheme,
-    debugShowCheckedModeBanner: false,
-    home: const Home(),
-  ));
+  runApp(MaterialApp(title: 'Flutter Earth Globe', theme: AppTheme.darkTheme, debugShowCheckedModeBanner: false, home: const Home()));
 }
 
 class Home extends StatefulWidget {
@@ -54,14 +50,13 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     'assets/2k_stars.jpg',
     'assets/2k_sun.jpg',
     'assets/2k_uranus.jpg',
-    'assets/2k_venus_surface.jpg'
+    'assets/2k_venus_surface.jpg',
   ];
 
   late List<Point> points;
   List<PointConnection> connections = [];
 
-  Widget pointLabelBuilder(
-      BuildContext context, Point point, bool isHovering, bool visible) {
+  Widget pointLabelBuilder(BuildContext context, Point point, bool isHovering, bool visible) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOutCubic,
@@ -72,16 +67,10 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
           end: Alignment.bottomRight,
           colors: isHovering
               ? [AppTheme.accentCyan, AppTheme.accentPurple]
-              : [
-                  AppTheme.accentCyan.withAlpha(180),
-                  AppTheme.accentPurple.withAlpha(180)
-                ],
+              : [AppTheme.accentCyan.withAlpha(180), AppTheme.accentPurple.withAlpha(180)],
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Colors.white.withAlpha(isHovering ? 180 : 80),
-          width: 1.5,
-        ),
+        border: Border.all(color: Colors.white.withAlpha(isHovering ? 180 : 80), width: 1.5),
         boxShadow: [
           BoxShadow(
             color: AppTheme.accentCyan.withAlpha(isHovering ? 150 : 80),
@@ -99,32 +88,20 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
             decoration: BoxDecoration(
               color: Colors.white,
               shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.white.withAlpha(150),
-                  blurRadius: 6,
-                  spreadRadius: 1,
-                ),
-              ],
+              boxShadow: [BoxShadow(color: Colors.white.withAlpha(150), blurRadius: 6, spreadRadius: 1)],
             ),
           ),
           const SizedBox(width: 8),
           Text(
             point.label ?? '',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.3,
-            ),
+            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 0.3),
           ),
         ],
       ),
     );
   }
 
-  Widget connectionLabelBuilder(BuildContext context,
-      PointConnection connection, bool isHovering, bool visible) {
+  Widget connectionLabelBuilder(BuildContext context, PointConnection connection, bool isHovering, bool visible) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOutCubic,
@@ -135,16 +112,10 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
           end: Alignment.bottomRight,
           colors: isHovering
               ? [AppTheme.accentPurple, AppTheme.accentPink]
-              : [
-                  AppTheme.accentPurple.withAlpha(180),
-                  AppTheme.accentPink.withAlpha(180)
-                ],
+              : [AppTheme.accentPurple.withAlpha(180), AppTheme.accentPink.withAlpha(180)],
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.white.withAlpha(isHovering ? 180 : 80),
-          width: 1,
-        ),
+        border: Border.all(color: Colors.white.withAlpha(isHovering ? 180 : 80), width: 1),
         boxShadow: [
           BoxShadow(
             color: AppTheme.accentPurple.withAlpha(isHovering ? 150 : 80),
@@ -156,20 +127,11 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.flight_takeoff_rounded,
-            color: Colors.white.withAlpha(220),
-            size: 14,
-          ),
+          Icon(Icons.flight_takeoff_rounded, color: Colors.white.withAlpha(220), size: 14),
           const SizedBox(width: 6),
           Text(
             connection.label ?? '',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 0.2,
-            ),
+            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500, letterSpacing: 0.2),
           ),
         ],
       ),
@@ -203,21 +165,12 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
         label: 'London',
         labelBuilder: pointLabelBuilder,
         isLabelVisible: true,
-        style: const PointStyle(
-          color: Colors.cyan,
-          size: 6,
-          altitude: 0.1,
-          transitionDuration: 500,
-        ),
+        style: const PointStyle(color: Colors.cyan, size: 6, altitude: 0.1, transitionDuration: 500),
       ),
       Point(
         id: '2',
         coordinates: const GlobeCoordinates(40.7128, -74.0060),
-        style: const PointStyle(
-          color: Colors.green,
-          altitude: 0.05,
-          transitionDuration: 600,
-        ),
+        style: const PointStyle(color: Colors.green, altitude: 0.05, transitionDuration: 600),
         labelBuilder: pointLabelBuilder,
         isLabelVisible: true,
         label: 'New York',
@@ -225,11 +178,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       Point(
         id: '3',
         coordinates: const GlobeCoordinates(35.6895, 139.6917),
-        style: const PointStyle(
-          color: Colors.purple,
-          altitude: 0.15,
-          transitionDuration: 700,
-        ),
+        style: const PointStyle(color: Colors.purple, altitude: 0.15, transitionDuration: 700),
         labelBuilder: pointLabelBuilder,
         isLabelVisible: true,
         label: 'Tokyo',
@@ -243,31 +192,16 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
               context: context,
               builder: (context) => AlertDialog(
                 backgroundColor: AppTheme.primaryMedium,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                title: const Text('Center Point',
-                    style: TextStyle(color: Colors.white)),
-                content: const Text(
-                  'This is the center of the globe at coordinates (0, 0)',
-                  style: TextStyle(color: Colors.white70),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('OK'),
-                  ),
-                ],
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                title: const Text('Center Point', style: TextStyle(color: Colors.white)),
+                content: const Text('This is the center of the globe at coordinates (0, 0)', style: TextStyle(color: Colors.white70)),
+                actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
               ),
             );
           });
         },
         coordinates: const GlobeCoordinates(0, 0),
-        style: const PointStyle(
-          color: Colors.amber,
-          altitude: 0.0,
-          transitionDuration: 400,
-        ),
+        style: const PointStyle(color: Colors.amber, altitude: 0.0, transitionDuration: 400),
         label: 'Center',
       ),
     ];
@@ -280,21 +214,10 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
             context: context,
             builder: (context) => AlertDialog(
               backgroundColor: AppTheme.primaryMedium,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              title: const Text('Flight Route',
-                  style: TextStyle(color: Colors.white)),
-              content: const Text(
-                'London → New York\nDistance: ~5,570 km',
-                style: TextStyle(color: Colors.white70),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('OK'),
-                ),
-              ],
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Text('Flight Route', style: TextStyle(color: Colors.white)),
+              content: const Text('London → New York\nDistance: ~5,570 km', style: TextStyle(color: Colors.white70)),
+              actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
             ),
           );
         },
@@ -340,11 +263,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
         end: points[3].coordinates,
         curveScale: 0.5,
         id: '3',
-        style: const PointConnectionStyle(
-          transitionDuration: 500,
-          animateOnAdd: true,
-          growthAnimationDuration: 1200,
-        ),
+        style: const PointConnectionStyle(transitionDuration: 500, animateOnAdd: true, growthAnimationDuration: 1200),
       ),
     ];
 
@@ -359,8 +278,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
 
     GlobeControlsState.instance.setZoom(_controller.zoom);
     GlobeControlsState.instance.setRotationSpeed(_controller.rotationSpeed);
-    GlobeControlsState.instance
-        .setDayNightBlendFactor(_controller.dayNightBlendFactor);
+    GlobeControlsState.instance.setDayNightBlendFactor(_controller.dayNightBlendFactor);
   }
 
   Widget _buildCollapsibleSection({
@@ -373,17 +291,11 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(
-          title: title,
-          icon: icon,
-          isExpanded: isExpanded,
-          onTap: onToggle,
-        ),
+        SectionHeader(title: title, icon: icon, isExpanded: isExpanded, onTap: onToggle),
         AnimatedCrossFade(
           firstChild: Column(children: children),
           secondChild: const SizedBox.shrink(),
-          crossFadeState:
-              isExpanded ? CrossFadeState.showFirst : CrossFadeState.showSecond,
+          crossFadeState: isExpanded ? CrossFadeState.showFirst : CrossFadeState.showSecond,
           duration: const Duration(milliseconds: 200),
         ),
         const SizedBox(height: 8),
@@ -403,20 +315,13 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  gradient: AppTheme.accentGradient,
-                  borderRadius: BorderRadius.circular(10),
-                ),
+                decoration: BoxDecoration(gradient: AppTheme.accentGradient, borderRadius: BorderRadius.circular(10)),
                 child: const Icon(Icons.tune, color: Colors.white, size: 20),
               ),
               const SizedBox(width: 12),
               const Text(
                 'Controls',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const Spacer(),
               IconButton(
@@ -435,8 +340,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
             title: 'Rotation & Zoom',
             icon: Icons.rotate_right,
             isExpanded: _rotationExpanded,
-            onToggle: () =>
-                setState(() => _rotationExpanded = !_rotationExpanded),
+            onToggle: () => setState(() => _rotationExpanded = !_rotationExpanded),
             children: [
               RotationControl(controller: _controller),
               const SizedBox(height: 8),
@@ -451,8 +355,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
             title: 'Day/Night Cycle',
             icon: Icons.brightness_4,
             isExpanded: _dayNightExpanded,
-            onToggle: () =>
-                setState(() => _dayNightExpanded = !_dayNightExpanded),
+            onToggle: () => setState(() => _dayNightExpanded = !_dayNightExpanded),
             children: [
               DayNightEnableControl(controller: _controller),
               DayNightModeControl(controller: _controller),
@@ -471,10 +374,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
             icon: Icons.place,
             isExpanded: _pointsExpanded,
             onToggle: () => setState(() => _pointsExpanded = !_pointsExpanded),
-            children: points
-                .map((point) =>
-                    PointControl(controller: _controller, point: point))
-                .toList(),
+            children: points.map((point) => PointControl(controller: _controller, point: point)).toList(),
           ),
 
           // Connections Section
@@ -482,11 +382,9 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
             title: 'Connections',
             icon: Icons.timeline,
             isExpanded: _connectionsExpanded,
-            onToggle: () =>
-                setState(() => _connectionsExpanded = !_connectionsExpanded),
+            onToggle: () => setState(() => _connectionsExpanded = !_connectionsExpanded),
             children: [
-              ...connections.map((connection) => ConnectionControl(
-                  controller: _controller, connection: connection)),
+              ...connections.map((connection) => ConnectionControl(controller: _controller, connection: connection)),
               const SizedBox(height: 8),
               SatelliteControl(controller: _controller),
             ],
@@ -497,8 +395,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
             title: 'Atmosphere & Lighting',
             icon: Icons.blur_on,
             isExpanded: _atmosphereExpanded,
-            onToggle: () =>
-                setState(() => _atmosphereExpanded = !_atmosphereExpanded),
+            onToggle: () => setState(() => _atmosphereExpanded = !_atmosphereExpanded),
             children: [
               AtmosphereColorControl(controller: _controller),
               AtmosphereOpacityControl(controller: _controller),
@@ -522,21 +419,14 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  gradient: AppTheme.headerGradient,
-                  borderRadius: BorderRadius.circular(10),
-                ),
+                decoration: BoxDecoration(gradient: AppTheme.headerGradient, borderRadius: BorderRadius.circular(10)),
                 child: const Icon(Icons.public, color: Colors.white, size: 20),
               ),
               const SizedBox(width: 12),
               const Expanded(
                 child: Text(
                   'Textures',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
               IconButton(
@@ -549,10 +439,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
           const SizedBox(height: 16),
           const Divider(color: Colors.white12),
           const SizedBox(height: 8),
-          TextureSelector(
-            controller: _controller,
-            textures: _textures,
-          ),
+          TextureSelector(controller: _controller, textures: _textures),
         ],
       ),
     );
@@ -564,13 +451,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       decoration: BoxDecoration(
         gradient: AppTheme.headerGradient,
         borderRadius: BorderRadius.circular(30),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF667eea).withAlpha(100),
-            blurRadius: 20,
-            spreadRadius: 0,
-          ),
-        ],
+        boxShadow: [BoxShadow(color: const Color(0xFF667eea).withAlpha(100), blurRadius: 20, spreadRadius: 0)],
       ),
       child: const Row(
         mainAxisSize: MainAxisSize.min,
@@ -579,24 +460,14 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
           SizedBox(width: 12),
           Text(
             'Flutter Earth Globe',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
-            ),
+            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 0.5),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildPanelToggle({
-    required IconData icon,
-    required bool isVisible,
-    required VoidCallback onTap,
-    required Alignment alignment,
-  }) {
+  Widget _buildPanelToggle({required IconData icon, required bool isVisible, required VoidCallback onTap, required Alignment alignment}) {
     return AnimatedOpacity(
       opacity: isVisible ? 0 : 1,
       duration: const Duration(milliseconds: 200),
@@ -628,18 +499,8 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: AppTheme.primaryDark,
-      drawer: isSmallScreen
-          ? Drawer(
-              backgroundColor: Colors.transparent,
-              child: _buildLeftPanel(),
-            )
-          : null,
-      endDrawer: isSmallScreen
-          ? Drawer(
-              backgroundColor: Colors.transparent,
-              child: _buildRightPanel(),
-            )
-          : null,
+      drawer: isSmallScreen ? Drawer(backgroundColor: Colors.transparent, child: _buildLeftPanel()) : null,
+      endDrawer: isSmallScreen ? Drawer(backgroundColor: Colors.transparent, child: _buildRightPanel()) : null,
       body: SafeArea(
         child: Stack(
           children: [
@@ -661,12 +522,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
             ),
 
             // Title at top
-            Positioned(
-              top: 16,
-              left: 0,
-              right: 0,
-              child: Center(child: _buildTitle()),
-            ),
+            Positioned(top: 16, left: 0, right: 0, child: Center(child: _buildTitle())),
 
             // Left panel or toggle
             if (!isSmallScreen)
@@ -675,8 +531,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
                 left: 16,
                 bottom: 16,
                 child: AnimatedSlide(
-                  offset:
-                      _leftPanelVisible ? Offset.zero : const Offset(-1.1, 0),
+                  offset: _leftPanelVisible ? Offset.zero : const Offset(-1.1, 0),
                   duration: const Duration(milliseconds: 300),
                   curve: Curves.easeOutCubic,
                   child: _buildLeftPanel(),
@@ -703,8 +558,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
                 right: 16,
                 bottom: 16,
                 child: AnimatedSlide(
-                  offset:
-                      _rightPanelVisible ? Offset.zero : const Offset(1.1, 0),
+                  offset: _rightPanelVisible ? Offset.zero : const Offset(1.1, 0),
                   duration: const Duration(milliseconds: 300),
                   curve: Curves.easeOutCubic,
                   child: _buildRightPanel(),
@@ -736,8 +590,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
                     decoration: BoxDecoration(
                       gradient: AppTheme.panelGradient,
                       borderRadius: BorderRadius.circular(12),
-                      border:
-                          Border.all(color: AppTheme.accentBlue.withAlpha(50)),
+                      border: Border.all(color: AppTheme.accentBlue.withAlpha(50)),
                     ),
                     child: const Icon(Icons.menu, color: AppTheme.accentCyan),
                   ),
@@ -753,8 +606,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
                     decoration: BoxDecoration(
                       gradient: AppTheme.panelGradient,
                       borderRadius: BorderRadius.circular(12),
-                      border:
-                          Border.all(color: AppTheme.accentBlue.withAlpha(50)),
+                      border: Border.all(color: AppTheme.accentBlue.withAlpha(50)),
                     ),
                     child: const Icon(Icons.public, color: AppTheme.accentCyan),
                   ),
@@ -763,12 +615,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
             ],
 
             // Coordinates display at bottom
-            const Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: CoordinatesDisplay(),
-            ),
+            const Positioned(bottom: 0, left: 0, right: 0, child: CoordinatesDisplay()),
           ],
         ),
       ),
