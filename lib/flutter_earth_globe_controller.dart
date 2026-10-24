@@ -991,12 +991,14 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   VoidCallback? onLoaded;
 
   /// Disposes the controller.
+  ///
+  /// [rotationController] is not disposed here: the globe widget creates it
+  /// and disposes it when it unmounts.
   @override
   void dispose() {
     onPointConnectionAdded = null;
     onResetGlobeRotation = null;
     onLoaded = null;
-    rotationController.dispose();
     super.dispose();
   }
 }
