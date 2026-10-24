@@ -1739,9 +1739,11 @@ class RotatingGlobeState extends State<RotatingGlobe>
                 _lastFocalPoint = details.focalPoint;
                 _lastScale = 1.0; // Reset scale tracking
 
+                // stop() alone: reset() would notify the listener with t = 0
+                // and repaint the rotation the fling started from for a frame.
+                // The next fling re-seeds the controller with forward(from: 0).
                 if (_decelerationController.isAnimating) {
                   _decelerationController.stop();
-                  _decelerationController.reset();
                 }
 
                 // Stop zoom animation when starting new gesture
