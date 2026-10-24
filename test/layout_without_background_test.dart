@@ -36,11 +36,10 @@ void main() {
   testWidgets('a globe without a background can be dragged',
       (WidgetTester tester) async {
     await pumpQuickStartWithoutBackground(tester);
-    final state =
-        tester.state<RotatingGlobeState>(find.byType(RotatingGlobe));
+    final state = tester.state<RotatingGlobeState>(find.byType(RotatingGlobe));
 
-    final gesture = await tester
-        .startGesture(tester.getCenter(find.byType(Scaffold)));
+    final gesture =
+        await tester.startGesture(tester.getCenter(find.byType(Scaffold)));
     for (var i = 0; i < 8; i++) {
       await gesture.moveBy(const Offset(8, 0));
       await tester.pump(const Duration(milliseconds: 16));

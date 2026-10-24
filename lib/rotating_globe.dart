@@ -94,6 +94,12 @@ class RotatingGlobeState extends State<RotatingGlobe>
   AnimationController?
       _dayNightCycleController; // The animation controller for day/night cycle.
 
+  late final AnimationController
+      _rotationController; // Drives auto-rotation; owned by this state.
+  Timer? _realTimeSunTimer; // Refreshes the real-time sun position.
+  final Set<AnimationController> _drawAnimationControllers =
+      {}; // Draw-on-add animations of connections that are still running.
+
   double _targetRotationX = 0.0;
   double _targetRotationY = 0.0;
   double _targetRotationZ = 0.0;
@@ -191,8 +197,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
 
   @override
   void initState() {
-    widget.controller.addListener(_update);
-    widget.controller.rotationController = AnimationController(
+    _rotationController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 1),
     )..addListener(() {
@@ -207,21 +212,15 @@ class RotatingGlobeState extends State<RotatingGlobe>
           // Update hover coordinates during rotation if mouse is over the globe
           _updateHoverCoordinatesDuringRotation();
 
-          if (widget.controller.rotationController.isCompleted) {
+          if (_rotationController.isCompleted) {
             if (widget.controller.isRotating) {
-              widget.controller.rotationController.repeat();
+              _rotationController.repeat();
             }
           }
         }
       });
 
-    widget.controller.onPointConnectionAdded = _addConnection;
-
-    widget.controller.onResetGlobeRotation = resetRotation;
-
-    widget.controller.onStartDayNightCycleAnimation =
-        startDayNightCycleAnimation;
-    widget.controller.onStopDayNightCycleAnimation = stopDayNightCycleAnimation;
+    _attachController(widget.controller);
 
     // Globe.GL-style continuous animation controller
     // Uses a simple repeating animation to drive frame updates
@@ -253,6 +252,10 @@ class RotatingGlobeState extends State<RotatingGlobe>
           // Use modulo to prevent integer overflow after long runtime
           if (hasAnimatingConnections || hasOrbitingSatellites) {
             _animationNotifier.value = (_animationNotifier.value + 1) % 1000000;
+          } else {
+            // Nothing to animate: stop requesting frames so an idle globe
+            // does not keep the app rendering. _update() restarts it.
+            _lineMovingController.stop();
           }
         }
       })
@@ -298,17 +301,61 @@ class RotatingGlobeState extends State<RotatingGlobe>
         }
       });
 
-    // Initialize day/night cycle animation controller
-    _initDayNightCycleController();
+    _syncRealTimeSunTimer();
 
     // Initialize GPU shader rendering
     _initShaderRendering();
 
     Future.delayed(Duration.zero, () {
-      widget.controller.load();
+      if (mounted) widget.controller.load();
     });
 
     super.initState();
+  }
+
+  /// Connects this globe to [controller]: listens to it, hands it the rotation
+  /// controller and registers the callbacks it uses to reach this state.
+  void _attachController(FlutterEarthGlobeController controller) {
+    controller.addListener(_update);
+    controller.rotationController = _rotationController;
+    controller.onPointConnectionAdded = _addConnection;
+    controller.onResetGlobeRotation = resetRotation;
+    controller.onStartDayNightCycleAnimation = startDayNightCycleAnimation;
+    controller.onStopDayNightCycleAnimation = stopDayNightCycleAnimation;
+  }
+
+  /// Undoes [_attachController], leaving callbacks another globe may have
+  /// registered on [controller] in place.
+  void _detachController(FlutterEarthGlobeController controller) {
+    controller.removeListener(_update);
+    controller.detachGlobe(_rotationController);
+    if (controller.onPointConnectionAdded == _addConnection) {
+      controller.onPointConnectionAdded = null;
+    }
+    if (controller.onResetGlobeRotation == resetRotation) {
+      controller.onResetGlobeRotation = null;
+    }
+    if (controller.onStartDayNightCycleAnimation ==
+        startDayNightCycleAnimation) {
+      controller.onStartDayNightCycleAnimation = null;
+    }
+    if (controller.onStopDayNightCycleAnimation == stopDayNightCycleAnimation) {
+      controller.onStopDayNightCycleAnimation = null;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant RotatingGlobe oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      _detachController(oldWidget.controller);
+      _rotationController.stop();
+      _attachController(widget.controller);
+      _syncRealTimeSunTimer();
+      Future.delayed(Duration.zero, () {
+        if (mounted) widget.controller.load();
+      });
+    }
   }
 
   /// Initialize GPU shader rendering
@@ -361,18 +408,19 @@ class RotatingGlobeState extends State<RotatingGlobe>
     }
   }
 
-  /// Initialize the day/night cycle animation controller
-  void _initDayNightCycleController() {
+  /// Keeps the real-time sun position refreshed while
+  /// [FlutterEarthGlobeController.useRealTimeSunPosition] is on. The sun only
+  /// moves a quarter of a degree per minute, so a minute timer is enough.
+  void _syncRealTimeSunTimer() {
     if (widget.controller.useRealTimeSunPosition) {
-      _dayNightCycleController = AnimationController(
-        vsync: this,
-        duration: const Duration(seconds: 60), // Update every minute
-      )..addListener(() {
-          if (mounted && widget.controller.useRealTimeSunPosition) {
-            widget.controller.updateSunPositionFromRealTime();
-          }
-        });
-      _dayNightCycleController!.repeat();
+      _realTimeSunTimer ??= Timer.periodic(const Duration(minutes: 1), (_) {
+        if (mounted && widget.controller.useRealTimeSunPosition) {
+          widget.controller.updateSunPositionFromRealTime();
+        }
+      });
+    } else {
+      _realTimeSunTimer?.cancel();
+      _realTimeSunTimer = null;
     }
   }
 
@@ -510,13 +558,22 @@ class RotatingGlobeState extends State<RotatingGlobe>
       final animation = AnimationController(
         vsync: this,
         duration: animateDrawDuration,
-      )..forward();
-
-      Tween<double>(begin: 0.0, end: 1.0).animate(animation).addListener(() {
-        setState(() {
-          connection.animationProgress = animation.value;
-        });
-      });
+      );
+      _drawAnimationControllers.add(animation);
+      animation
+        ..addListener(() {
+          if (!mounted) return;
+          setState(() {
+            connection.animationProgress = animation.value;
+          });
+        })
+        ..addStatusListener((status) {
+          if (status == AnimationStatus.completed) {
+            _drawAnimationControllers.remove(animation);
+            animation.dispose();
+          }
+        })
+        ..forward();
     } else {
       connection.animationProgress = 1.0;
     }
@@ -524,13 +581,24 @@ class RotatingGlobeState extends State<RotatingGlobe>
 
   /// Update the state of the sphere
   void _update() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    _syncRealTimeSunTimer();
+    if (!_lineMovingController.isAnimating) {
+      // Restart the animation ticker; it stops itself again if nothing moves.
+      _lineMovingController.repeat();
+    }
+    setState(() {});
   }
 
   @override
   void dispose() {
-    widget.controller.removeListener(_update);
-    widget.controller.rotationController.dispose();
+    _detachController(widget.controller);
+    _rotationController.dispose();
+    _realTimeSunTimer?.cancel();
+    for (final animation in _drawAnimationControllers) {
+      animation.dispose();
+    }
+    _drawAnimationControllers.clear();
     _lineMovingController.stop();
     _lineMovingController.dispose();
     _decelerationController.dispose();
@@ -1319,6 +1387,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
     _foregroundRenderer.cleanupRemovedElements(
       widget.controller.points,
       widget.controller.connections,
+      widget.controller.satellites,
     );
   }
 
@@ -1710,8 +1779,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
           // the widget is not 0x0 and keeps receiving pointer events.
           return widget.controller.background == null
               ? SizedBox(
-                  width:
-                      constraints.hasBoundedWidth ? constraints.maxWidth : 0,
+                  width: constraints.hasBoundedWidth ? constraints.maxWidth : 0,
                   height:
                       constraints.hasBoundedHeight ? constraints.maxHeight : 0,
                 )
@@ -1760,7 +1828,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
                 }
 
                 if (widget.controller.isRotating) {
-                  widget.controller.rotationController.stop();
+                  _rotationController.stop();
                 }
                 setState(() {});
               },
@@ -1822,8 +1890,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
                 }
 
                 if (widget.controller.isRotating) {
-                  widget.controller.rotationController.forward(
-                      from: widget.controller.rotationController.value);
+                  _rotationController.forward(from: _rotationController.value);
                 }
               },
               child: GestureDetector(
