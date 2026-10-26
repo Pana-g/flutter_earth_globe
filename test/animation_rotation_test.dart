@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,7 +7,7 @@ import 'package:flutter_earth_globe/globe_coordinates.dart';
 import 'package:flutter_earth_globe/point_connection.dart';
 
 void main() {
-  group('PR 1: Animation & Rotation Unit Tests', () {
+  group('Animation & Rotation Tests', () {
     late FlutterEarthGlobeController controller;
 
     setUp(() {
@@ -42,60 +41,96 @@ void main() {
       expect(controller.simulatedNightIntensity, 0.45);
     });
 
-    test('Shortest-path spherical interpolation math handles boundaries', () {
-      double shortestPath(double target, double initial) {
-        double diff = target - initial;
-        return (diff + math.pi) % (2 * math.pi) - math.pi;
-      }
+    testWidgets('focusOnCoordinates takes the shortest spherical path across anti-meridian', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 200,
+                height: 200,
+                child: FlutterEarthGlobe(
+                  controller: controller,
+                  radius: 80,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(Duration.zero);
 
-      // Small angle moves
-      expect(shortestPath(0.1, 0.0), closeTo(0.1, 1e-9));
-      expect(shortestPath(0.0, 0.1), closeTo(-0.1, 1e-9));
+      final state = controller.globeKey.currentState!;
 
-      // Crossing the anti-meridian (+170 deg to -170 deg)
-      // +170 deg = 2.96706 rad, -170 deg = -2.96706 rad
-      // Instead of moving -340 deg (-5.934 rad), shortest path is +20 deg (+0.349 rad)
-      final initialLon = 170.0 * math.pi / 180.0;
-      final targetLon = -170.0 * math.pi / 180.0;
-      final delta = shortestPath(targetLon, initialLon);
-      expect(delta, closeTo(20.0 * math.pi / 180.0, 1e-6));
+      // Focus to +170 longitude
+      controller.focusOnCoordinates(
+        const GlobeCoordinates(0, 170),
+        animate: false,
+      );
+      await tester.pump();
+      final initialRotZ = state.rotationZ;
 
-      // Opposite direction (-170 deg to +170 deg) -> shortest path is -20 deg
-      final deltaOpposite = shortestPath(initialLon, targetLon);
-      expect(deltaOpposite, closeTo(-20.0 * math.pi / 180.0, 1e-6));
+      // Animate focus to -170 longitude over 1000ms
+      // Shortest path is +20 deg (0.349 rad), not -340 deg
+      controller.focusOnCoordinates(
+        const GlobeCoordinates(0, -170),
+        animate: true,
+        duration: const Duration(milliseconds: 1000),
+      );
+      await tester.pump();
+      // Halfway through animation (500ms)
+      await tester.pump(const Duration(milliseconds: 500));
 
-      // Full revolutions accumulated (e.g. after spinning for 50 revolutions: 100*pi rad)
-      final accumulatedSpin = 100.0 * math.pi;
-      final targetOrigin = 0.0;
-      final deltaAfterSpin = shortestPath(targetOrigin, accumulatedSpin);
-      expect(deltaAfterSpin, closeTo(0.0, 1e-6));
+      // In 500ms, the rotation traveled ~10 degrees (~0.174 rad), NOT 170 degrees
+      final halfDelta = (state.rotationZ - initialRotZ).abs();
+      // Small delta proves it takes the 20 deg shortest path
+      expect(halfDelta, lessThan(1.0));
+
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(Duration.zero);
     });
 
-    test('Frame-rate independent delta-time guard clamps invalid intervals', () {
-      double computeDt(DateTime lastTick, DateTime now) {
-        double dt = now.difference(lastTick).inMicroseconds / 1000000.0;
-        if (dt <= 0.0 || dt > 0.1) {
-          dt = 1 / 60.0;
-        }
-        return dt;
-      }
+    testWidgets('auto-rotation advances proportionally to elapsed ticker duration', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 200,
+                height: 200,
+                child: FlutterEarthGlobe(
+                  controller: controller,
+                  radius: 80,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(Duration.zero);
 
-      final now = DateTime.now();
+      final state = controller.globeKey.currentState!;
+      controller.startRotation(rotationSpeed: 0.1);
+      await tester.pump();
 
-      // Normal 60fps frame (~16.6ms)
-      final normal60fps = now.subtract(const Duration(milliseconds: 16));
-      expect(computeDt(normal60fps, now), closeTo(0.016, 1e-3));
+      final initialRotZ = state.rotationZ;
 
-      // Normal 120fps frame (~8.3ms)
-      final normal120fps = now.subtract(const Duration(microseconds: 8333));
-      expect(computeDt(normal120fps, now), closeTo(0.008333, 1e-3));
+      // Advance by 50ms
+      await tester.pump(const Duration(milliseconds: 50));
+      final delta50ms = (state.rotationZ - initialRotZ).abs();
+      expect(delta50ms, isPositive);
 
-      // Sudden frame stutter / background pause (e.g. 5 seconds delay)
-      final pause5s = now.subtract(const Duration(seconds: 5));
-      expect(computeDt(pause5s, now), closeTo(1 / 60.0, 1e-9));
+      // Advance by another 100ms
+      await tester.pump(const Duration(milliseconds: 100));
+      final delta100ms = (state.rotationZ - (initialRotZ - delta50ms)).abs();
+      // 100ms should rotate approximately twice as much as 50ms
+      expect(delta100ms, closeTo(delta50ms * 2, 0.05));
 
-      // Non-monotonic clock / zero interval
-      expect(computeDt(now, now), closeTo(1 / 60.0, 1e-9));
+      controller.stopRotation();
+      await tester.pump();
+      await tester.pump(Duration.zero);
     });
 
     testWidgets('RotatingGlobe initializes animationProgress for pre-existing connections', (tester) async {

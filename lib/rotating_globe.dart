@@ -107,7 +107,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
   double _initialRotationX = 0.0;
   double _initialRotationY = 0.0;
   double _initialRotationZ = 0.0;
-  DateTime _lastRotationTick = DateTime.now();
+  Duration? _lastElapsedDuration;
 
   // Cached sphere image and parameters for performance
   SphereImage? _cachedSphereImage;
@@ -202,9 +202,12 @@ class RotatingGlobeState extends State<RotatingGlobe>
       vsync: this,
       duration: const Duration(seconds: 1),
     )..addListener(() {
-        final now = DateTime.now();
-        double dt = now.difference(_lastRotationTick).inMicroseconds / 1000000.0;
-        _lastRotationTick = now;
+        final currentElapsed = _rotationController.lastElapsedDuration;
+        double dt = 1 / 60.0;
+        if (currentElapsed != null && _lastElapsedDuration != null) {
+          dt = (currentElapsed - _lastElapsedDuration!).inMicroseconds / 1000000.0;
+        }
+        _lastElapsedDuration = currentElapsed;
         if (dt <= 0.0 || dt > 0.1) {
           dt = 1 / 60.0;
         }
@@ -219,12 +222,6 @@ class RotatingGlobeState extends State<RotatingGlobe>
 
           // Update hover coordinates during rotation if mouse is over the globe
           _updateHoverCoordinatesDuringRotation();
-
-          if (_rotationController.isCompleted) {
-            if (widget.controller.isRotating) {
-              _rotationController.repeat();
-            }
-          }
         }
       });
 
@@ -574,8 +571,8 @@ class RotatingGlobeState extends State<RotatingGlobe>
       genericAnimationController!.addStatusListener((status) {
         if (status == AnimationStatus.completed && mounted) {
           if (widget.controller.isRotating) {
-            _lastRotationTick = DateTime.now();
-            widget.controller.rotationController.repeat();
+            _lastElapsedDuration = null;
+            _rotationController.repeat();
           }
         }
       });
@@ -588,8 +585,8 @@ class RotatingGlobeState extends State<RotatingGlobe>
       rotationZ = targetRotationZ;
       setState(() {});
       if (widget.controller.isRotating) {
-        _lastRotationTick = DateTime.now();
-        widget.controller.rotationController.repeat();
+        _lastElapsedDuration = null;
+        _rotationController.repeat();
       }
     }
   }
@@ -614,7 +611,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
     rotationZ = 0;
     setState(() {});
     if (widget.controller.isRotating) {
-      _lastRotationTick = DateTime.now();
+      _lastElapsedDuration = null;
       _rotationController.repeat();
     }
   }
@@ -1058,7 +1055,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
   }
 
   /// Handle hover event
-  void onHover(PointerHoverEvent event) {
+  void onHover(PointerEvent event) {
     hoveringPoint = event.localPosition;
     _hoverNotifier.value = event.localPosition;
     // Don't call setState - the ValueNotifier will trigger foreground repaint
@@ -1910,6 +1907,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
                 }
 
                 if (widget.controller.isRotating) {
+                  _lastElapsedDuration = null;
                   _rotationController.stop();
                 }
                 setState(() {});
@@ -1972,7 +1970,8 @@ class RotatingGlobeState extends State<RotatingGlobe>
                 }
 
                 if (widget.controller.isRotating) {
-                  _rotationController.forward(from: _rotationController.value);
+                  _lastElapsedDuration = null;
+                  _rotationController.repeat();
                 }
               },
               child: GestureDetector(
