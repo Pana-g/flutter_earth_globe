@@ -567,21 +567,32 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     notifyListeners();
   }
 
+  GlobeRegion _normalizeRegion(GlobeRegion region) {
+    final normalizedId = region.id.trim().toUpperCase();
+    final normalizedClip =
+        region.clipAgainst.map((e) => e.trim().toUpperCase()).toList();
+    if (normalizedId != region.id || normalizedClip != region.clipAgainst) {
+      return region.copyWith(id: normalizedId, clipAgainst: normalizedClip);
+    }
+    return region;
+  }
+
   void addRegion(GlobeRegion region) {
     _regionRevision++;
-    regions.add(region);
+    regions.add(_normalizeRegion(region));
     notifyListeners();
   }
 
   void addRegions(List<GlobeRegion> newRegions) {
     _regionRevision++;
-    regions.addAll(newRegions);
+    regions.addAll(newRegions.map(_normalizeRegion));
     notifyListeners();
   }
 
   void removeRegion(String id) {
     _regionRevision++;
-    regions.removeWhere((element) => element.id == id);
+    final normalizedId = id.trim().toUpperCase();
+    regions.removeWhere((element) => element.id == normalizedId);
     notifyListeners();
   }
 
@@ -593,7 +604,7 @@ class FlutterEarthGlobeController extends ChangeNotifier {
 
   void selectRegions(List<String> regionIds) {
     _regionRevision++;
-    selectedRegionIds = regionIds.toSet();
+    selectedRegionIds = regionIds.map((e) => e.trim().toUpperCase()).toSet();
     notifyListeners();
   }
 
@@ -612,6 +623,7 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   }) {
     final features = geojson['features'] as List<dynamic>? ?? [];
     final List<GlobeRegion> parsed = [];
+    final Set<String> usedIds = {};
 
     for (final feature in features) {
       final properties = feature['properties'] as Map<String, dynamic>? ?? {};
@@ -619,24 +631,58 @@ class FlutterEarthGlobeController extends ChangeNotifier {
       final geometryType = geometry['type'] as String? ?? '';
       final coordinates = geometry['coordinates'];
 
-      final String id = (properties['iso_3166_2'] ??
-              properties['code_hasc'] ??
-              properties['code'] ??
-              properties['id'] ??
-              properties['iso_a2'] ??
-              properties['iso_a3'] ??
-              properties['adm0_a3'] ??
-              '')
-          .toString()
-          .replaceAll('.', '-')
-          .toUpperCase();
+      final idKeys = [
+        'iso_3166_2',
+        'code_hasc',
+        'code',
+        'id',
+        'iso_a2',
+        'iso_a3',
+        'adm0_a3',
+        'sov_a3',
+        'postal',
+      ];
+
+      String candidateId = '';
+      for (final key in idKeys) {
+        final val = properties[key]?.toString().trim() ?? '';
+        if (val.isNotEmpty && val != '-99' && val != '-099') {
+          final normalized = val.replaceAll('.', '-').toUpperCase();
+          if (!usedIds.contains(normalized)) {
+            candidateId = normalized;
+            break;
+          } else if (candidateId.isEmpty) {
+            candidateId = normalized;
+          }
+        }
+      }
+
+      if (candidateId.isEmpty) {
+        final nameVal = properties['name']?.toString().trim() ?? '';
+        if (nameVal.isNotEmpty) {
+          candidateId = nameVal.replaceAll('.', '-').toUpperCase();
+        }
+      }
+
+      if (candidateId.isEmpty || candidateId == '-99') {
+        candidateId = 'REGION_${parsed.length + 1}';
+      }
+
+      var finalId = candidateId;
+      var counter = 1;
+      while (usedIds.contains(finalId)) {
+        finalId = '${candidateId}_$counter';
+        counter++;
+      }
+      usedIds.add(finalId);
+
       final String name = (properties['name'] ??
               properties['name_en'] ??
               properties['title'] ??
-              id)
+              finalId)
           .toString();
 
-      if (id.isEmpty || coordinates == null) continue;
+      if (coordinates == null) continue;
 
       final polygons = <List<List<List<double>>>>[];
 
@@ -689,7 +735,7 @@ class FlutterEarthGlobeController extends ChangeNotifier {
       if (polygons.isNotEmpty) {
         parsed.add(
           GlobeRegion(
-            id: id,
+            id: finalId,
             name: name,
             polygons: polygons,
             borderColor: defaultBorderColor,
@@ -697,7 +743,7 @@ class FlutterEarthGlobeController extends ChangeNotifier {
             fillColor: defaultFillColor,
             highlightColor: defaultHighlightColor,
             isVisible: defaultIsVisible,
-            clipAgainst: clipAgainstBuilder?.call(id) ?? const [],
+            clipAgainst: clipAgainstBuilder?.call(finalId) ?? const [],
           ),
         );
       }
@@ -709,9 +755,9 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   /// Show regions matching specified IDs
   void showRegions(List<String> ids) {
     _regionRevision++;
-    final upperIds = ids.map((e) => e.toUpperCase()).toSet();
+    final upperIds = ids.map((e) => e.trim().toUpperCase()).toSet();
     for (int i = 0; i < regions.length; i++) {
-      if (upperIds.contains(regions[i].id.toUpperCase())) {
+      if (upperIds.contains(regions[i].id)) {
         regions[i] = regions[i].copyWith(isVisible: true);
       }
     }
@@ -721,9 +767,9 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   /// Hide regions matching specified IDs
   void hideRegions(List<String> ids) {
     _regionRevision++;
-    final upperIds = ids.map((e) => e.toUpperCase()).toSet();
+    final upperIds = ids.map((e) => e.trim().toUpperCase()).toSet();
     for (int i = 0; i < regions.length; i++) {
-      if (upperIds.contains(regions[i].id.toUpperCase())) {
+      if (upperIds.contains(regions[i].id)) {
         regions[i] = regions[i].copyWith(isVisible: false);
       }
     }
@@ -757,18 +803,22 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     Color? highlightColor,
     bool? isVisible,
     List<String>? clipAgainst,
+    bool clearFillColor = false,
+    bool clearHighlightColor = false,
   }) {
     _regionRevision++;
-    final upperId = id.toUpperCase();
+    final upperId = id.trim().toUpperCase();
     for (int i = 0; i < regions.length; i++) {
-      if (regions[i].id.toUpperCase() == upperId) {
+      if (regions[i].id == upperId) {
         regions[i] = regions[i].copyWith(
           borderColor: borderColor,
           borderWidth: borderWidth,
           fillColor: fillColor,
           highlightColor: highlightColor,
           isVisible: isVisible,
-          clipAgainst: clipAgainst,
+          clipAgainst: clipAgainst?.map((e) => e.trim().toUpperCase()).toList(),
+          clearFillColor: clearFillColor,
+          clearHighlightColor: clearHighlightColor,
         );
       }
     }

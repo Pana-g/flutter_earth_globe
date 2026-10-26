@@ -378,8 +378,8 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
         defaultFillColor: const Color.fromARGB(26, 33, 150, 243),
         defaultHighlightColor: const Color.fromARGB(102, 255, 152, 0),
         clipAgainstBuilder: (id) {
-          if (id.startsWith('PAK') || id.startsWith('CHN')) {
-            return ['IND'];
+          if (id == 'PK' || id == 'CN' || id.startsWith('PAK') || id.startsWith('CHN')) {
+            return ['IN', 'IND'];
           }
           return [];
         },

@@ -114,6 +114,8 @@ class GlobeRegion {
     Color? highlightColor,
     bool? isVisible,
     List<String>? clipAgainst,
+    bool clearFillColor = false,
+    bool clearHighlightColor = false,
   }) {
     return GlobeRegion(
       id: id ?? this.id,
@@ -121,8 +123,10 @@ class GlobeRegion {
       polygons: polygons ?? this.polygons,
       borderColor: borderColor ?? this.borderColor,
       borderWidth: borderWidth ?? this.borderWidth,
-      fillColor: fillColor ?? this.fillColor,
-      highlightColor: highlightColor ?? this.highlightColor,
+      fillColor: clearFillColor ? null : (fillColor ?? this.fillColor),
+      highlightColor: clearHighlightColor
+          ? null
+          : (highlightColor ?? this.highlightColor),
       isVisible: isVisible ?? this.isVisible,
       clipAgainst: clipAgainst ?? this.clipAgainst,
     );

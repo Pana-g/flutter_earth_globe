@@ -1015,6 +1015,17 @@ class RotatingGlobeState extends State<RotatingGlobe>
     );
   }
 
+  /// Handle pointer exit event
+  void onPointerExit(PointerExitEvent event) {
+    hoveringPoint = null;
+    _hoverNotifier.value = null;
+    widget.onHover?.call(null);
+    if (_currentHoveredRegionId != null) {
+      _currentHoveredRegionId = null;
+      widget.controller.onRegionHover?.call(null);
+    }
+  }
+
   /// Apply smooth animated zoom like globe.gl
   /// Uses logarithmic scaling for more natural zoom feel
   void _animateZoomTo(double targetZoom) {
@@ -1939,8 +1950,9 @@ class RotatingGlobeState extends State<RotatingGlobe>
               },
               child: GestureDetector(
                 onTapDown: onTapEvent,
-                child: Listener(
-                  onPointerHover: onHover,
+                child: MouseRegion(
+                  onHover: onHover,
+                  onExit: onPointerExit,
                   child: LayoutBuilder(
                     builder:
                         (BuildContext context, BoxConstraints constraints) {

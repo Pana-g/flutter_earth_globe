@@ -359,10 +359,19 @@ class GlobeForegroundRenderer {
   List<CachedPolygonData> _getCachedRegionCoordinates(GlobeRegion region) {
     final cached = _regionCoordinateCache[region.id];
 
-    if (cached != null &&
-        (identical(cached.polygons, region.polygons) ||
-            _isSameGeometry(cached.polygons, region.polygons))) {
-      return cached.data;
+    if (cached != null) {
+      if (identical(cached.polygons, region.polygons)) {
+        return cached.data;
+      }
+      if (_isSameGeometry(cached.polygons, region.polygons)) {
+        // Geometry is identical, but the list reference changed.
+        // Update the cached reference so future frames can hit identical() in O(1).
+        _regionCoordinateCache[region.id] = _CachedRegionEntry(
+          polygons: region.polygons,
+          data: cached.data,
+        );
+        return cached.data;
+      }
     }
 
     final result = <CachedPolygonData>[];
@@ -507,26 +516,35 @@ class GlobeForegroundRenderer {
     );
 
     final List<RegionRenderData> result = [];
+    final Set<String> normalizedSelectedIds = selectedRegionIds.isEmpty
+        ? const <String>{}
+        : selectedRegionIds.map((id) => id.trim().toUpperCase()).toSet();
 
-    // Precompute trigonometric functions
-    final cosY = math.cos(rotationY);
-    final sinY = math.sin(rotationY);
-    final cosZ = math.cos(rotationZ);
-    final sinZ = math.sin(rotationZ);
+    // Precompute rotation matrix using the exact same transformation as getSpherePosition3D in math_helper.dart
+    final Matrix4 rotationMatrix = Matrix4.identity()
+      ..rotateY(-rotationY)
+      ..rotateZ(-rotationZ);
+    final s = rotationMatrix.storage;
 
-    // Rotation matrix elements for R = Ry * Rz
-    final r00 = cosY * cosZ;
-    final r01 = -cosY * sinZ;
-    final r02 = -sinY;
-    final r10 = sinZ;
-    final r11 = cosZ;
-    final r20 = sinY * cosZ;
-    final r21 = -sinY * sinZ;
-    final r22 = cosY;
+    // Row 0 (X component after rotation - camera depth / front-facing check)
+    final r00 = s[0];
+    final r01 = s[4];
+    final r02 = s[8];
+
+    // Row 1 (Y component after rotation - horizontal screen offset: center.dx + radius * ry)
+    final r10 = s[1];
+    final r11 = s[5];
+    final r12 = s[9];
+
+    // Row 2 (Z component after rotation - vertical screen offset: center.dy - radius * rz)
+    final r20 = s[2];
+    final r21 = s[6];
+    final r22 = s[10];
 
     // Combined rotation and projection factors
     final m10 = radius * r10;
     final m11 = radius * r11;
+    final m12 = radius * r12;
     final m20 = -radius * r20;
     final m21 = -radius * r21;
     final m22 = -radius * r22;
@@ -552,8 +570,7 @@ class GlobeForegroundRenderer {
         }
 
         final isSelected = selectedRegionIds.contains(region.id) ||
-            selectedRegionIds.contains(region.id.toUpperCase()) ||
-            selectedRegionIds.contains(region.id.toLowerCase());
+            normalizedSelectedIds.contains(region.id.trim().toUpperCase());
         final fillColor = isSelected && region.highlightColor != null
             ? region.highlightColor!
             : region.fillColor;
@@ -577,7 +594,7 @@ class GlobeForegroundRenderer {
 
             // Project for borders (only front-facing)
             if (rotatedX > 0) {
-              final px = center.dx + m10 * x + m11 * y;
+              final px = center.dx + m10 * x + m11 * y + m12 * z;
               final py = center.dy + m20 * x + m21 * y + m22 * z;
 
               if (currentBorderPath == null) {
@@ -596,10 +613,10 @@ class GlobeForegroundRenderer {
             // Project for polygon (clamp back-facing to horizon circle for fill & hit-testing)
             double fpx, fpy;
             if (rotatedX > 0) {
-              fpx = center.dx + m10 * x + m11 * y;
+              fpx = center.dx + m10 * x + m11 * y + m12 * z;
               fpy = center.dy + m20 * x + m21 * y + m22 * z;
             } else {
-              final ry = r10 * x + r11 * y;
+              final ry = r10 * x + r11 * y + r12 * z;
               final rzVal = r20 * x + r21 * y + r22 * z;
               final d = math.sqrt(ry * ry + rzVal * rzVal);
               if (d > 0.0001) {
@@ -1118,7 +1135,7 @@ class GpuForegroundPainter extends CustomPainter {
 
     Path? getInverseClipPath(List<String> clipAgainst, String baseId) {
       if (clipAgainst.isEmpty) return null;
-      final clipKey = (List<String>.from(clipAgainst)..sort()).join(',');
+      final clipKey = '$baseId:${(List<String>.from(clipAgainst)..sort()).join(',')}';
       if (frameClipPathCache.containsKey(clipKey)) {
         return frameClipPathCache[clipKey];
       }

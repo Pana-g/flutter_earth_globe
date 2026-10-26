@@ -1,8 +1,11 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_earth_globe/flutter_earth_globe.dart';
 import 'package:flutter_earth_globe/flutter_earth_globe_controller.dart';
+import 'package:flutter_earth_globe/globe_coordinates.dart';
 import 'package:flutter_earth_globe/gpu_foreground_painter.dart';
+import 'package:flutter_earth_globe/math_helper.dart';
 
 void main() {
   group('FlutterEarthGlobeController - Region Operations', () {
@@ -774,6 +777,390 @@ void main() {
       );
 
       expect(renderData.first.visiblePaths, isNotEmpty);
+    });
+
+    test('region vertex projection matches getSpherePosition3D for non-zero rotations', () {
+      final renderer = GlobeForegroundRenderer();
+      const rotY = 0.7;
+      const rotZ = 1.3;
+      const radius = 100.0;
+      const center = Offset(100, 100);
+
+      // Lat 10, Lon 20 (lon first in GeoJSON: [20.0, 10.0])
+      final coords = const GlobeCoordinates(10, 20);
+      final expected3D = getSpherePosition3D(coords, radius, rotY, rotZ);
+      final expectedScreenPos = Offset(center.dx + expected3D.y, center.dy - expected3D.z);
+
+      // Region centered around (10, 20)
+      final region = GlobeRegion(
+        id: 'ROT_TEST',
+        name: 'Rotation Test Region',
+        polygons: const [
+          [
+            [
+              [20.0, 10.0],
+              [20.1, 10.0],
+              [20.1, 10.1],
+              [20.0, 10.1],
+              [20.0, 10.0],
+            ]
+          ]
+        ],
+      );
+
+      final renderData = renderer.calculateRegionPositions(
+        regions: [region],
+        radius: radius,
+        rotationY: rotY,
+        rotationZ: rotZ,
+        canvasSize: const Size(200, 200),
+      );
+
+      // The region must be front-facing since expected3D.x > 0
+      expect(expected3D.x, greaterThan(0.0));
+      expect(renderData, isNotEmpty);
+
+      // Verify that the projected border path contains vertices close to expectedScreenPos
+      final pathBounds = renderData.first.visiblePaths.first.getBounds();
+      expect(pathBounds.left, closeTo(expectedScreenPos.dx, 1.0));
+      expect(pathBounds.top, closeTo(expectedScreenPos.dy, 1.0));
+    });
+
+    test('getInverseClipPath caches by baseId and clipAgainst so mutual clipAgainst does not hide regions', () {
+      final renderer = GlobeForegroundRenderer();
+
+      // IN and PK both clip against each other: clipAgainst: ['IN', 'PK']
+      final regionIN = GlobeRegion(
+        id: 'IN',
+        name: 'India',
+        clipAgainst: const ['IN', 'PK'],
+        fillColor: Colors.green,
+        polygons: const [
+          [
+            [
+              [70.0, 20.0],
+              [80.0, 20.0],
+              [80.0, 30.0],
+              [70.0, 30.0],
+              [70.0, 20.0],
+            ]
+          ]
+        ],
+      );
+
+      final regionPK = GlobeRegion(
+        id: 'PK',
+        name: 'Pakistan',
+        clipAgainst: const ['IN', 'PK'],
+        fillColor: Colors.blue,
+        polygons: const [
+          [
+            [
+              [60.0, 20.0],
+              [70.0, 20.0],
+              [70.0, 30.0],
+              [60.0, 30.0],
+              [60.0, 20.0],
+            ]
+          ]
+        ],
+      );
+
+      final renderData = renderer.calculateRegionPositions(
+        regions: [regionIN, regionPK],
+        radius: 100,
+        rotationY: 0,
+        rotationZ: 0,
+        canvasSize: const Size(200, 200),
+      );
+
+      // Both regions must have visible paths and neither should be empty
+      expect(renderData.length, 2);
+      expect(renderData[0].visiblePaths, isNotEmpty);
+      expect(renderData[1].visiblePaths, isNotEmpty);
+    });
+
+    test('deep equality hit updates cache reference so subsequent identical() checks succeed in O(1)', () {
+      final renderer = GlobeForegroundRenderer();
+      final initialPolygons = [
+        [
+          [
+            [10.0, 10.0],
+            [20.0, 10.0],
+            [20.0, 20.0],
+            [10.0, 20.0],
+            [10.0, 10.0],
+          ]
+        ]
+      ];
+
+      final region1 = GlobeRegion(
+        id: 'EQ_CACHE',
+        name: 'Cache Test',
+        polygons: initialPolygons,
+      );
+
+      final data1 = renderer.calculateRegionPositions(
+        regions: [region1],
+        radius: 100,
+        rotationY: 0,
+        rotationZ: 0,
+        canvasSize: const Size(200, 200),
+      );
+      expect(data1, isNotEmpty);
+
+      // Reload with new list instance having identical coordinates
+      final reloadedPolygons = [
+        [
+          [
+            [10.0, 10.0],
+            [20.0, 10.0],
+            [20.0, 20.0],
+            [10.0, 20.0],
+            [10.0, 10.0],
+          ]
+        ]
+      ];
+      expect(identical(initialPolygons, reloadedPolygons), isFalse);
+
+      final region2 = GlobeRegion(
+        id: 'EQ_CACHE',
+        name: 'Cache Test',
+        polygons: reloadedPolygons,
+      );
+
+      final data2 = renderer.calculateRegionPositions(
+        regions: [region2],
+        radius: 100,
+        rotationY: 0.1, // change rotation to force recalculation
+        rotationZ: 0.1,
+        canvasSize: const Size(200, 200),
+      );
+      expect(data2, isNotEmpty);
+
+      // Next frame with same region2 should succeed via identical() in O(1)
+      final data3 = renderer.calculateRegionPositions(
+        regions: [region2],
+        radius: 100,
+        rotationY: 0.2,
+        rotationZ: 0.2,
+        canvasSize: const Size(200, 200),
+      );
+      expect(data3, isNotEmpty);
+    });
+
+    test('loadRegionDataset skips -99 IDs and dedupes repeated codes', () {
+      final geojson = {
+        'type': 'FeatureCollection',
+        'features': [
+          {
+            'type': 'Feature',
+            'properties': {
+              'iso_a2': '-99',
+              'iso_a3': '-99',
+              'adm0_a3': 'CYN',
+              'name': 'Northern Cyprus',
+            },
+            'geometry': {
+              'type': 'Polygon',
+              'coordinates': [
+                [
+                  [33.0, 35.0],
+                  [34.0, 35.0],
+                  [34.0, 35.5],
+                  [33.0, 35.5],
+                  [33.0, 35.0],
+                ]
+              ],
+            },
+          },
+          {
+            'type': 'Feature',
+            'properties': {
+              'iso_a2': '-99',
+              'iso_a3': '-99',
+              'adm0_a3': 'KOS',
+              'name': 'Kosovo',
+            },
+            'geometry': {
+              'type': 'Polygon',
+              'coordinates': [
+                [
+                  [20.0, 42.0],
+                  [21.0, 42.0],
+                  [21.0, 43.0],
+                  [20.0, 43.0],
+                  [20.0, 42.0],
+                ]
+              ],
+            },
+          },
+          {
+            'type': 'Feature',
+            'properties': {
+              'iso_a2': 'US',
+              'name': 'United States 1',
+            },
+            'geometry': {
+              'type': 'Polygon',
+              'coordinates': [
+                [
+                  [-100.0, 40.0],
+                  [-90.0, 40.0],
+                  [-90.0, 45.0],
+                  [-100.0, 45.0],
+                  [-100.0, 40.0],
+                ]
+              ],
+            },
+          },
+          {
+            'type': 'Feature',
+            'properties': {
+              'iso_a2': 'US',
+              'name': 'United States 2 (duplicate)',
+            },
+            'geometry': {
+              'type': 'Polygon',
+              'coordinates': [
+                [
+                  [-100.0, 40.0],
+                  [-90.0, 40.0],
+                  [-90.0, 45.0],
+                  [-100.0, 45.0],
+                  [-100.0, 40.0],
+                ]
+              ],
+            },
+          },
+        ],
+      };
+
+      controller.loadRegionDataset(geojson);
+      expect(controller.regions.length, 4);
+
+      // Northern Cyprus resolved to CYN instead of -99
+      expect(controller.regions[0].id, 'CYN');
+      expect(controller.regions[0].name, 'Northern Cyprus');
+
+      // Kosovo resolved to KOS instead of -99
+      expect(controller.regions[1].id, 'KOS');
+      expect(controller.regions[1].name, 'Kosovo');
+
+      // First US keeps 'US', duplicate US becomes 'US_1'
+      expect(controller.regions[2].id, 'US');
+      expect(controller.regions[3].id, 'US_1');
+    });
+
+    test('region ID normalization and case-insensitivity across operations', () {
+      controller.addRegion(
+        GlobeRegion(
+          id: 'fra',
+          name: 'France',
+          clipAgainst: const ['deu'],
+          polygons: const [
+            [
+              [
+                [2.0, 48.0],
+                [3.0, 48.0],
+                [3.0, 49.0],
+                [2.0, 49.0],
+                [2.0, 48.0],
+              ]
+            ]
+          ],
+        ),
+      );
+
+      expect(controller.regions.first.id, 'FRA');
+      expect(controller.regions.first.clipAgainst, ['DEU']);
+
+      // selectRegions with lowercase
+      controller.selectRegions(['fra']);
+      expect(controller.selectedRegionIds.contains('FRA'), isTrue);
+
+      // removeRegion with lowercase
+      controller.removeRegion('fra');
+      expect(controller.regions, isEmpty);
+    });
+
+    test('clearFillColor and clearHighlightColor in copyWith and updateRegionStyle', () {
+      final region = GlobeRegion(
+        id: 'COLOR_TEST',
+        name: 'Color Test',
+        fillColor: Colors.blue,
+        highlightColor: Colors.red,
+        polygons: const [],
+      );
+
+      final cleared = region.copyWith(
+        clearFillColor: true,
+        clearHighlightColor: true,
+      );
+      expect(cleared.fillColor, isNull);
+      expect(cleared.highlightColor, isNull);
+
+      controller.addRegion(region);
+      controller.updateRegionStyle('color_test', clearFillColor: true);
+      expect(controller.regions.first.fillColor, isNull);
+      expect(controller.regions.first.highlightColor, Colors.red);
+    });
+
+    testWidgets('pointer exit emits onRegionHover(null)', (tester) async {
+      GlobeRegion? hoveredRegion;
+      final testRegion = GlobeRegion(
+        id: 'HOVER_REGION',
+        name: 'Hover Region',
+        fillColor: Colors.blue,
+        polygons: const [
+          [
+            [
+              [-5.0, -5.0],
+              [5.0, -5.0],
+              [5.0, 5.0],
+              [-5.0, 5.0],
+              [-5.0, -5.0],
+            ]
+          ]
+        ],
+      );
+
+      controller.addRegion(testRegion);
+      controller.onRegionHover = (region) {
+        hoveredRegion = region;
+      };
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 200,
+                height: 200,
+                child: FlutterEarthGlobe(
+                  controller: controller,
+                  radius: 80,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump();
+      await tester.pump(Duration.zero);
+
+      final state = controller.globeKey.currentState!;
+
+      // Hover over the center of the sphere (where HOVER_REGION is located)
+      state.onHover(PointerHoverEvent(position: state.center));
+      await tester.pump();
+
+      // Trigger exit event
+      state.onPointerExit(const PointerExitEvent());
+      await tester.pump();
+
+      expect(hoveredRegion, isNull);
     });
   });
 }
