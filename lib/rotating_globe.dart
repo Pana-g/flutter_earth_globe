@@ -107,6 +107,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
   double _initialRotationX = 0.0;
   double _initialRotationY = 0.0;
   double _initialRotationZ = 0.0;
+  Duration? _lastElapsedDuration;
 
   // Cached sphere image and parameters for performance
   SphereImage? _cachedSphereImage;
@@ -201,26 +202,36 @@ class RotatingGlobeState extends State<RotatingGlobe>
       vsync: this,
       duration: const Duration(seconds: 1),
     )..addListener(() {
+        final currentElapsed = _rotationController.lastElapsedDuration;
+        double dt = 1 / 60.0;
+        if (currentElapsed != null && _lastElapsedDuration != null) {
+          dt = (currentElapsed - _lastElapsedDuration!).inMicroseconds / 1000000.0;
+        }
+        _lastElapsedDuration = currentElapsed;
+        if (dt <= 0.0 || dt > 0.1) {
+          dt = 1 / 60.0;
+        }
+
         if (mounted) {
           setState(() {
             rotationZ = (rotationZ -
                     (widget.controller.rotationSpeed *
-                        ((math.pow((2 * math.pi), 2) / 360)))) %
+                        ((math.pow((2 * math.pi), 2) / 360)) * 60.0 * dt)) %
                 (2 * math.pi);
           });
 
           // Update hover coordinates during rotation if mouse is over the globe
           _updateHoverCoordinatesDuringRotation();
-
-          if (_rotationController.isCompleted) {
-            if (widget.controller.isRotating) {
-              _rotationController.repeat();
-            }
-          }
         }
       });
 
     _attachController(widget.controller);
+
+    // Initialize animationProgress for any connections added before mounting
+    for (final connection in widget.controller.connections) {
+      connection.animationProgress = 1.0;
+    }
+
 
     // Globe.GL-style continuous animation controller
     // Uses a simple repeating animation to drive frame updates
@@ -322,6 +333,9 @@ class RotatingGlobeState extends State<RotatingGlobe>
     controller.onResetGlobeRotation = resetRotation;
     controller.onStartDayNightCycleAnimation = startDayNightCycleAnimation;
     controller.onStopDayNightCycleAnimation = stopDayNightCycleAnimation;
+    if (controller.isRotating) {
+      _rotationController.repeat();
+    }
   }
 
   /// Undoes [_attachController], leaving callbacks another globe may have
@@ -509,6 +523,12 @@ class RotatingGlobeState extends State<RotatingGlobe>
       {required bool animate,
       required Duration? duration,
       Curve curve = Curves.linear}) {
+    // Stop auto-rotation during the transition to prevent conflicting animation updates
+    _rotationController.stop();
+    if (_decelerationController.isAnimating) {
+      _decelerationController.stop();
+    }
+
     double latRad = radians(coordinates.latitude);
     double lonRad = radians(-coordinates.longitude);
     final targetRotationZ = -lonRad;
@@ -519,12 +539,18 @@ class RotatingGlobeState extends State<RotatingGlobe>
       final initialRotationX = rotationX;
       final initialRotationY = rotationY;
 
-      final rZ = targetRotationZ - initialRotationZ;
-      final rX = targetRotationX - initialRotationX;
-      final rY = targetRotationY - initialRotationY;
+      // Shortest path interpolation for Z (longitude)
+      double rZ = targetRotationZ - initialRotationZ;
+      rZ = (rZ + math.pi) % (2 * math.pi) - math.pi;
 
-      _genericCurvedAnimation?.dispose();
-      genericAnimationController?.dispose();
+      // Shortest path interpolation for Y/X (latitude)
+      double rY = targetRotationY - initialRotationY;
+      rY = (rY + math.pi) % (2 * math.pi) - math.pi;
+
+      double rX = targetRotationX - initialRotationX;
+      rX = (rX + math.pi) % (2 * math.pi) - math.pi;
+
+      _cancelFocusAnimation();
       genericAnimationController = AnimationController(
         vsync: this,
         duration: duration,
@@ -541,21 +567,53 @@ class RotatingGlobeState extends State<RotatingGlobe>
 
         setState(() {});
       });
+
+      genericAnimationController!.addStatusListener((status) {
+        if (status == AnimationStatus.completed && mounted) {
+          if (widget.controller.isRotating) {
+            _lastElapsedDuration = null;
+            _rotationController.repeat();
+          }
+        }
+      });
+
       genericAnimationController!.forward();
     } else {
+      _cancelFocusAnimation();
       rotationX = targetRotationX;
       rotationY = targetRotationY;
       rotationZ = targetRotationZ;
       setState(() {});
+      if (widget.controller.isRotating) {
+        _lastElapsedDuration = null;
+        _rotationController.repeat();
+      }
     }
+  }
+
+  /// Cancel active focus animation if running
+  void _cancelFocusAnimation() {
+    _genericCurvedAnimation?.dispose();
+    _genericCurvedAnimation = null;
+    genericAnimationController?.stop();
+    genericAnimationController?.dispose();
+    genericAnimationController = null;
   }
 
   /// Reset the rotation of the sphere
   void resetRotation() {
+    _cancelFocusAnimation();
+    if (_decelerationController.isAnimating) {
+      _decelerationController.stop();
+    }
     rotationX = 0;
     rotationY = 0; // Reset rotationY
     rotationZ = 0;
     setState(() {});
+    if (widget.controller.isRotating) {
+      _lastElapsedDuration = null;
+      _rotationController.repeat();
+    }
   }
 
   /// Add a connection to the sphere
@@ -617,8 +675,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
     _decelerationController.dispose();
     _zoomAnimationController?.dispose();
     _dayNightCycleController?.dispose();
-    _genericCurvedAnimation?.dispose();
-    genericAnimationController?.dispose();
+    _cancelFocusAnimation();
     _hoverNotifier.dispose();
     _clickNotifier.dispose();
     super.dispose();
@@ -1013,6 +1070,13 @@ class RotatingGlobeState extends State<RotatingGlobe>
     );
   }
 
+  /// Handle pointer exit event
+  void onPointerExit(PointerExitEvent event) {
+    hoveringPoint = null;
+    _hoverNotifier.value = null;
+    widget.onHover?.call(null);
+  }
+
   /// Apply smooth animated zoom like globe.gl
   /// Uses logarithmic scaling for more natural zoom feel
   void _animateZoomTo(double targetZoom) {
@@ -1153,7 +1217,8 @@ class RotatingGlobeState extends State<RotatingGlobe>
     if (widget.controller.surface == null) return null;
 
     final hasDayNightCycle = widget.controller.isDayNightCycleEnabled &&
-        widget.controller.nightSurface != null;
+        (widget.controller.nightSurface != null ||
+            widget.controller.dayNightMode == DayNightMode.simulated);
 
     // Check if we need to recreate the shader (textures changed or shader needs recreation)
     final daySurface = widget.controller.surface!;
@@ -1828,6 +1893,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
                 _lastFocalPoint = details.focalPoint;
                 _lastScale = 1.0; // Reset scale tracking
 
+                _cancelFocusAnimation();
                 // stop() alone: reset() would notify the listener with t = 0
                 // and repaint the rotation the fling started from for a frame.
                 // The next fling re-seeds the controller with forward(from: 0).
@@ -1841,6 +1907,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
                 }
 
                 if (widget.controller.isRotating) {
+                  _lastElapsedDuration = null;
                   _rotationController.stop();
                 }
                 setState(() {});
@@ -1903,13 +1970,15 @@ class RotatingGlobeState extends State<RotatingGlobe>
                 }
 
                 if (widget.controller.isRotating) {
-                  _rotationController.forward(from: _rotationController.value);
+                  _lastElapsedDuration = null;
+                  _rotationController.repeat();
                 }
               },
               child: GestureDetector(
                 onTapDown: onTapEvent,
-                child: Listener(
-                  onPointerHover: onHover,
+                child: MouseRegion(
+                  onHover: onHover,
+                  onExit: onPointerExit,
                   child: LayoutBuilder(
                     builder:
                         (BuildContext context, BoxConstraints constraints) {
