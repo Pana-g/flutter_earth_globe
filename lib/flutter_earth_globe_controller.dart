@@ -14,6 +14,7 @@ import 'sphere_style.dart';
 import 'point_connection.dart';
 
 import 'point_connection_style.dart';
+import 'region.dart';
 
 /// This class is the controller of the [RotatingGlobe] widget.
 ///
@@ -29,6 +30,12 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   List<AnimatedPointConnection> connections =
       []; // The connections between points.
   List<Satellite> satellites = []; // The satellites orbiting the globe.
+  List<GlobeRegion> regions = []; // The geographic regions on the globe.
+  Set<String> selectedRegionIds = {};
+  int _regionRevision = 0;
+  int get regionRevision => _regionRevision;
+  void Function(GlobeRegion region)? onRegionTap;
+  void Function(GlobeRegion? region)? onRegionHover;
   SphereStyle sphereStyle; // The style of the sphere.
   ui.Image? surface; // The surface image of the sphere.
   ui.Image? nightSurface; // The night surface image of the sphere.
@@ -560,6 +567,264 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     notifyListeners();
   }
 
+  GlobeRegion _normalizeRegion(GlobeRegion region) {
+    final normalizedId = region.id.trim().toUpperCase();
+    final normalizedClip =
+        region.clipAgainst.map((e) => e.trim().toUpperCase()).toList();
+    if (normalizedId != region.id || normalizedClip != region.clipAgainst) {
+      return region.copyWith(id: normalizedId, clipAgainst: normalizedClip);
+    }
+    return region;
+  }
+
+  void addRegion(GlobeRegion region) {
+    _regionRevision++;
+    regions.add(_normalizeRegion(region));
+    notifyListeners();
+  }
+
+  void addRegions(List<GlobeRegion> newRegions) {
+    _regionRevision++;
+    regions.addAll(newRegions.map(_normalizeRegion));
+    notifyListeners();
+  }
+
+  void removeRegion(String id) {
+    _regionRevision++;
+    final normalizedId = id.trim().toUpperCase();
+    regions.removeWhere((element) => element.id == normalizedId);
+    notifyListeners();
+  }
+
+  void clearRegions() {
+    _regionRevision++;
+    regions.clear();
+    notifyListeners();
+  }
+
+  void selectRegions(List<String> regionIds) {
+    _regionRevision++;
+    selectedRegionIds = regionIds.map((e) => e.trim().toUpperCase()).toSet();
+    notifyListeners();
+  }
+
+  /// Load and parse a standard GeoJSON map object into GlobeRegion objects.
+  /// This parses both 'Polygon' and 'MultiPolygon' geometries.
+  /// Keys in properties to search for the ID: 'code', 'id', 'iso_a2', 'iso_a3', 'adm0_a3', etc.
+  /// Keys in properties to search for the Name: 'name', 'name_en', 'title', etc.
+  void loadRegionDataset(
+    Map<String, dynamic> geojson, {
+    Color defaultBorderColor = Colors.white,
+    double defaultBorderWidth = 1.0,
+    Color? defaultFillColor,
+    Color? defaultHighlightColor,
+    bool defaultIsVisible = true,
+    List<String> Function(String regionId)? clipAgainstBuilder,
+  }) {
+    final features = geojson['features'] as List<dynamic>? ?? [];
+    final List<GlobeRegion> parsed = [];
+    final Set<String> usedIds = {};
+
+    for (final feature in features) {
+      final properties = feature['properties'] as Map<String, dynamic>? ?? {};
+      final geometry = feature['geometry'] as Map<String, dynamic>? ?? {};
+      final geometryType = geometry['type'] as String? ?? '';
+      final coordinates = geometry['coordinates'];
+
+      final idKeys = [
+        'iso_3166_2',
+        'code_hasc',
+        'code',
+        'id',
+        'iso_a2',
+        'iso_a3',
+        'adm0_a3',
+        'sov_a3',
+        'postal',
+      ];
+
+      String candidateId = '';
+      for (final key in idKeys) {
+        final val = properties[key]?.toString().trim() ?? '';
+        if (val.isNotEmpty && val != '-99' && val != '-099') {
+          final normalized = val.replaceAll('.', '-').toUpperCase();
+          if (!usedIds.contains(normalized)) {
+            candidateId = normalized;
+            break;
+          } else if (candidateId.isEmpty) {
+            candidateId = normalized;
+          }
+        }
+      }
+
+      if (candidateId.isEmpty) {
+        final nameVal = properties['name']?.toString().trim() ?? '';
+        if (nameVal.isNotEmpty) {
+          candidateId = nameVal.replaceAll('.', '-').toUpperCase();
+        }
+      }
+
+      if (candidateId.isEmpty || candidateId == '-99') {
+        candidateId = 'REGION_${parsed.length + 1}';
+      }
+
+      var finalId = candidateId;
+      var counter = 1;
+      while (usedIds.contains(finalId)) {
+        finalId = '${candidateId}_$counter';
+        counter++;
+      }
+      usedIds.add(finalId);
+
+      final String name = (properties['name'] ??
+              properties['name_en'] ??
+              properties['title'] ??
+              finalId)
+          .toString();
+
+      if (coordinates == null) continue;
+
+      final polygons = <List<List<List<double>>>>[];
+
+      if (geometryType == 'Polygon') {
+        // GeoJSON Polygon: coordinates is an array of linear rings.
+        // The first ring is the exterior boundary; subsequent rings are interior holes.
+        final rings = <List<List<double>>>[];
+        for (final ring in coordinates) {
+          final ringPoints = (ring as List)
+              .map<List<double>>(
+                (point) => [
+                  (point[0] as num).toDouble(),
+                  (point[1] as num).toDouble(),
+                ],
+              )
+              .toList();
+          if (ringPoints.isNotEmpty) {
+            rings.add(ringPoints);
+          }
+        }
+        if (rings.isNotEmpty) {
+          polygons.add(rings);
+        }
+      } else if (geometryType == 'MultiPolygon') {
+        // GeoJSON MultiPolygon: coordinates is an array of polygons,
+        // each having an array of rings: [exterior, hole1, hole2, ...]
+        for (final polygon in coordinates) {
+          final rings = <List<List<double>>>[];
+          for (final ring in polygon) {
+            final ringPoints = (ring as List)
+                .map<List<double>>(
+                  (point) => [
+                    (point[0] as num).toDouble(),
+                    (point[1] as num).toDouble(),
+                  ],
+                )
+                .toList();
+            if (ringPoints.isNotEmpty) {
+              rings.add(ringPoints);
+            }
+          }
+          if (rings.isNotEmpty) {
+            polygons.add(rings);
+          }
+        }
+      } else {
+        continue;
+      }
+
+      if (polygons.isNotEmpty) {
+        parsed.add(
+          GlobeRegion(
+            id: finalId,
+            name: name,
+            polygons: polygons,
+            borderColor: defaultBorderColor,
+            borderWidth: defaultBorderWidth,
+            fillColor: defaultFillColor,
+            highlightColor: defaultHighlightColor,
+            isVisible: defaultIsVisible,
+            clipAgainst: clipAgainstBuilder?.call(finalId) ?? const [],
+          ),
+        );
+      }
+    }
+
+    addRegions(parsed);
+  }
+
+  /// Show regions matching specified IDs
+  void showRegions(List<String> ids) {
+    _regionRevision++;
+    final upperIds = ids.map((e) => e.trim().toUpperCase()).toSet();
+    for (int i = 0; i < regions.length; i++) {
+      if (upperIds.contains(regions[i].id)) {
+        regions[i] = regions[i].copyWith(isVisible: true);
+      }
+    }
+    notifyListeners();
+  }
+
+  /// Hide regions matching specified IDs
+  void hideRegions(List<String> ids) {
+    _regionRevision++;
+    final upperIds = ids.map((e) => e.trim().toUpperCase()).toSet();
+    for (int i = 0; i < regions.length; i++) {
+      if (upperIds.contains(regions[i].id)) {
+        regions[i] = regions[i].copyWith(isVisible: false);
+      }
+    }
+    notifyListeners();
+  }
+
+  /// Show all regions
+  void showAllRegions() {
+    _regionRevision++;
+    for (int i = 0; i < regions.length; i++) {
+      regions[i] = regions[i].copyWith(isVisible: true);
+    }
+    notifyListeners();
+  }
+
+  /// Hide all regions
+  void hideAllRegions() {
+    _regionRevision++;
+    for (int i = 0; i < regions.length; i++) {
+      regions[i] = regions[i].copyWith(isVisible: false);
+    }
+    notifyListeners();
+  }
+
+  /// Dynamically update region styles
+  void updateRegionStyle(
+    String id, {
+    Color? borderColor,
+    double? borderWidth,
+    Color? fillColor,
+    Color? highlightColor,
+    bool? isVisible,
+    List<String>? clipAgainst,
+    bool clearFillColor = false,
+    bool clearHighlightColor = false,
+  }) {
+    _regionRevision++;
+    final upperId = id.trim().toUpperCase();
+    for (int i = 0; i < regions.length; i++) {
+      if (regions[i].id == upperId) {
+        regions[i] = regions[i].copyWith(
+          borderColor: borderColor,
+          borderWidth: borderWidth,
+          fillColor: fillColor,
+          highlightColor: highlightColor,
+          isVisible: isVisible,
+          clipAgainst: clipAgainst?.map((e) => e.trim().toUpperCase()).toList(),
+          clearFillColor: clearFillColor,
+          clearHighlightColor: clearHighlightColor,
+        );
+      }
+    }
+    notifyListeners();
+  }
+
   /// Updates the [point] on the globe.
   ///
   /// The [id] parameter represents the id of the point to be updated.
@@ -1061,6 +1326,10 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     onStopDayNightCycleAnimation = null;
 
     onLoaded = null;
+    onRegionTap = null;
+    onRegionHover = null;
+    regions.clear();
+    selectedRegionIds.clear();
     super.dispose();
   }
 }
