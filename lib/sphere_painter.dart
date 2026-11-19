@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 import 'sphere_image.dart';
 import 'sphere_style.dart';

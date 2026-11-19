@@ -1,6 +1,8 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'dart:convert';
 
+// Material moves to package:material_ui in Flutter 3.50; migrate once that is the minimum.
+// ignore: deprecated_member_use
 import 'package:flutter/material.dart';
 
 import 'globe_coordinates.dart';

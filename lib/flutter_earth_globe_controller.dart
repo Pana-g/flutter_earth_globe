@@ -2,6 +2,8 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+// Material moves to package:material_ui in Flutter 3.50; migrate once that is the minimum.
+// ignore: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:flutter_earth_globe/misc.dart';
 import 'package:flutter_earth_globe/rotating_globe.dart';

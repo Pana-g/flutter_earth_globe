@@ -19,7 +19,6 @@ import 'point_connection.dart';
 import 'flutter_earth_globe_controller.dart';
 import 'sphere_image.dart';
 import 'sphere_painter.dart';
-import 'package:flutter/material.dart';
 
 import 'starry_background_painter.dart';
 

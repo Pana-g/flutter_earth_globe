@@ -1,6 +1,6 @@
 import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_earth_globe/background_shader_painter.dart';
 import 'package:flutter_earth_globe/sphere_shader_painter.dart';
 import 'package:flutter_test/flutter_test.dart';

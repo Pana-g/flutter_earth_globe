@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
+// Material moves to package:material_ui in Flutter 3.50; migrate once that is the minimum.
+// ignore: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:vector_math/vector_math_64.dart' show Vector3;

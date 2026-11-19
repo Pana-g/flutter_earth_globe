@@ -1,5 +1,5 @@
 import 'dart:ui' as ui;
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 /// A CustomPainter that uses a fragment shader for GPU-accelerated sphere rendering.
 ///

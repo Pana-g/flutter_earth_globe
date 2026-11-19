@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 import 'dart:ui';
 
+// Material moves to package:material_ui in Flutter 3.50; migrate once that is the minimum.
+// ignore: deprecated_member_use
 import 'package:flutter/material.dart' as material;
 
 /// Enum to define the direction of the day/night cycle rotation
