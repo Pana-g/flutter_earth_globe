@@ -205,7 +205,8 @@ class RotatingGlobeState extends State<RotatingGlobe>
         final currentElapsed = _rotationController.lastElapsedDuration;
         double dt = 1 / 60.0;
         if (currentElapsed != null && _lastElapsedDuration != null) {
-          dt = (currentElapsed - _lastElapsedDuration!).inMicroseconds / 1000000.0;
+          dt = (currentElapsed - _lastElapsedDuration!).inMicroseconds /
+              1000000.0;
         }
         _lastElapsedDuration = currentElapsed;
         if (dt <= 0.0 || dt > 0.1) {
@@ -216,7 +217,9 @@ class RotatingGlobeState extends State<RotatingGlobe>
           setState(() {
             rotationZ = (rotationZ -
                     (widget.controller.rotationSpeed *
-                        ((math.pow((2 * math.pi), 2) / 360)) * 60.0 * dt)) %
+                        ((math.pow((2 * math.pi), 2) / 360)) *
+                        60.0 *
+                        dt)) %
                 (2 * math.pi);
           });
 
@@ -231,7 +234,6 @@ class RotatingGlobeState extends State<RotatingGlobe>
     for (final connection in widget.controller.connections) {
       connection.animationProgress = 1.0;
     }
-
 
     // Globe.GL-style continuous animation controller
     // Uses a simple repeating animation to drive frame updates

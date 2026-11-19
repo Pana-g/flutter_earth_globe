@@ -41,7 +41,9 @@ void main() {
       expect(controller.simulatedNightIntensity, 0.45);
     });
 
-    testWidgets('focusOnCoordinates takes the shortest spherical path across anti-meridian', (tester) async {
+    testWidgets(
+        'focusOnCoordinates takes the shortest spherical path across anti-meridian',
+        (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -91,7 +93,9 @@ void main() {
       await tester.pump(Duration.zero);
     });
 
-    testWidgets('auto-rotation advances proportionally to elapsed ticker duration', (tester) async {
+    testWidgets(
+        'auto-rotation advances proportionally to elapsed ticker duration',
+        (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -133,7 +137,9 @@ void main() {
       await tester.pump(Duration.zero);
     });
 
-    testWidgets('RotatingGlobe initializes animationProgress for pre-existing connections', (tester) async {
+    testWidgets(
+        'RotatingGlobe initializes animationProgress for pre-existing connections',
+        (tester) async {
       // Add connection before mounting widget
       controller.addPointConnection(
         PointConnection(
@@ -173,7 +179,8 @@ void main() {
       expect(connection.animationProgress, 1.0);
     });
 
-    testWidgets('RotatingGlobe responds to focusOnCoordinates without errors', (tester) async {
+    testWidgets('RotatingGlobe responds to focusOnCoordinates without errors',
+        (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -213,7 +220,8 @@ void main() {
       await tester.pump(Duration.zero);
     });
 
-    testWidgets('RotatingGlobe auto-rotation can start and stop cleanly', (tester) async {
+    testWidgets('RotatingGlobe auto-rotation can start and stop cleanly',
+        (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -246,7 +254,9 @@ void main() {
       await tester.pump(Duration.zero);
     });
 
-    testWidgets('resetRotation() cancels in-flight focus animation and maintains zero angles', (tester) async {
+    testWidgets(
+        'resetRotation() cancels in-flight focus animation and maintains zero angles',
+        (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -300,7 +310,9 @@ void main() {
       expect(state.rotationZ, 0.0);
     });
 
-    testWidgets('resetRotation() during animated focus resumes auto-rotation from 0 when isRotating is true', (tester) async {
+    testWidgets(
+        'resetRotation() during animated focus resumes auto-rotation from 0 when isRotating is true',
+        (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -354,7 +366,8 @@ void main() {
       await tester.pump(Duration.zero);
     });
 
-    test('FlutterEarthGlobeController can be disposed safely without mounting', () {
+    test('FlutterEarthGlobeController can be disposed safely without mounting',
+        () {
       final unmountedController = FlutterEarthGlobeController();
       expect(() => unmountedController.dispose(), returnsNormally);
     });
@@ -371,7 +384,8 @@ void main() {
       expect(controller.zoom, controller.maxZoom);
     });
 
-    testWidgets('controller.isRotating setter starts and stops rotation', (tester) async {
+    testWidgets('controller.isRotating setter starts and stops rotation',
+        (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -419,7 +433,9 @@ void main() {
       expect(controller.rotationController.isAnimating, isFalse);
     });
 
-    testWidgets('mounting with FlutterEarthGlobeController(isRotating: true) starts rotation immediately', (tester) async {
+    testWidgets(
+        'mounting with FlutterEarthGlobeController(isRotating: true) starts rotation immediately',
+        (tester) async {
       final rotatingCtrl = FlutterEarthGlobeController(isRotating: true);
       await tester.pumpWidget(
         MaterialApp(
@@ -448,7 +464,9 @@ void main() {
       await tester.pump(Duration.zero);
     });
 
-    testWidgets('pointer exit resets hover coordinates and hoveringPoint to null', (tester) async {
+    testWidgets(
+        'pointer exit resets hover coordinates and hoveringPoint to null',
+        (tester) async {
       GlobeCoordinates? lastHoverCoords;
 
       await tester.pumpWidget(
@@ -492,7 +510,8 @@ void main() {
       await tester.pump(Duration.zero);
     });
 
-    testWidgets('focusOnCoordinates stops any active deceleration animation', (tester) async {
+    testWidgets('focusOnCoordinates stops any active deceleration animation',
+        (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -514,7 +533,8 @@ void main() {
       await tester.pump(Duration.zero);
 
       // Fling the globe to start deceleration
-      await tester.fling(find.byType(FlutterEarthGlobe), const Offset(100, 0), 1000);
+      await tester.fling(
+          find.byType(FlutterEarthGlobe), const Offset(100, 0), 1000);
       await tester.pump();
 
       // Focus on coordinates while deceleration is running
