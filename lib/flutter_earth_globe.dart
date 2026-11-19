@@ -3,7 +3,7 @@ library;
 
 import 'globe_coordinates.dart';
 import 'rotating_globe.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 import 'flutter_earth_globe_controller.dart';
 

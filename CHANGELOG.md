@@ -2,7 +2,7 @@
 
 ### ⚠️ Requirements
 
-- The minimum supported versions are now **Dart 3.6** and **Flutter 3.27**. The package already used APIs from these versions (`Color.withValues`, `Color.r/g/b`), so older SDKs could resolve it but not compile it.
+- The minimum supported versions are now **Dart 3.7** and **Flutter 3.29**. The package already used APIs from these versions (`Color.withValues`, `Color.r/g/b`, `Color.toARGB32`), so older SDKs could resolve it but not compile it.
 - Removed the unused `http` dependency.
 
 ### ✨ Features

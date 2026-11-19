@@ -1,6 +1,6 @@
 import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_earth_globe/background_shader_painter.dart';
 import 'package:flutter_earth_globe/sphere_shader_painter.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,8 +10,9 @@ const _size = 20;
 Future<ui.Image> _solidImage(Color color) {
   final recorder = ui.PictureRecorder();
   Canvas(recorder).drawRect(
-      Rect.fromLTWH(0, 0, _size.toDouble(), _size.toDouble()),
-      Paint()..color = color);
+    Rect.fromLTWH(0, 0, _size.toDouble(), _size.toDouble()),
+    Paint()..color = color,
+  );
   return recorder.endRecording().toImage(_size, _size);
 }
 
@@ -42,34 +43,39 @@ void main() {
     final shader = program.fragmentShader();
     bindSphereTextures(shader, blue, blue);
 
-    final pixel = await _centrePixel(SphereShaderPainter(
-      shader: shader,
-      daySurface: red,
-      radius: _size / 2,
-      center: Offset(_size / 2, _size / 2),
-      rotationX: 0,
-      rotationZ: 0.3,
-      lightingEnabled: false,
-    ));
+    final pixel = await _centrePixel(
+      SphereShaderPainter(
+        shader: shader,
+        daySurface: red,
+        radius: _size / 2,
+        center: Offset(_size / 2, _size / 2),
+        rotationX: 0,
+        rotationZ: 0.3,
+        lightingEnabled: false,
+      ),
+    );
 
     expect(pixel, [255, 0, 0, 255]);
   });
 
   test('BackgroundShaderPainter binds its texture when it paints', () async {
-    final program =
-        await ui.FragmentProgram.fromAsset('shaders/background.frag');
+    final program = await ui.FragmentProgram.fromAsset(
+      'shaders/background.frag',
+    );
     final blue = await _solidImage(const Color(0xFF0000FF));
     final red = await _solidImage(const Color(0xFFFF0000));
     final shader = program.fragmentShader()..setImageSampler(0, blue);
 
-    final pixel = await _centrePixel(BackgroundShaderPainter(
-      shader: shader,
-      starTexture: red,
-      offsetX: 3,
-      offsetY: 0,
-      texWidth: _size.toDouble(),
-      texHeight: _size.toDouble(),
-    ));
+    final pixel = await _centrePixel(
+      BackgroundShaderPainter(
+        shader: shader,
+        starTexture: red,
+        offsetX: 3,
+        offsetY: 0,
+        texWidth: _size.toDouble(),
+        texHeight: _size.toDouble(),
+      ),
+    );
 
     expect(pixel, [255, 0, 0, 255]);
   });

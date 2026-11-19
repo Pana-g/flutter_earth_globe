@@ -1,7 +1,7 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 import 'globe_coordinates.dart';
 
@@ -15,8 +15,12 @@ class Point {
 
   /// A builder function that returns a widget to display as the label of the point.
   final Widget? Function(
-          BuildContext context, Point point, bool isHovering, bool isVisible)?
-      labelBuilder;
+    BuildContext context,
+    Point point,
+    bool isHovering,
+    bool isVisible,
+  )?
+  labelBuilder;
 
   /// Determines whether the label is visible or not.
   final bool isLabelVisible;
@@ -91,8 +95,12 @@ class Point {
     GlobeCoordinates? coordinates,
     String? label,
     Widget? Function(
-            BuildContext context, Point point, bool isHovering, bool isVisible)?
-        labelBuilder,
+      BuildContext context,
+      Point point,
+      bool isHovering,
+      bool isVisible,
+    )?
+    labelBuilder,
     bool? isLabelVisible,
     Offset? labelOffset,
     String? id,
@@ -169,7 +177,7 @@ class PointStyle {
   /// ```
   const PointStyle({
     this.size = 4,
-    this.color = Colors.white,
+    this.color = const Color(0xFFFFFFFF),
     this.altitude = 0.0,
     this.transitionDuration = 500,
     this.merge = false,

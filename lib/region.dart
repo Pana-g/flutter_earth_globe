@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 class GlobeRegion {
   final String id;
@@ -27,7 +27,7 @@ class GlobeRegion {
     required this.id,
     required this.name,
     required this.polygons,
-    this.borderColor = Colors.white,
+    this.borderColor = const Color(0xFFFFFFFF),
     this.borderWidth = 1.0,
     this.fillColor,
     this.highlightColor,
@@ -41,7 +41,7 @@ class GlobeRegion {
     required String id,
     required String name,
     required dynamic polygons,
-    Color borderColor = Colors.white,
+    Color borderColor = const Color(0xFFFFFFFF),
     double borderWidth = 1.0,
     Color? fillColor,
     Color? highlightColor,
@@ -79,26 +79,38 @@ class GlobeRegion {
     if (third is num) {
       // 3-level list: [ring/polygon][point][lon, lat] -> wrap each ring as a single-ring polygon
       return input
-          .map<List<List<List<double>>>>((ring) => [
-                (ring as List)
-                    .map<List<double>>((pt) => [
-                          ((pt as List)[0] as num).toDouble(),
-                          (pt[1] as num).toDouble(),
-                        ])
-                    .toList()
-              ])
+          .map<List<List<List<double>>>>(
+            (ring) => [
+              (ring as List)
+                  .map<List<double>>(
+                    (pt) => [
+                      ((pt as List)[0] as num).toDouble(),
+                      (pt[1] as num).toDouble(),
+                    ],
+                  )
+                  .toList(),
+            ],
+          )
           .toList();
     } else if (third is List) {
       // 4-level list: [polygon][ring][point][lon, lat]
       return input
-          .map<List<List<List<double>>>>((poly) => (poly as List)
-              .map<List<List<double>>>((ring) => (ring as List)
-                  .map<List<double>>((pt) => [
-                        ((pt as List)[0] as num).toDouble(),
-                        (pt[1] as num).toDouble(),
-                      ])
-                  .toList())
-              .toList())
+          .map<List<List<List<double>>>>(
+            (poly) =>
+                (poly as List)
+                    .map<List<List<double>>>(
+                      (ring) =>
+                          (ring as List)
+                              .map<List<double>>(
+                                (pt) => [
+                                  ((pt as List)[0] as num).toDouble(),
+                                  (pt[1] as num).toDouble(),
+                                ],
+                              )
+                              .toList(),
+                    )
+                    .toList(),
+          )
           .toList();
     }
     return const [];

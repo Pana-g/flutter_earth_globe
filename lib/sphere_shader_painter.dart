@@ -1,5 +1,5 @@
 import 'dart:ui' as ui;
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 /// A CustomPainter that uses a fragment shader for GPU-accelerated sphere rendering.
 ///
@@ -139,10 +139,11 @@ class SphereShaderPainter extends CustomPainter {
       shader.setFloat(idx++, ambientLight);
 
       // Draw using the shader with proper alpha blending for anti-aliased edges
-      final paint = Paint()
-        ..shader = shader
-        ..isAntiAlias = true
-        ..blendMode = BlendMode.srcOver;
+      final paint =
+          Paint()
+            ..shader = shader
+            ..isAntiAlias = true
+            ..blendMode = BlendMode.srcOver;
       canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), paint);
     } catch (e) {
       // On WebGL, shaders can fail during paint - log and notify
@@ -181,7 +182,10 @@ class SphereShaderPainter extends CustomPainter {
 /// When there is no night surface the day surface is bound to both; the
 /// shader only samples the night texture when the day/night cycle is enabled.
 void bindSphereTextures(
-    ui.FragmentShader shader, ui.Image daySurface, ui.Image? nightSurface) {
+  ui.FragmentShader shader,
+  ui.Image daySurface,
+  ui.Image? nightSurface,
+) {
   shader.setImageSampler(0, daySurface);
   shader.setImageSampler(1, nightSurface ?? daySurface);
 }
@@ -235,7 +239,8 @@ class SphereShaderManager {
       // Try loading from package path first (for when library is used as dependency)
       try {
         _program = await ui.FragmentProgram.fromAsset(
-            'packages/flutter_earth_globe/shaders/sphere.frag');
+          'packages/flutter_earth_globe/shaders/sphere.frag',
+        );
       } catch (e) {
         // Fall back to direct path (for when running within the library itself)
         _program = await ui.FragmentProgram.fromAsset('shaders/sphere.frag');
@@ -254,7 +259,8 @@ class SphereShaderManager {
       _isLoading = false;
       _program = null;
       debugPrint(
-          'Failed to load sphere shader (attempt $_loadAttempts/$_maxLoadAttempts): $e');
+        'Failed to load sphere shader (attempt $_loadAttempts/$_maxLoadAttempts): $e',
+      );
       return false;
     }
   }

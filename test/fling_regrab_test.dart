@@ -1,29 +1,35 @@
 import 'package:flutter/gestures.dart';
+// Tests mount the globe in MaterialApp/Scaffold, as apps do. Flutter 3.50
+// deprecates this import in favour of package:material_ui, which needs
+// Flutter >= 3.47 and would break `pub get` on our 3.29 minimum.
+// ignore: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:flutter_earth_globe/flutter_earth_globe.dart';
 import 'package:flutter_earth_globe/flutter_earth_globe_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets(
-      'grabbing the globe mid-fling keeps the current rotation '
-      'instead of snapping back to where the fling started (#33)',
-      (WidgetTester tester) async {
+  testWidgets('grabbing the globe mid-fling keeps the current rotation '
+      'instead of snapping back to where the fling started (#33)', (
+    WidgetTester tester,
+  ) async {
     // Not disposed here: the globe's state disposes the controller's
     // animation controllers when it unmounts.
     final controller = FlutterEarthGlobeController(isRotating: false);
 
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: SizedBox(
-            width: 400,
-            height: 400,
-            child: FlutterEarthGlobe(controller: controller, radius: 150),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 400,
+              height: 400,
+              child: FlutterEarthGlobe(controller: controller, radius: 150),
+            ),
           ),
         ),
       ),
-    ));
+    );
     await tester.pump();
 
     final globe = find.byType(FlutterEarthGlobe);

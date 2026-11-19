@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 import 'sphere_image.dart';
 import 'sphere_style.dart';
@@ -51,16 +51,23 @@ class SpherePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint();
-    final rect =
-        Rect.fromCircle(center: sphereImage.offset, radius: sphereImage.radius);
+    final rect = Rect.fromCircle(
+      center: sphereImage.offset,
+      radius: sphereImage.radius,
+    );
     final circlePath = Path()..addOval(rect);
 
     // Blue shadow paint
     if (style.showShadow) {
-      final shadowPaint = Paint()
-        ..color = style.shadowColor // Shadow color
-        ..maskFilter = MaskFilter.blur(
-            style.shadowBlurStyle, style.shadowBlurSigma); // Shadow blur
+      final shadowPaint =
+          Paint()
+            ..color =
+                style
+                    .shadowColor // Shadow color
+            ..maskFilter = MaskFilter.blur(
+              style.shadowBlurStyle,
+              style.shadowBlurSigma,
+            ); // Shadow blur
 
       // Draw the shadow using shadowPaint
       canvas.drawPath(circlePath, shadowPaint);
@@ -68,14 +75,18 @@ class SpherePainter extends CustomPainter {
 
     // Clipping to the circle area
     final clipPath = Path.combine(
-        PathOperation.intersect,
-        Path()..addOval(rect),
-        Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height)));
+      PathOperation.intersect,
+      Path()..addOval(rect),
+      Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height)),
+    );
     canvas.clipPath(clipPath);
 
     // Your existing image drawing logic
     canvas.drawImage(
-        sphereImage.image, sphereImage.offset - sphereImage.origin, paint);
+      sphereImage.image,
+      sphereImage.offset - sphereImage.origin,
+      paint,
+    );
 
     // Gradient paint logic
     if (style.showGradientOverlay) {

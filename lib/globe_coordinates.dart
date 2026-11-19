@@ -31,10 +31,7 @@ class GlobeCoordinates {
   ///
   /// The map contains the latitude and longitude as key-value pairs.
   Map<String, dynamic> toMap() {
-    return <String, dynamic>{
-      'latitude': latitude,
-      'longitude': longitude,
-    };
+    return <String, dynamic>{'latitude': latitude, 'longitude': longitude};
   }
 
   /// Creates a [GlobeCoordinates] object from a map.
@@ -59,10 +56,7 @@ class GlobeCoordinates {
   /// Creates a copy of the [GlobeCoordinates] object with optional new latitude and longitude values.
   ///
   /// If [latitude] or [longitude] is provided, the corresponding value will be updated in the new object.
-  GlobeCoordinates copyWith({
-    double? latitude,
-    double? longitude,
-  }) {
+  GlobeCoordinates copyWith({double? latitude, double? longitude}) {
     return GlobeCoordinates(
       latitude ?? this.latitude,
       longitude ?? this.longitude,

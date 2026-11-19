@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:vector_math/vector_math_64.dart';
 
 import 'globe_coordinates.dart';
@@ -26,8 +26,12 @@ double radiansToDegrees(double radians) {
 /// [radius] is the radius of the sphere.
 /// [rotationY] and [rotationZ] are rotation angles around the Y and Z axes, respectively.
 /// Returns a [Vector3] representing the 3D position of the point on the sphere.
-Vector3 getSpherePosition3D(GlobeCoordinates coordinates, double radius,
-    double rotationY, double rotationZ) {
+Vector3 getSpherePosition3D(
+  GlobeCoordinates coordinates,
+  double radius,
+  double rotationY,
+  double rotationZ,
+) {
   // Convert latitude and longitude to radians
   double lat = degreesToRadians(coordinates.latitude);
   double lon = degreesToRadians(coordinates.longitude);
@@ -45,9 +49,10 @@ Vector3 getSpherePosition3D(GlobeCoordinates coordinates, double radius,
 
   // Apply rotations
   // Note: rotationY and rotationZ are in radians
-  Matrix4 rotationMatrix = Matrix4.identity()
-    ..rotateY(-rotationY)
-    ..rotateZ(-rotationZ);
+  Matrix4 rotationMatrix =
+      Matrix4.identity()
+        ..rotateY(-rotationY)
+        ..rotateZ(-rotationZ);
 
   return rotationMatrix.transform3(cartesian);
 }
@@ -62,8 +67,13 @@ Vector3 getSpherePosition3D(GlobeCoordinates coordinates, double radius,
 ///
 /// Returns a [GlobeCoordinates] object representing the spherical coordinates of the point.
 /// Returns null if the point is not on the sphere.
-GlobeCoordinates? convert2DPointToSphereCoordinates(Offset hoverOffset,
-    Offset sphereCenter, double radius, double rotationY, double rotationZ) {
+GlobeCoordinates? convert2DPointToSphereCoordinates(
+  Offset hoverOffset,
+  Offset sphereCenter,
+  double radius,
+  double rotationY,
+  double rotationZ,
+) {
   // Convert 2D screen coordinate to 3D position relative to center
   double y = hoverOffset.dx - sphereCenter.dx;
   double z = -(hoverOffset.dy - sphereCenter.dy);
@@ -79,9 +89,10 @@ GlobeCoordinates? convert2DPointToSphereCoordinates(Offset hoverOffset,
   Vector3 currentVec = Vector3(x, y, z);
 
   // Undo the rotation in reverse order: first undo Z, then undo Y
-  Matrix4 undoRotation = Matrix4.identity()
-    ..rotateZ(rotationZ)
-    ..rotateY(rotationY);
+  Matrix4 undoRotation =
+      Matrix4.identity()
+        ..rotateZ(rotationZ)
+        ..rotateY(rotationY);
 
   Vector3 originalVec = undoRotation.transform3(currentVec);
 
@@ -104,8 +115,14 @@ GlobeCoordinates? convert2DPointToSphereCoordinates(Offset hoverOffset,
 /// [zCoord] is the Z-coordinate of the point in 3D space.
 /// [zoomFactor] is the zoom factor of the sphere.
 /// Returns the scale factor for the point.
-double getScaleFactor(Offset point, Offset center, double radius, bool isXAxis,
-    double zCoord, double zoomFactor) {
+double getScaleFactor(
+  Offset point,
+  Offset center,
+  double radius,
+  bool isXAxis,
+  double zCoord,
+  double zoomFactor,
+) {
   // Calculate distance from the point to the center for the specified axis
   double distance =
       isXAxis ? (point.dx - center.dx).abs() : (point.dy - center.dy).abs();
@@ -135,13 +152,31 @@ double getScaleFactor(Offset point, Offset center, double radius, bool isXAxis,
 /// [zoomFactor] is the zoom factor of the sphere.
 /// [pointSize] is the size of the point.
 /// Returns a [Rect] representing the rectangle on the sphere.
-Rect getRectOnSphere(Vector3 cartesian3D, Offset cartesian2D, Offset center,
-    double radius, double zoomFactor, double pointSize) {
+Rect getRectOnSphere(
+  Vector3 cartesian3D,
+  Offset cartesian2D,
+  Offset center,
+  double radius,
+  double zoomFactor,
+  double pointSize,
+) {
   // Calculate scale factors
   double scaleFactorX = getScaleFactor(
-      cartesian2D, center, radius, true, cartesian3D.x, zoomFactor);
+    cartesian2D,
+    center,
+    radius,
+    true,
+    cartesian3D.x,
+    zoomFactor,
+  );
   double scaleFactorY = getScaleFactor(
-      cartesian2D, center, radius, false, cartesian3D.x, zoomFactor);
+    cartesian2D,
+    center,
+    radius,
+    false,
+    cartesian3D.x,
+    zoomFactor,
+  );
 
   // Adjust width and height based on the position on the sphere
   double adjustedWidth =
