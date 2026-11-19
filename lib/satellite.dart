@@ -1,6 +1,7 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart';
 
@@ -22,6 +23,11 @@ enum SatelliteShape {
 
   /// A satellite icon shape.
   satelliteIcon,
+
+  /// A caller-supplied picture, set with [SatelliteStyle.customImage] and
+  /// [SatelliteStyle.customImageSize]. Falls back to [circle] when either is
+  /// missing.
+  customImage,
 }
 
 /// Represents the style of a satellite.
@@ -39,6 +45,25 @@ class SatelliteStyle {
   final double orbitPathWidth;
   final bool orbitPathDashed;
 
+  /// The picture drawn for [SatelliteShape.customImage].
+  ///
+  /// The caller owns the picture and must dispose it once no satellite style
+  /// uses it any more. To use an SVG, load it in the app (for example with
+  /// `flutter_svg`'s `vg.loadPicture`) and pass `pictureInfo.picture` here and
+  /// `pictureInfo.size` as [customImageSize].
+  ///
+  /// Not included in [toMap]/[toJson], so it must be set again after
+  /// deserializing.
+  final ui.Picture? customImage;
+
+  /// The intrinsic size of [customImage]. The picture is scaled uniformly to
+  /// fit a `size * 2` square, keeping its aspect ratio.
+  final Size? customImageSize;
+
+  /// Whether [customImage] is drawn rotated by 45 degrees, like the diamond
+  /// orientation of [SatelliteShape.square].
+  final bool customImageRotated;
+
   const SatelliteStyle({
     this.size = 4.0,
     this.color = const Color(0xFFFFFFFF),
@@ -52,6 +77,9 @@ class SatelliteStyle {
     this.orbitPathColor = const Color(0x4DFFFFFF),
     this.orbitPathWidth = 1.0,
     this.orbitPathDashed = false,
+    this.customImage,
+    this.customImageSize,
+    this.customImageRotated = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -68,6 +96,7 @@ class SatelliteStyle {
       'orbitPathColor': orbitPathColor.toARGB32(),
       'orbitPathWidth': orbitPathWidth,
       'orbitPathDashed': orbitPathDashed,
+      'customImageRotated': customImageRotated,
     };
   }
 
@@ -86,6 +115,7 @@ class SatelliteStyle {
       orbitPathColor: Color(map['orbitPathColor'] as int? ?? 0x4DFFFFFF),
       orbitPathWidth: map['orbitPathWidth'] as double? ?? 1.0,
       orbitPathDashed: map['orbitPathDashed'] as bool? ?? false,
+      customImageRotated: map['customImageRotated'] as bool? ?? false,
     );
   }
 
@@ -94,6 +124,9 @@ class SatelliteStyle {
   factory SatelliteStyle.fromJson(String source) =>
       SatelliteStyle.fromMap(json.decode(source) as Map<String, dynamic>);
 
+  /// Returns a copy with the given fields replaced. Passing `null` keeps the
+  /// current value, so [customImage] cannot be cleared through [copyWith];
+  /// create a new [SatelliteStyle] instead.
   SatelliteStyle copyWith({
     double? size,
     Color? color,
@@ -107,6 +140,9 @@ class SatelliteStyle {
     Color? orbitPathColor,
     double? orbitPathWidth,
     bool? orbitPathDashed,
+    ui.Picture? customImage,
+    Size? customImageSize,
+    bool? customImageRotated,
   }) {
     return SatelliteStyle(
       size: size ?? this.size,
@@ -121,6 +157,9 @@ class SatelliteStyle {
       orbitPathColor: orbitPathColor ?? this.orbitPathColor,
       orbitPathWidth: orbitPathWidth ?? this.orbitPathWidth,
       orbitPathDashed: orbitPathDashed ?? this.orbitPathDashed,
+      customImage: customImage ?? this.customImage,
+      customImageSize: customImageSize ?? this.customImageSize,
+      customImageRotated: customImageRotated ?? this.customImageRotated,
     );
   }
 }

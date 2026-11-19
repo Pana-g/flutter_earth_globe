@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter/scheduler.dart';
@@ -1803,7 +1804,52 @@ class GpuForegroundPainter extends CustomPainter {
       case SatelliteShape.satelliteIcon:
         _drawSatelliteIcon(canvas, satellite.position2D, scaledSize, paint);
         break;
+
+      case SatelliteShape.customImage:
+        final image = style.customImage;
+        final imageSize = style.customImageSize;
+        if (image == null || imageSize == null || imageSize.isEmpty) {
+          // Nothing to draw yet: fall back to the default circle marker.
+          canvas.drawCircle(satellite.position2D, scaledSize, paint);
+        } else {
+          _drawCustomImage(
+            canvas,
+            satellite.position2D,
+            scaledSize,
+            image,
+            imageSize,
+            style.customImageRotated,
+            alpha,
+          );
+        }
+        break;
     }
+  }
+
+  /// Draws [image] centred on [center], scaled uniformly to fit a
+  /// `size * 2` square and faded by [alpha] (0-1).
+  void _drawCustomImage(
+    Canvas canvas,
+    Offset center,
+    double size,
+    ui.Picture image,
+    Size imageSize,
+    bool rotated,
+    double alpha,
+  ) {
+    final scale = (size * 2) / math.max(imageSize.width, imageSize.height);
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    if (rotated) canvas.rotate(math.pi / 4);
+    canvas.scale(scale);
+    canvas.translate(-imageSize.width / 2, -imageSize.height / 2);
+    canvas.saveLayer(
+      Offset.zero & imageSize,
+      Paint()..color = Color.fromARGB((alpha * 255).round(), 0, 0, 0),
+    );
+    canvas.drawPicture(image);
+    canvas.restore();
+    canvas.restore();
   }
 
   void _drawStar(Canvas canvas, Offset center, double size, Paint paint) {

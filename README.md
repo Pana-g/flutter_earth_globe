@@ -358,6 +358,28 @@ _controller.addSatellite(Satellite(
 ));
 ```
 
+#### Custom satellite images
+
+Use `SatelliteShape.customImage` to draw your own picture (a `dart:ui` `Picture`) instead of a built-in shape. It is scaled to fit `size * 2` while keeping its aspect ratio, and falls back to a circle until a picture is set. To use an SVG, load it with [`flutter_svg`](https://pub.dev/packages/flutter_svg) in your app and pass the picture and its size:
+
+```dart
+final pictureInfo = await vg.loadPicture(SvgStringLoader(svgString), null);
+
+_controller.addSatellite(Satellite(
+  id: 'rocket',
+  coordinates: GlobeCoordinates(0, 0),
+  altitude: 0.2,
+  style: SatelliteStyle(
+    size: 8,
+    shape: SatelliteShape.customImage,
+    customImage: pictureInfo.picture,
+    customImageSize: pictureInfo.size,
+  ),
+));
+```
+
+Your app owns the picture: dispose it only after removing every satellite that uses it. The picture is not included in `SatelliteStyle.toJson()`.
+
 <details>
 <summary><strong>📖 Satellite API Reference</strong></summary>
 
@@ -380,7 +402,10 @@ _controller.addSatellite(Satellite(
 |----------|------|---------|-------------|
 | `size` | `double` | 4.0 | Size of the satellite |
 | `color` | `Color` | white | Color of the satellite |
-| `shape` | `SatelliteShape` | circle | Shape: `circle`, `square`, `triangle`, `star`, `satelliteIcon` |
+| `shape` | `SatelliteShape` | circle | Shape: `circle`, `square`, `triangle`, `star`, `satelliteIcon`, `customImage` |
+| `customImage` | `Picture?` | null | Picture drawn for `customImage` (owned by the caller) |
+| `customImageSize` | `Size?` | null | Intrinsic size of `customImage` |
+| `customImageRotated` | `bool` | false | Rotate `customImage` by 45° |
 | `hasGlow` | `bool` | false | Enable glow effect |
 | `glowColor` | `Color?` | null | Color of the glow (defaults to satellite color) |
 | `glowIntensity` | `double` | 0.5 | Intensity of the glow effect |

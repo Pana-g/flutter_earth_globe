@@ -1,14 +1,17 @@
-## 2.2.2
+## 2.3.0
 
 ### ⚠️ Requirements
 
 - The minimum supported versions are now **Dart 3.7** and **Flutter 3.29**. The package already used APIs from these versions (`Color.withValues`, `Color.r/g/b`, `Color.toARGB32`), so older SDKs could resolve it but not compile it.
 - Removed the unused `http` dependency.
+- Works with Flutter 3.50: the package no longer imports `package:flutter/material.dart`, which Flutter 3.50 deprecates (#48).
 
 ### ✨ Features
 
 - Added region rendering support with customizable border styles, fill colours, highlights, and tap/hover hit-testing (#40).
 - Support for GeoJSON polygon and multipolygon parsing with inner ring holes and clipping mask boundaries (#40).
+- `DayNightMode` is now exported from `package:flutter_earth_globe/flutter_earth_globe.dart` (#39).
+- Satellites can be drawn with your own picture (for example a loaded SVG) using `SatelliteShape.customImage`, `SatelliteStyle.customImage` and `customImageSize` (#38).
 
 ### 🐛 Bug Fixes
 
@@ -25,11 +28,13 @@
 - Grabbing the globe mid-fling no longer snaps it back for a frame (#41, part of #33).
 - Point labels are placed for the current frame's rotation instead of trailing one frame behind (#42).
 - A globe without a background now receives gestures under loose constraints (#44).
-- Delta-time frame-rate independent auto-rotation driven by the ticker's elapsed duration to respect time dilation and frame variations (#39).
-- `focusOnCoordinates` shortest spherical path interpolation across the anti-meridian (#39).
-- Active focus animations and fling decelerations are cleanly cancelled when gestures start or `resetRotation()` is called, preventing frame-overwrite conflicts (#39).
-- Robust hover tracking using `MouseRegion` with pointer exit reset to null coordinates (#39).
-- On web (CanvasKit), the globe texture no longer disappears once the globe rotates or is dragged, leaving only the atmosphere. The background texture had the same problem. The textures are now bound to the shader on every paint.
+- Auto-rotation speed no longer depends on the screen's refresh rate (#39). **Behaviour change:** on 120 Hz screens the globe used to turn twice as fast as on 60 Hz; it now turns at the 60 Hz speed everywhere.
+- `focusOnCoordinates()` now takes the shortest way round, including across the ±180° meridian, and pauses auto-rotation until the focus animation ends (#39).
+- `resetRotation()`, or grabbing the globe, during a focus animation or a fling is no longer undone by the next animation frame (#39).
+- `onHover` is called with `null` when the pointer leaves the globe (#39).
+- Connections added before the globe is mounted are now drawn. Previously they stayed invisible (#39).
+- The simulated day/night mode now works without loading a night texture (#39).
+- On web (CanvasKit), the globe texture no longer disappears once the globe rotates or is dragged, leaving only the atmosphere. The background texture had the same problem. The textures are now bound to the shader on every paint (#46).
 
 ### ⚡ Performance
 
