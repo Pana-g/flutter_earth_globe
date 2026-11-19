@@ -79,26 +79,38 @@ class GlobeRegion {
     if (third is num) {
       // 3-level list: [ring/polygon][point][lon, lat] -> wrap each ring as a single-ring polygon
       return input
-          .map<List<List<List<double>>>>((ring) => [
-                (ring as List)
-                    .map<List<double>>((pt) => [
-                          ((pt as List)[0] as num).toDouble(),
-                          (pt[1] as num).toDouble(),
-                        ])
-                    .toList()
-              ])
+          .map<List<List<List<double>>>>(
+            (ring) => [
+              (ring as List)
+                  .map<List<double>>(
+                    (pt) => [
+                      ((pt as List)[0] as num).toDouble(),
+                      (pt[1] as num).toDouble(),
+                    ],
+                  )
+                  .toList(),
+            ],
+          )
           .toList();
     } else if (third is List) {
       // 4-level list: [polygon][ring][point][lon, lat]
       return input
-          .map<List<List<List<double>>>>((poly) => (poly as List)
-              .map<List<List<double>>>((ring) => (ring as List)
-                  .map<List<double>>((pt) => [
-                        ((pt as List)[0] as num).toDouble(),
-                        (pt[1] as num).toDouble(),
-                      ])
-                  .toList())
-              .toList())
+          .map<List<List<List<double>>>>(
+            (poly) =>
+                (poly as List)
+                    .map<List<List<double>>>(
+                      (ring) =>
+                          (ring as List)
+                              .map<List<double>>(
+                                (pt) => [
+                                  ((pt as List)[0] as num).toDouble(),
+                                  (pt[1] as num).toDouble(),
+                                ],
+                              )
+                              .toList(),
+                    )
+                    .toList(),
+          )
           .toList();
     }
     return const [];

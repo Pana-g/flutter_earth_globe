@@ -48,7 +48,7 @@ class SphereStyle {
       colors: [
         Color(0x00000000),
         Color.fromARGB(5, 255, 255, 255),
-        Color.fromARGB(21, 255, 255, 255)
+        Color.fromARGB(21, 255, 255, 255),
       ],
       stops: [0.1, 0.85, 1.0],
     ),
@@ -67,10 +67,10 @@ class SphereStyle {
 
   @override
   int get hashCode => Object.hash(
-        shadowColor,
-        shadowBlurStyle,
-        shadowBlurSigma,
-        showShadow,
-        showGradientOverlay,
-      );
+    shadowColor,
+    shadowBlurStyle,
+    shadowBlurSigma,
+    showShadow,
+    showGradientOverlay,
+  );
 }

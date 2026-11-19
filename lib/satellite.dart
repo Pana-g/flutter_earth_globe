@@ -164,8 +164,8 @@ class SatelliteOrbit {
     final latitude = math.asin(math.sin(incRad) * math.sin(u)) * 180 / math.pi;
     final longitude =
         (raanRad + math.atan2(math.cos(incRad) * math.sin(u), math.cos(u))) *
-            180 /
-            math.pi;
+        180 /
+        math.pi;
 
     var normalizedLon = longitude % 360;
     if (normalizedLon > 180) normalizedLon -= 360;
@@ -206,8 +206,13 @@ class SatelliteOrbit {
 class Satellite {
   final String id;
   final String? label;
-  final Widget? Function(BuildContext context, Satellite satellite,
-      bool isHovering, bool isVisible)? labelBuilder;
+  final Widget? Function(
+    BuildContext context,
+    Satellite satellite,
+    bool isHovering,
+    bool isVisible,
+  )?
+  labelBuilder;
   final bool isLabelVisible;
   final Offset labelOffset;
   final TextStyle? labelTextStyle;
@@ -247,9 +252,13 @@ class Satellite {
     GlobeCoordinates? coordinates,
     double? altitude,
     String? label,
-    Widget? Function(BuildContext context, Satellite satellite, bool isHovering,
-            bool isVisible)?
-        labelBuilder,
+    Widget? Function(
+      BuildContext context,
+      Satellite satellite,
+      bool isHovering,
+      bool isVisible,
+    )?
+    labelBuilder,
     bool? isLabelVisible,
     Offset? labelOffset,
     SatelliteStyle? style,

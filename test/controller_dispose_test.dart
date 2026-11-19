@@ -8,12 +8,13 @@ import 'package:flutter_earth_globe/flutter_earth_globe_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('disposing the controller after the globe is removed works',
-      (WidgetTester tester) async {
+  testWidgets('disposing the controller after the globe is removed works', (
+    WidgetTester tester,
+  ) async {
     final controller = FlutterEarthGlobeController();
-    await tester.pumpWidget(MaterialApp(
-      home: FlutterEarthGlobe(controller: controller, radius: 150),
-    ));
+    await tester.pumpWidget(
+      MaterialApp(home: FlutterEarthGlobe(controller: controller, radius: 150)),
+    );
     // Let the globe finish loading (initState schedules controller.load()).
     await tester.pump(const Duration(milliseconds: 100));
 
@@ -23,8 +24,9 @@ void main() {
     expect(controller.dispose, returnsNormally);
   });
 
-  testWidgets('disposing a controller that never had a globe works',
-      (WidgetTester tester) async {
+  testWidgets('disposing a controller that never had a globe works', (
+    WidgetTester tester,
+  ) async {
     final controller = FlutterEarthGlobeController();
     expect(controller.dispose, returnsNormally);
   });

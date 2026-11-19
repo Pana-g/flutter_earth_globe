@@ -15,8 +15,12 @@ class Point {
 
   /// A builder function that returns a widget to display as the label of the point.
   final Widget? Function(
-          BuildContext context, Point point, bool isHovering, bool isVisible)?
-      labelBuilder;
+    BuildContext context,
+    Point point,
+    bool isHovering,
+    bool isVisible,
+  )?
+  labelBuilder;
 
   /// Determines whether the label is visible or not.
   final bool isLabelVisible;
@@ -91,8 +95,12 @@ class Point {
     GlobeCoordinates? coordinates,
     String? label,
     Widget? Function(
-            BuildContext context, Point point, bool isHovering, bool isVisible)?
-        labelBuilder,
+      BuildContext context,
+      Point point,
+      bool isHovering,
+      bool isVisible,
+    )?
+    labelBuilder,
     bool? isLabelVisible,
     Offset? labelOffset,
     String? id,

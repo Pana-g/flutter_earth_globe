@@ -10,8 +10,13 @@ class PointConnection {
   final GlobeCoordinates start;
   final GlobeCoordinates end;
   final String? label;
-  final Widget? Function(BuildContext context, PointConnection pointConnection,
-      bool isHovering, bool isVisible)? labelBuilder;
+  final Widget? Function(
+    BuildContext context,
+    PointConnection pointConnection,
+    bool isHovering,
+    bool isVisible,
+  )?
+  labelBuilder;
   final TextStyle? labelTextStyle;
   final String id;
   bool isMoving;
@@ -73,9 +78,13 @@ class PointConnection {
     String? label,
     TextStyle? labelTextStyle,
     String? id,
-    Widget? Function(BuildContext context, PointConnection pointConnection,
-            bool isHovering, bool isVisible)?
-        labelBuilder,
+    Widget? Function(
+      BuildContext context,
+      PointConnection pointConnection,
+      bool isHovering,
+      bool isVisible,
+    )?
+    labelBuilder,
     bool? isMoving,
     bool? isLabelVisible,
     Offset? labelOffset,
@@ -123,22 +132,23 @@ class AnimatedPointConnection extends PointConnection {
   /// The [onHover] parameter is a callback function that is called when the connection is hovered over.
   /// The [animationProgress] parameter represents the progress of the animation.
   /// The [animationOffset] parameter represents the offset of the animation.
-  AnimatedPointConnection(
-      {required super.start,
-      required super.end,
-      required super.id,
-      super.label,
-      super.labelTextStyle,
-      super.isMoving,
-      super.onTap,
-      super.onHover,
-      super.style,
-      super.labelOffset,
-      super.curveScale = 1.5,
-      super.isLabelVisible,
-      super.labelBuilder,
-      this.animationProgress = 0.0,
-      this.animationOffset = 0.0});
+  AnimatedPointConnection({
+    required super.start,
+    required super.end,
+    required super.id,
+    super.label,
+    super.labelTextStyle,
+    super.isMoving,
+    super.onTap,
+    super.onHover,
+    super.style,
+    super.labelOffset,
+    super.curveScale = 1.5,
+    super.isLabelVisible,
+    super.labelBuilder,
+    this.animationProgress = 0.0,
+    this.animationOffset = 0.0,
+  });
 
   /// Creates a new [AnimatedPointConnection] instance from an existing [PointConnection].
   ///
@@ -159,20 +169,20 @@ class AnimatedPointConnection extends PointConnection {
     this.animationOffset = 0.0,
     this.animationProgress = 0.0,
   }) : super(
-          start: pointConnection.start,
-          labelOffset: pointConnection.labelOffset,
-          end: pointConnection.end,
-          id: pointConnection.id,
-          curveScale: pointConnection.curveScale,
-          label: pointConnection.label,
-          labelTextStyle: pointConnection.labelTextStyle,
-          isMoving: pointConnection.isMoving,
-          isLabelVisible: pointConnection.isLabelVisible,
-          style: pointConnection.style,
-          onTap: pointConnection.onTap,
-          onHover: pointConnection.onHover,
-          labelBuilder: pointConnection.labelBuilder,
-        );
+         start: pointConnection.start,
+         labelOffset: pointConnection.labelOffset,
+         end: pointConnection.end,
+         id: pointConnection.id,
+         curveScale: pointConnection.curveScale,
+         label: pointConnection.label,
+         labelTextStyle: pointConnection.labelTextStyle,
+         isMoving: pointConnection.isMoving,
+         isLabelVisible: pointConnection.isLabelVisible,
+         style: pointConnection.style,
+         onTap: pointConnection.onTap,
+         onHover: pointConnection.onHover,
+         labelBuilder: pointConnection.labelBuilder,
+       );
 
   @override
   PointConnection copyWith({
@@ -183,9 +193,13 @@ class AnimatedPointConnection extends PointConnection {
     String? label,
     TextStyle? labelTextStyle,
     String? id,
-    Widget? Function(BuildContext context, PointConnection pointConnection,
-            bool isHovering, bool isVisible)?
-        labelBuilder,
+    Widget? Function(
+      BuildContext context,
+      PointConnection pointConnection,
+      bool isHovering,
+      bool isVisible,
+    )?
+    labelBuilder,
     bool? isMoving,
     bool? isLabelVisible,
     PointConnectionStyle? style,

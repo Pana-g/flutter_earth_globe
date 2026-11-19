@@ -9,25 +9,27 @@ import 'package:flutter_earth_globe/flutter_earth_globe_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets(
-      'grabbing the globe mid-fling keeps the current rotation '
-      'instead of snapping back to where the fling started (#33)',
-      (WidgetTester tester) async {
+  testWidgets('grabbing the globe mid-fling keeps the current rotation '
+      'instead of snapping back to where the fling started (#33)', (
+    WidgetTester tester,
+  ) async {
     // Not disposed here: the globe's state disposes the controller's
     // animation controllers when it unmounts.
     final controller = FlutterEarthGlobeController(isRotating: false);
 
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: SizedBox(
-            width: 400,
-            height: 400,
-            child: FlutterEarthGlobe(controller: controller, radius: 150),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 400,
+              height: 400,
+              child: FlutterEarthGlobe(controller: controller, radius: 150),
+            ),
           ),
         ),
       ),
-    ));
+    );
     await tester.pump();
 
     final globe = find.byType(FlutterEarthGlobe);

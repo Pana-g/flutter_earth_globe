@@ -27,14 +27,20 @@ enum DayNightMode {
 ///
 /// The [textStyle] parameter is optional and can be used to customize the text style.
 /// The [size] parameter represents the size of the canvas.
-void paintText(String title, widgets.TextStyle? textStyle, Offset cartesian2D,
-    Size size, Canvas canvas) {
-  final defaultTextPaint = Paint()
-    ..color = const Color(0xFF2196F3).withAlpha(179)
-    ..strokeWidth = 25
-    ..strokeCap = StrokeCap.round
-    ..strokeJoin = StrokeJoin.round
-    ..style = PaintingStyle.stroke;
+void paintText(
+  String title,
+  widgets.TextStyle? textStyle,
+  Offset cartesian2D,
+  Size size,
+  Canvas canvas,
+) {
+  final defaultTextPaint =
+      Paint()
+        ..color = const Color(0xFF2196F3).withAlpha(179)
+        ..strokeWidth = 25
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..style = PaintingStyle.stroke;
   final defaultTextStyle = widgets.TextStyle(
     background: defaultTextPaint,
     color: const Color(0xFFFFFFFF),
@@ -52,16 +58,12 @@ void paintText(String title, widgets.TextStyle? textStyle, Offset cartesian2D,
     textDirection: TextDirection.ltr,
   );
 
-  textPainter.layout(
-    minWidth: 0,
-    maxWidth: size.width,
-  );
+  textPainter.layout(minWidth: 0, maxWidth: size.width);
 
   final offset = Offset(
-      cartesian2D.dx - textPainter.width / 2,
-      cartesian2D.dy -
-          20 -
-          textPainter.height / 2); // Position where the text will start
+    cartesian2D.dx - textPainter.width / 2,
+    cartesian2D.dy - 20 - textPainter.height / 2,
+  ); // Position where the text will start
   textPainter.paint(canvas, offset);
 }
 
@@ -108,8 +110,9 @@ bool isPointOnPath(Offset point, Path path, double pathWidth) {
 ///
 /// Returns a Future that resolves to a Uint32List representing the image.
 Future<Uint32List> convertImageToUint32List(Image image) async {
-  final ByteData? byteData =
-      await image.toByteData(format: ImageByteFormat.rawRgba);
+  final ByteData? byteData = await image.toByteData(
+    format: ImageByteFormat.rawRgba,
+  );
   if (byteData == null) return Uint32List(0); // Handle this case as needed.
 
   Uint8List imgBytes = byteData.buffer.asUint8List();

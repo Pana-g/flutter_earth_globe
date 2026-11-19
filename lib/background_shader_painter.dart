@@ -140,11 +140,13 @@ class BackgroundShaderManager {
       // Try loading from package path first (for when library is used as dependency)
       try {
         _program = await ui.FragmentProgram.fromAsset(
-            'packages/flutter_earth_globe/shaders/background.frag');
+          'packages/flutter_earth_globe/shaders/background.frag',
+        );
       } catch (e) {
         // Fall back to direct path (for when running within the library itself)
-        _program =
-            await ui.FragmentProgram.fromAsset('shaders/background.frag');
+        _program = await ui.FragmentProgram.fromAsset(
+          'shaders/background.frag',
+        );
       }
       // Verify we can create a shader instance
       final testShader = _program!.fragmentShader();
@@ -159,7 +161,8 @@ class BackgroundShaderManager {
       _isLoading = false;
       _program = null;
       debugPrint(
-          'Failed to load background shader (attempt $_loadAttempts/$_maxLoadAttempts): $e');
+        'Failed to load background shader (attempt $_loadAttempts/$_maxLoadAttempts): $e',
+      );
       return false;
     }
   }
