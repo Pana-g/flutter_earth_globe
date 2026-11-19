@@ -7,6 +7,12 @@ import 'package:flutter/material.dart';
 /// manipulation, especially when zoomed in or with day/night cycle enabled.
 class SphereShaderPainter extends CustomPainter {
   final ui.FragmentShader shader;
+
+  /// Texture bound to sampler 0. Rebound on every paint, see [paint].
+  final ui.Image daySurface;
+
+  /// Texture bound to sampler 1; the day surface is used when null.
+  final ui.Image? nightSurface;
   final double radius;
   final Offset center;
   final double rotationX;
@@ -26,6 +32,8 @@ class SphereShaderPainter extends CustomPainter {
 
   SphereShaderPainter({
     required this.shader,
+    required this.daySurface,
+    this.nightSurface,
     required this.radius,
     required this.center,
     required this.rotationX,
@@ -66,6 +74,14 @@ class SphereShaderPainter extends CustomPainter {
         onPaintError?.call();
         return;
       }
+
+      // Rebind the textures on every paint. With the CanvasKit web renderer,
+      // FragmentShader.setImageSampler keeps only the raw child shader, while
+      // the ImageShader that owns it is garbage-collected and deletes it.
+      // Once that happens, any repaint with new uniforms (e.g. rotation)
+      // draws without the texture. Rebinding right before drawing keeps the
+      // samplers valid; it is cheap on every renderer.
+      bindSphereTextures(shader, daySurface, nightSurface);
 
       // Set shader uniforms - must match the order in the shader
       int idx = 0;
@@ -140,6 +156,8 @@ class SphereShaderPainter extends CustomPainter {
     // Always repaint if shader changed (including texture updates)
     // or if any other values changed
     return oldDelegate.shader != shader ||
+        oldDelegate.daySurface != daySurface ||
+        oldDelegate.nightSurface != nightSurface ||
         oldDelegate.radius != radius ||
         oldDelegate.center != center ||
         oldDelegate.rotationX != rotationX ||
@@ -156,6 +174,16 @@ class SphereShaderPainter extends CustomPainter {
         oldDelegate.lightIntensity != lightIntensity ||
         oldDelegate.ambientLight != ambientLight;
   }
+}
+
+/// Binds the day surface to sampler 0 and the night surface to sampler 1.
+///
+/// When there is no night surface the day surface is bound to both; the
+/// shader only samples the night texture when the day/night cycle is enabled.
+void bindSphereTextures(
+    ui.FragmentShader shader, ui.Image daySurface, ui.Image? nightSurface) {
+  shader.setImageSampler(0, daySurface);
+  shader.setImageSampler(1, nightSurface ?? daySurface);
 }
 
 /// Helper class to manage shader loading and texture binding
@@ -241,15 +269,7 @@ class SphereShaderManager {
 
     try {
       final shader = _program!.fragmentShader();
-
-      // Bind the day surface texture (sampler index 0)
-      shader.setImageSampler(0, daySurface);
-
-      // Bind the night surface texture (sampler index 1)
-      // If night surface is not available, use day surface as a fallback
-      // (the shader will only use this when day/night cycle is enabled)
-      shader.setImageSampler(1, nightSurface ?? daySurface);
-
+      bindSphereTextures(shader, daySurface, nightSurface);
       return shader;
     } catch (e) {
       debugPrint('Failed to create sphere shader with textures: $e');

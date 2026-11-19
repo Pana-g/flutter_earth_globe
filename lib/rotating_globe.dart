@@ -1291,6 +1291,8 @@ class RotatingGlobeState extends State<RotatingGlobe>
     return CustomPaint(
       painter: SphereShaderPainter(
         shader: _cachedShader!,
+        daySurface: daySurface,
+        nightSurface: nightSurface,
         radius: sphereRadius,
         center: sphereCenter,
         rotationX: rotationX,
@@ -1660,6 +1662,7 @@ class RotatingGlobeState extends State<RotatingGlobe>
         return CustomPaint(
           painter: BackgroundShaderPainter(
             shader: _cachedBackgroundShader!,
+            starTexture: background,
             offsetX: offsetX,
             offsetY: offsetY,
             texWidth: background.width.toDouble(),

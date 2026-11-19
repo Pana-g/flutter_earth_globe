@@ -29,6 +29,7 @@
 - `focusOnCoordinates` shortest spherical path interpolation across the anti-meridian (#39).
 - Active focus animations and fling decelerations are cleanly cancelled when gestures start or `resetRotation()` is called, preventing frame-overwrite conflicts (#39).
 - Robust hover tracking using `MouseRegion` with pointer exit reset to null coordinates (#39).
+- On web (CanvasKit), the globe texture no longer disappears once the globe rotates or is dragged, leaving only the atmosphere. The background texture had the same problem. The textures are now bound to the shader on every paint.
 
 ### ⚡ Performance
 
