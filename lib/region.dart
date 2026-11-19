@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 class GlobeRegion {
   final String id;
@@ -27,7 +27,7 @@ class GlobeRegion {
     required this.id,
     required this.name,
     required this.polygons,
-    this.borderColor = Colors.white,
+    this.borderColor = const Color(0xFFFFFFFF),
     this.borderWidth = 1.0,
     this.fillColor,
     this.highlightColor,
@@ -41,7 +41,7 @@ class GlobeRegion {
     required String id,
     required String name,
     required dynamic polygons,
-    Color borderColor = Colors.white,
+    Color borderColor = const Color(0xFFFFFFFF),
     double borderWidth = 1.0,
     Color? fillColor,
     Color? highlightColor,

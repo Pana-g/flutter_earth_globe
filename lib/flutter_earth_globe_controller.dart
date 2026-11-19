@@ -2,7 +2,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_earth_globe/misc.dart';
 import 'package:flutter_earth_globe/rotating_globe.dart';
 import 'package:flutter_earth_globe/satellite.dart';
@@ -614,7 +614,7 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   /// Keys in properties to search for the Name: 'name', 'name_en', 'title', etc.
   void loadRegionDataset(
     Map<String, dynamic> geojson, {
-    Color defaultBorderColor = Colors.white,
+    Color defaultBorderColor = const Color(0xFFFFFFFF),
     double defaultBorderWidth = 1.0,
     Color? defaultFillColor,
     Color? defaultHighlightColor,

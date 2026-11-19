@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:vector_math/vector_math_64.dart' show Vector3;
 
@@ -1822,7 +1822,7 @@ class GpuForegroundPainter extends CustomPainter {
   void _drawLabel(Canvas canvas, String text, TextStyle? style, Offset position,
       Size size) {
     final textStyle =
-        style ?? const TextStyle(color: Colors.white, fontSize: 12);
+        style ?? const TextStyle(color: Color(0xFFFFFFFF), fontSize: 12);
     final textSpan = TextSpan(text: text, style: textStyle);
     final textPainter = TextPainter(
       text: textSpan,

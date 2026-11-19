@@ -2,7 +2,7 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 import 'globe_coordinates.dart';
 
@@ -41,7 +41,7 @@ class SatelliteStyle {
 
   const SatelliteStyle({
     this.size = 4.0,
-    this.color = Colors.white,
+    this.color = const Color(0xFFFFFFFF),
     this.hasGlow = false,
     this.glowColor,
     this.glowIntensity = 0.5,

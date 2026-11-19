@@ -1,6 +1,6 @@
 import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 /// A custom painter that draws a starry background using a star texture image.
 class StarryBackgroundPainter extends CustomPainter {

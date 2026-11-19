@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 /// Represents the style configuration for a sphere.
 class SphereStyle {
@@ -46,7 +46,7 @@ class SphereStyle {
     this.gradientOverlay = const RadialGradient(
       center: Alignment.center,
       colors: [
-        Colors.transparent,
+        Color(0x00000000),
         Color.fromARGB(5, 255, 255, 255),
         Color.fromARGB(21, 255, 255, 255)
       ],

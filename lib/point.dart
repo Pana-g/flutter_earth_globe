@@ -1,7 +1,7 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 import 'globe_coordinates.dart';
 
@@ -169,7 +169,7 @@ class PointStyle {
   /// ```
   const PointStyle({
     this.size = 4,
-    this.color = Colors.white,
+    this.color = const Color(0xFFFFFFFF),
     this.altitude = 0.0,
     this.transitionDuration = 500,
     this.merge = false,
