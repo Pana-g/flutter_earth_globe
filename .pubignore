@@ -1,0 +1,2 @@
+# Exclude heavy GeoJSON datasets from the pub package archive
+example/assets/geo/

@@ -5,6 +5,11 @@
 - The minimum supported versions are now **Dart 3.6** and **Flutter 3.27**. The package already used APIs from these versions (`Color.withValues`, `Color.r/g/b`), so older SDKs could resolve it but not compile it.
 - Removed the unused `http` dependency.
 
+### ✨ Features
+
+- Added region rendering support with customizable border styles, fill colours, highlights, and tap/hover hit-testing (#40).
+- Support for GeoJSON polygon and multipolygon parsing with inner ring holes and clipping mask boundaries (#40).
+
 ### 🐛 Bug Fixes
 
 - `updatePoint()` and `updatePointConnection()` now actually apply the update. Previously they created the updated copy and discarded it.
@@ -20,6 +25,10 @@
 - Grabbing the globe mid-fling no longer snaps it back for a frame (#41, part of #33).
 - Point labels are placed for the current frame's rotation instead of trailing one frame behind (#42).
 - A globe without a background now receives gestures under loose constraints (#44).
+- Delta-time frame-rate independent auto-rotation driven by the ticker's elapsed duration to respect time dilation and frame variations (#39).
+- `focusOnCoordinates` shortest spherical path interpolation across the anti-meridian (#39).
+- Active focus animations and fling decelerations are cleanly cancelled when gestures start or `resetRotation()` is called, preventing frame-overwrite conflicts (#39).
+- Robust hover tracking using `MouseRegion` with pointer exit reset to null coordinates (#39).
 - On web (CanvasKit), the globe texture no longer disappears once the globe rotates or is dragged, leaving only the atmosphere. The background texture had the same problem. The textures are now bound to the shader on every paint.
 
 ### ⚡ Performance
