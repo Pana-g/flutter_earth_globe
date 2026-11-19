@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter_earth_globe/flutter_earth_globe.dart';
 import 'package:flutter_earth_globe/flutter_earth_globe_controller.dart';
 import 'package:flutter_earth_globe/globe_coordinates.dart';
@@ -5,7 +6,6 @@ import 'package:flutter_earth_globe/point.dart';
 import 'package:flutter_earth_globe/point_connection.dart';
 import 'package:flutter_earth_globe/point_connection_style.dart';
 import 'package:flutter/material.dart';
-
 import 'app_theme.dart';
 import 'coordinate_state.dart';
 import 'coordinates_display.dart';
@@ -14,10 +14,11 @@ import 'control_widgets.dart';
 
 void main() {
   runApp(MaterialApp(
-      title: 'Flutter Earth Globe',
-      theme: AppTheme.darkTheme,
-      debugShowCheckedModeBanner: false,
-      home: const Home()));
+    title: 'Flutter Earth Globe',
+    theme: AppTheme.darkTheme,
+    debugShowCheckedModeBanner: false,
+    home: const Home(),
+  ));
 }
 
 class Home extends StatefulWidget {
@@ -54,7 +55,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     'assets/2k_stars.jpg',
     'assets/2k_sun.jpg',
     'assets/2k_uranus.jpg',
-    'assets/2k_venus_surface.jpg',
+    'assets/2k_venus_surface.jpg'
   ];
 
   late List<Point> points;
@@ -79,7 +80,9 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
         ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-            color: Colors.white.withAlpha(isHovering ? 180 : 80), width: 1.5),
+          color: Colors.white.withAlpha(isHovering ? 180 : 80),
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
             color: AppTheme.accentCyan.withAlpha(isHovering ? 150 : 80),
@@ -99,9 +102,10 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                    color: Colors.white.withAlpha(150),
-                    blurRadius: 6,
-                    spreadRadius: 1)
+                  color: Colors.white.withAlpha(150),
+                  blurRadius: 6,
+                  spreadRadius: 1,
+                ),
               ],
             ),
           ),
@@ -109,10 +113,11 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
           Text(
             point.label ?? '',
             style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.3),
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.3,
+            ),
           ),
         ],
       ),
@@ -138,7 +143,9 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-            color: Colors.white.withAlpha(isHovering ? 180 : 80), width: 1),
+          color: Colors.white.withAlpha(isHovering ? 180 : 80),
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
             color: AppTheme.accentPurple.withAlpha(isHovering ? 150 : 80),
@@ -150,16 +157,20 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.flight_takeoff_rounded,
-              color: Colors.white.withAlpha(220), size: 14),
+          Icon(
+            Icons.flight_takeoff_rounded,
+            color: Colors.white.withAlpha(220),
+            size: 14,
+          ),
           const SizedBox(width: 6),
           Text(
             connection.label ?? '',
             style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                letterSpacing: 0.2),
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0.2,
+            ),
           ),
         ],
       ),
@@ -194,16 +205,20 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
         labelBuilder: pointLabelBuilder,
         isLabelVisible: true,
         style: const PointStyle(
-            color: Colors.cyan,
-            size: 6,
-            altitude: 0.1,
-            transitionDuration: 500),
+          color: Colors.cyan,
+          size: 6,
+          altitude: 0.1,
+          transitionDuration: 500,
+        ),
       ),
       Point(
         id: '2',
         coordinates: const GlobeCoordinates(40.7128, -74.0060),
         style: const PointStyle(
-            color: Colors.green, altitude: 0.05, transitionDuration: 600),
+          color: Colors.green,
+          altitude: 0.05,
+          transitionDuration: 600,
+        ),
         labelBuilder: pointLabelBuilder,
         isLabelVisible: true,
         label: 'New York',
@@ -212,7 +227,10 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
         id: '3',
         coordinates: const GlobeCoordinates(35.6895, 139.6917),
         style: const PointStyle(
-            color: Colors.purple, altitude: 0.15, transitionDuration: 700),
+          color: Colors.purple,
+          altitude: 0.15,
+          transitionDuration: 700,
+        ),
         labelBuilder: pointLabelBuilder,
         isLabelVisible: true,
         label: 'Tokyo',
@@ -227,16 +245,19 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
               builder: (context) => AlertDialog(
                 backgroundColor: AppTheme.primaryMedium,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16)),
+                  borderRadius: BorderRadius.circular(16),
+                ),
                 title: const Text('Center Point',
                     style: TextStyle(color: Colors.white)),
                 content: const Text(
-                    'This is the center of the globe at coordinates (0, 0)',
-                    style: TextStyle(color: Colors.white70)),
+                  'This is the center of the globe at coordinates (0, 0)',
+                  style: TextStyle(color: Colors.white70),
+                ),
                 actions: [
                   TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('OK'))
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('OK'),
+                  ),
                 ],
               ),
             );
@@ -244,7 +265,10 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
         },
         coordinates: const GlobeCoordinates(0, 0),
         style: const PointStyle(
-            color: Colors.amber, altitude: 0.0, transitionDuration: 400),
+          color: Colors.amber,
+          altitude: 0.0,
+          transitionDuration: 400,
+        ),
         label: 'Center',
       ),
     ];
@@ -258,15 +282,19 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
             builder: (context) => AlertDialog(
               backgroundColor: AppTheme.primaryMedium,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16)),
+                borderRadius: BorderRadius.circular(16),
+              ),
               title: const Text('Flight Route',
                   style: TextStyle(color: Colors.white)),
-              content: const Text('London → New York\nDistance: ~5,570 km',
-                  style: TextStyle(color: Colors.white70)),
+              content: const Text(
+                'London → New York\nDistance: ~5,570 km',
+                style: TextStyle(color: Colors.white70),
+              ),
               actions: [
                 TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('OK'))
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('OK'),
+                ),
               ],
             ),
           );
@@ -314,9 +342,10 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
         curveScale: 0.5,
         id: '3',
         style: const PointConnectionStyle(
-            transitionDuration: 500,
-            animateOnAdd: true,
-            growthAnimationDuration: 1200),
+          transitionDuration: 500,
+          animateOnAdd: true,
+          growthAnimationDuration: 1200,
+        ),
       ),
     ];
 
@@ -333,6 +362,54 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     GlobeControlsState.instance.setRotationSpeed(_controller.rotationSpeed);
     GlobeControlsState.instance
         .setDayNightBlendFactor(_controller.dayNightBlendFactor);
+    _loadRegions();
+  }
+
+  Future<void> _loadRegions() async {
+    try {
+      final jsonString = await DefaultAssetBundle.of(context)
+          .loadString('assets/geo/countries.geojson');
+      if (!mounted) return;
+      final geojson = jsonDecode(jsonString) as Map<String, dynamic>;
+      _controller.loadRegionDataset(
+        geojson,
+        defaultBorderColor: const Color.fromARGB(128, 255, 255, 255),
+        defaultBorderWidth: 0.5,
+        defaultFillColor: const Color.fromARGB(26, 33, 150, 243),
+        defaultHighlightColor: const Color.fromARGB(102, 255, 152, 0),
+        clipAgainstBuilder: (id) {
+          if (id == 'PK' || id == 'CN' || id.startsWith('PAK') || id.startsWith('CHN')) {
+            return ['IN', 'IND'];
+          }
+          return [];
+        },
+      );
+
+      _controller.onRegionTap = (region) {
+        debugPrint('Region tapped: ${region.name} (${region.id})');
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Tapped region: ${region.name} (${region.id})'),
+            duration: const Duration(seconds: 1),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        if (_controller.selectedRegionIds.contains(region.id)) {
+          _controller.selectRegions([]);
+        } else {
+          _controller.selectRegions([region.id]);
+        }
+      };
+
+      _controller.onRegionHover = (region) {
+        if (region != null) {
+          debugPrint('Region hovered: ${region.name}');
+        }
+      };
+    } catch (e) {
+      debugPrint('Error loading regions: $e');
+    }
   }
 
   Widget _buildCollapsibleSection({
@@ -346,7 +423,11 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SectionHeader(
-            title: title, icon: icon, isExpanded: isExpanded, onTap: onToggle),
+          title: title,
+          icon: icon,
+          isExpanded: isExpanded,
+          onTap: onToggle,
+        ),
         AnimatedCrossFade(
           firstChild: Column(children: children),
           secondChild: const SizedBox.shrink(),
@@ -372,17 +453,19 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                    gradient: AppTheme.accentGradient,
-                    borderRadius: BorderRadius.circular(10)),
+                  gradient: AppTheme.accentGradient,
+                  borderRadius: BorderRadius.circular(10),
+                ),
                 child: const Icon(Icons.tune, color: Colors.white, size: 20),
               ),
               const SizedBox(width: 12),
               const Text(
                 'Controls',
                 style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold),
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const Spacer(),
               IconButton(
@@ -489,8 +572,9 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                    gradient: AppTheme.headerGradient,
-                    borderRadius: BorderRadius.circular(10)),
+                  gradient: AppTheme.headerGradient,
+                  borderRadius: BorderRadius.circular(10),
+                ),
                 child: const Icon(Icons.public, color: Colors.white, size: 20),
               ),
               const SizedBox(width: 12),
@@ -498,9 +582,10 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
                 child: Text(
                   'Textures',
                   style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold),
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               IconButton(
@@ -513,7 +598,10 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
           const SizedBox(height: 16),
           const Divider(color: Colors.white12),
           const SizedBox(height: 8),
-          TextureSelector(controller: _controller, textures: _textures),
+          TextureSelector(
+            controller: _controller,
+            textures: _textures,
+          ),
         ],
       ),
     );
@@ -527,9 +615,10 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
-              color: const Color(0xFF667eea).withAlpha(100),
-              blurRadius: 20,
-              spreadRadius: 0)
+            color: const Color(0xFF667eea).withAlpha(100),
+            blurRadius: 20,
+            spreadRadius: 0,
+          ),
         ],
       ),
       child: const Row(
@@ -540,21 +629,23 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
           Text(
             'Flutter Earth Globe',
             style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5),
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildPanelToggle(
-      {required IconData icon,
-      required bool isVisible,
-      required VoidCallback onTap,
-      required Alignment alignment}) {
+  Widget _buildPanelToggle({
+    required IconData icon,
+    required bool isVisible,
+    required VoidCallback onTap,
+    required Alignment alignment,
+  }) {
     return AnimatedOpacity(
       opacity: isVisible ? 0 : 1,
       duration: const Duration(milliseconds: 200),
@@ -588,11 +679,15 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       backgroundColor: AppTheme.primaryDark,
       drawer: isSmallScreen
           ? Drawer(
-              backgroundColor: Colors.transparent, child: _buildLeftPanel())
+              backgroundColor: Colors.transparent,
+              child: _buildLeftPanel(),
+            )
           : null,
       endDrawer: isSmallScreen
           ? Drawer(
-              backgroundColor: Colors.transparent, child: _buildRightPanel())
+              backgroundColor: Colors.transparent,
+              child: _buildRightPanel(),
+            )
           : null,
       body: SafeArea(
         child: Stack(
@@ -616,10 +711,11 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
 
             // Title at top
             Positioned(
-                top: 16,
-                left: 0,
-                right: 0,
-                child: Center(child: _buildTitle())),
+              top: 16,
+              left: 0,
+              right: 0,
+              child: Center(child: _buildTitle()),
+            ),
 
             // Left panel or toggle
             if (!isSmallScreen)
@@ -717,7 +813,11 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
 
             // Coordinates display at bottom
             const Positioned(
-                bottom: 0, left: 0, right: 0, child: CoordinatesDisplay()),
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: CoordinatesDisplay(),
+            ),
           ],
         ),
       ),

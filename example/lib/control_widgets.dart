@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_earth_globe/flutter_earth_globe.dart';
 import 'package:flutter_earth_globe/flutter_earth_globe_controller.dart';
@@ -890,6 +891,65 @@ class DividerText extends StatelessWidget {
   }
 }
 
+/// Picture used for [SatelliteShape.customImage] in this example. In an app
+/// it would typically come from an SVG, e.g. `flutter_svg`'s `vg.loadPicture`
+/// (pass `pictureInfo.picture` and `pictureInfo.size`). The app owns the
+/// picture; this one lives for the whole app, so it is never disposed.
+final ui.Picture _rocket = _drawRocket();
+const Size _rocketSize = Size(48, 64);
+
+ui.Picture _drawRocket() {
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder);
+  // Flame
+  canvas.drawPath(
+    Path()
+      ..moveTo(18, 50)
+      ..lineTo(24, 64)
+      ..lineTo(30, 50)
+      ..close(),
+    Paint()..color = const Color(0xFFFFA726),
+  );
+  // Fins
+  final finPaint = Paint()..color = const Color(0xFFE53935);
+  canvas.drawPath(
+    Path()
+      ..moveTo(14, 34)
+      ..lineTo(4, 52)
+      ..lineTo(16, 48)
+      ..close(),
+    finPaint,
+  );
+  canvas.drawPath(
+    Path()
+      ..moveTo(34, 34)
+      ..lineTo(44, 52)
+      ..lineTo(32, 48)
+      ..close(),
+    finPaint,
+  );
+  // Body
+  canvas.drawRRect(
+    RRect.fromLTRBR(14, 14, 34, 52, const Radius.circular(8)),
+    Paint()..color = const Color(0xFFECEFF1),
+  );
+  // Nose cone
+  canvas.drawPath(
+    Path()
+      ..moveTo(14, 18)
+      ..quadraticBezierTo(24, -4, 34, 18)
+      ..close(),
+    finPaint,
+  );
+  // Window
+  canvas.drawCircle(
+    const Offset(24, 28),
+    5,
+    Paint()..color = const Color(0xFF29B6F6),
+  );
+  return recorder.endRecording();
+}
+
 /// Satellite control widget for adding and managing satellites
 class SatelliteControl extends StatefulWidget {
   final FlutterEarthGlobeController controller;
@@ -948,7 +1008,7 @@ class _SatelliteControlState extends State<SatelliteControl> {
       case SatelliteShape.satelliteIcon:
         return '🛰 Satellite';
       case SatelliteShape.customImage:
-        return '🖼 Custom Image';
+        return '🚀 Custom image';
     }
   }
 
@@ -984,6 +1044,9 @@ class _SatelliteControlState extends State<SatelliteControl> {
             hasGlow: true,
             glowColor: _selectedColor,
             glowIntensity: 0.5,
+            customImage: shape == SatelliteShape.customImage ? _rocket : null,
+            customImageSize:
+                shape == SatelliteShape.customImage ? _rocketSize : null,
           ),
         ));
       }

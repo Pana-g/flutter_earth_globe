@@ -1,6 +1,6 @@
 import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 /// A custom painter that draws a starry background using a star texture image.
 class StarryBackgroundPainter extends CustomPainter {
@@ -60,12 +60,16 @@ class StarryBackgroundPainter extends CustomPainter {
     final visibleWidth = size.width / effectiveZoom;
     final visibleHeight = size.height / effectiveZoom;
 
-    for (double i = offsetX - starTexture.width;
-        i < visibleWidth + starTexture.width;
-        i += starTexture.width - 1) {
-      for (double j = offsetY - starTexture.height;
-          j < visibleHeight + starTexture.height;
-          j += starTexture.height - 1) {
+    for (
+      double i = offsetX - starTexture.width;
+      i < visibleWidth + starTexture.width;
+      i += starTexture.width - 1
+    ) {
+      for (
+        double j = offsetY - starTexture.height;
+        j < visibleHeight + starTexture.height;
+        j += starTexture.height - 1
+      ) {
         canvas.drawImage(starTexture, Offset(i, j), paint);
       }
     }

@@ -2,7 +2,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_earth_globe/misc.dart';
 import 'package:flutter_earth_globe/rotating_globe.dart';
 import 'package:flutter_earth_globe/satellite.dart';
@@ -14,6 +14,7 @@ import 'sphere_style.dart';
 import 'point_connection.dart';
 
 import 'point_connection_style.dart';
+import 'region.dart';
 
 /// This class is the controller of the [RotatingGlobe] widget.
 ///
@@ -29,24 +30,30 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   List<AnimatedPointConnection> connections =
       []; // The connections between points.
   List<Satellite> satellites = []; // The satellites orbiting the globe.
+  List<GlobeRegion> regions = []; // The geographic regions on the globe.
+  Set<String> selectedRegionIds = {};
+  int _regionRevision = 0;
+  int get regionRevision => _regionRevision;
+  void Function(GlobeRegion region)? onRegionTap;
+  void Function(GlobeRegion? region)? onRegionHover;
   SphereStyle sphereStyle; // The style of the sphere.
   ui.Image? surface; // The surface image of the sphere.
   ui.Image? nightSurface; // The night surface image of the sphere.
   ui.Image? background; // The background image of the sphere.
   Uint32List? surfaceProcessed; // The processed surface image of the sphere.
   Uint32List?
-      nightSurfaceProcessed; // The processed night surface image of the sphere.
+  nightSurfaceProcessed; // The processed night surface image of the sphere.
   bool
-      isBackgroundFollowingSphereRotation; // Whether the background follows the rotation of the sphere.
+  isBackgroundFollowingSphereRotation; // Whether the background follows the rotation of the sphere.
   ImageConfiguration
-      surfaceConfiguration; // The configuration of the surface image.
+  surfaceConfiguration; // The configuration of the surface image.
   ImageConfiguration
-      nightSurfaceConfiguration; // The configuration of the night surface image.
+  nightSurfaceConfiguration; // The configuration of the night surface image.
   ImageConfiguration
-      backgroundConfiguration; // The configuration of the background image.
+  backgroundConfiguration; // The configuration of the background image.
 
   AnimationController?
-      _rotationController; // The animation controller for sphere rotation.
+  _rotationController; // The animation controller for sphere rotation.
 
   /// The animation controller that drives the auto-rotation.
   ///
@@ -56,8 +63,9 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     final controller = _rotationController;
     if (controller == null) {
       throw StateError(
-          'rotationController is only available while a FlutterEarthGlobe '
-          'using this controller is mounted.');
+        'rotationController is only available while a FlutterEarthGlobe '
+        'using this controller is mounted.',
+      );
     }
     return controller;
   }
@@ -83,17 +91,17 @@ class FlutterEarthGlobeController extends ChangeNotifier {
 
   // Sensitivity properties
   double
-      zoomSensitivity; // Sensitivity for scroll/pinch zoom (default 0.8, higher = faster zoom)
+  zoomSensitivity; // Sensitivity for scroll/pinch zoom (default 0.8, higher = faster zoom)
   double
-      panSensitivity; // Sensitivity for panning/rotating the globe (default 1.0, higher = faster pan)
+  panSensitivity; // Sensitivity for panning/rotating the globe (default 1.0, higher = faster pan)
 
   // Atmospheric glow properties (private backing fields)
   bool _showAtmosphere; // Whether to show the atmospheric glow around the globe
   Color
-      _atmosphereColor; // Color of the atmospheric glow (default: Earth-like blue)
+  _atmosphereColor; // Color of the atmospheric glow (default: Earth-like blue)
   double _atmosphereBlur; // Blur radius for the atmospheric glow (default: 25)
   double
-      _atmosphereThickness; // Thickness of the atmosphere relative to globe radius (default: 0.15)
+  _atmosphereThickness; // Thickness of the atmosphere relative to globe radius (default: 0.15)
   double _atmosphereOpacity; // Opacity of the atmospheric glow (default: 0.6)
 
   // 3D Surface lighting properties (creates realistic 3D shading effect)
@@ -101,29 +109,29 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   double _lightAngle; // Angle of the light source in degrees (-45 = top-left)
   double _lightIntensity; // How strong the light/shadow effect is (0.0 - 1.0)
   double
-      _ambientLight; // Minimum brightness level (0.0 - 1.0), prevents total darkness
+  _ambientLight; // Minimum brightness level (0.0 - 1.0), prevents total darkness
 
   // Day/Night cycle properties
   bool isDayNightCycleEnabled; // Whether the day/night cycle is enabled.
   DayNightMode
-      _dayNightMode; // The mode for rendering night side (textureSwap or simulated).
+  _dayNightMode; // The mode for rendering night side (textureSwap or simulated).
   Color
-      _simulatedNightColor; // The tint color for simulated night mode (default: dark blue).
+  _simulatedNightColor; // The tint color for simulated night mode (default: dark blue).
   double
-      _simulatedNightIntensity; // How dark the night side is in simulated mode (0.0 = black, 1.0 = full brightness).
+  _simulatedNightIntensity; // How dark the night side is in simulated mode (0.0 = black, 1.0 = full brightness).
   double
-      sunLongitude; // The current longitude of the sun (in degrees, -180 to 180).
+  sunLongitude; // The current longitude of the sun (in degrees, -180 to 180).
   double
-      sunLatitude; // The current latitude of the sun (in degrees, -23.5 to 23.5 for realistic Earth tilt).
+  sunLatitude; // The current latitude of the sun (in degrees, -23.5 to 23.5 for realistic Earth tilt).
   double
-      dayNightBlendFactor; // The sharpness of the day/night transition (0.0 = sharp, 1.0 = very smooth).
+  dayNightBlendFactor; // The sharpness of the day/night transition (0.0 = sharp, 1.0 = very smooth).
   bool
-      useRealTimeSunPosition; // Whether to calculate sun position based on real time.
+  useRealTimeSunPosition; // Whether to calculate sun position based on real time.
   DayNightCycleDirection
-      dayNightCycleDirection; // The direction of the day/night cycle animation.
+  dayNightCycleDirection; // The direction of the day/night cycle animation.
 
   bool
-      zoomToMousePosition; // Whether zooming should zoom towards the mouse/pointer position.
+  zoomToMousePosition; // Whether zooming should zoom towards the mouse/pointer position.
 
   // Pan offset for zoom-to-cursor feature (in pixels)
   double panOffsetX; // Horizontal pan offset from center
@@ -169,18 +177,18 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     double lightAngle = -45.0,
     double lightIntensity = 0.75,
     double ambientLight = 0.6,
-  })  : _showAtmosphere = showAtmosphere,
-        _atmosphereColor = atmosphereColor,
-        _atmosphereBlur = atmosphereBlur,
-        _atmosphereThickness = atmosphereThickness,
-        _atmosphereOpacity = atmosphereOpacity,
-        _surfaceLightingEnabled = surfaceLightingEnabled,
-        _lightAngle = lightAngle,
-        _lightIntensity = lightIntensity,
-        _ambientLight = ambientLight,
-        _simulatedNightColor = simulatedNightColor,
-        _simulatedNightIntensity = simulatedNightIntensity,
-        _dayNightMode = dayNightMode {
+  }) : _showAtmosphere = showAtmosphere,
+       _atmosphereColor = atmosphereColor,
+       _atmosphereBlur = atmosphereBlur,
+       _atmosphereThickness = atmosphereThickness,
+       _atmosphereOpacity = atmosphereOpacity,
+       _surfaceLightingEnabled = surfaceLightingEnabled,
+       _lightAngle = lightAngle,
+       _lightIntensity = lightIntensity,
+       _ambientLight = ambientLight,
+       _simulatedNightColor = simulatedNightColor,
+       _simulatedNightIntensity = simulatedNightIntensity,
+       _dayNightMode = dayNightMode {
     assert(minZoom < maxZoom);
     assert(zoom >= minZoom && zoom <= maxZoom);
     _isRotating = isRotating;
@@ -198,14 +206,17 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   }
 
   // internal calls
-  Function(AnimatedPointConnection connection,
-      {required bool animateDraw,
-      required Duration animateDrawDuration})? onPointConnectionAdded;
+  Function(
+    AnimatedPointConnection connection, {
+    required bool animateDraw,
+    required Duration animateDrawDuration,
+  })?
+  onPointConnectionAdded;
 
   Function()? onResetGlobeRotation;
 
   Function({Duration cycleDuration, DayNightCycleDirection direction})?
-      onStartDayNightCycleAnimation;
+  onStartDayNightCycleAnimation;
   Function()? onStopDayNightCycleAnimation;
 
   void load() {
@@ -442,15 +453,21 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   ///   animateDraw: true,
   ///  );
   /// ```
-  void addPointConnection(PointConnection connection,
-      {bool animateDraw = false,
-      Duration animateDrawDuration = const Duration(seconds: 2)}) {
+  void addPointConnection(
+    PointConnection connection, {
+    bool animateDraw = false,
+    Duration animateDrawDuration = const Duration(seconds: 2),
+  }) {
     final animatedConnection = AnimatedPointConnection.fromPointConnection(
-        pointConnection: connection);
+      pointConnection: connection,
+    );
     connections.add(animatedConnection);
     notifyListeners();
-    onPointConnectionAdded?.call(animatedConnection,
-        animateDraw: animateDraw, animateDrawDuration: animateDrawDuration);
+    onPointConnectionAdded?.call(
+      animatedConnection,
+      animateDraw: animateDraw,
+      animateDrawDuration: animateDrawDuration,
+    );
   }
 
   /// Focuses on the [coordinates] on the globe.
@@ -465,12 +482,18 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   /// ```dart
   /// controller.focusOnCoordinates(GlobeCoordinates(0, 0), animate: true, duration: Duration(milliseconds: 800), curve: Curves.easeInOutCubic);
   /// ```
-  void focusOnCoordinates(GlobeCoordinates coordinates,
-      {bool animate = false,
-      Duration? duration = const Duration(milliseconds: 500),
-      Curve curve = Curves.linear}) {
-    globeKey.currentState?.focusOnCoordinates(coordinates,
-        animate: animate, duration: duration, curve: curve);
+  void focusOnCoordinates(
+    GlobeCoordinates coordinates, {
+    bool animate = false,
+    Duration? duration = const Duration(milliseconds: 500),
+    Curve curve = Curves.linear,
+  }) {
+    globeKey.currentState?.focusOnCoordinates(
+      coordinates,
+      animate: animate,
+      duration: duration,
+      curve: curve,
+    );
   }
 
   /// Updates the [connection] between two [points] on the globe.
@@ -499,9 +522,13 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   void updatePointConnection(
     String id, {
     String? label,
-    Widget? Function(BuildContext context, PointConnection pointConnection,
-            bool isHovering, bool isVisible)?
-        labelBuilder,
+    Widget? Function(
+      BuildContext context,
+      PointConnection pointConnection,
+      bool isHovering,
+      bool isVisible,
+    )?
+    labelBuilder,
     bool? isLabelVisible,
     Offset? labelOffset,
     bool? isMoving,
@@ -512,16 +539,19 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   }) {
     final index = connections.indexWhere((element) => element.id == id);
     if (index == -1) return;
-    connections[index] = connections[index].copyWith(
-        label: label,
-        isMoving: isMoving,
-        labelBuilder: labelBuilder,
-        isLabelVisible: isLabelVisible,
-        labelOffset: labelOffset,
-        style: style,
-        labelTextStyle: labelTextStyle,
-        onTap: onTap,
-        onHover: onHover) as AnimatedPointConnection;
+    connections[index] =
+        connections[index].copyWith(
+              label: label,
+              isMoving: isMoving,
+              labelBuilder: labelBuilder,
+              isLabelVisible: isLabelVisible,
+              labelOffset: labelOffset,
+              style: style,
+              labelTextStyle: labelTextStyle,
+              onTap: onTap,
+              onHover: onHover,
+            )
+            as AnimatedPointConnection;
     notifyListeners();
   }
 
@@ -560,6 +590,267 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     notifyListeners();
   }
 
+  GlobeRegion _normalizeRegion(GlobeRegion region) {
+    final normalizedId = region.id.trim().toUpperCase();
+    final normalizedClip =
+        region.clipAgainst.map((e) => e.trim().toUpperCase()).toList();
+    if (normalizedId != region.id || normalizedClip != region.clipAgainst) {
+      return region.copyWith(id: normalizedId, clipAgainst: normalizedClip);
+    }
+    return region;
+  }
+
+  void addRegion(GlobeRegion region) {
+    _regionRevision++;
+    regions.add(_normalizeRegion(region));
+    notifyListeners();
+  }
+
+  void addRegions(List<GlobeRegion> newRegions) {
+    _regionRevision++;
+    regions.addAll(newRegions.map(_normalizeRegion));
+    notifyListeners();
+  }
+
+  void removeRegion(String id) {
+    _regionRevision++;
+    final normalizedId = id.trim().toUpperCase();
+    regions.removeWhere((element) => element.id == normalizedId);
+    notifyListeners();
+  }
+
+  void clearRegions() {
+    _regionRevision++;
+    regions.clear();
+    notifyListeners();
+  }
+
+  void selectRegions(List<String> regionIds) {
+    _regionRevision++;
+    selectedRegionIds = regionIds.map((e) => e.trim().toUpperCase()).toSet();
+    notifyListeners();
+  }
+
+  /// Load and parse a standard GeoJSON map object into GlobeRegion objects.
+  /// This parses both 'Polygon' and 'MultiPolygon' geometries.
+  /// Keys in properties to search for the ID: 'code', 'id', 'iso_a2', 'iso_a3', 'adm0_a3', etc.
+  /// Keys in properties to search for the Name: 'name', 'name_en', 'title', etc.
+  void loadRegionDataset(
+    Map<String, dynamic> geojson, {
+    Color defaultBorderColor = const Color(0xFFFFFFFF),
+    double defaultBorderWidth = 1.0,
+    Color? defaultFillColor,
+    Color? defaultHighlightColor,
+    bool defaultIsVisible = true,
+    List<String> Function(String regionId)? clipAgainstBuilder,
+  }) {
+    final features = geojson['features'] as List<dynamic>? ?? [];
+    final List<GlobeRegion> parsed = [];
+    final Set<String> usedIds = {};
+
+    for (final feature in features) {
+      final properties = feature['properties'] as Map<String, dynamic>? ?? {};
+      final geometry = feature['geometry'] as Map<String, dynamic>? ?? {};
+      final geometryType = geometry['type'] as String? ?? '';
+      final coordinates = geometry['coordinates'];
+
+      final idKeys = [
+        'iso_3166_2',
+        'code_hasc',
+        'code',
+        'id',
+        'iso_a2',
+        'iso_a3',
+        'adm0_a3',
+        'sov_a3',
+        'postal',
+      ];
+
+      String candidateId = '';
+      for (final key in idKeys) {
+        final val = properties[key]?.toString().trim() ?? '';
+        if (val.isNotEmpty && val != '-99' && val != '-099') {
+          final normalized = val.replaceAll('.', '-').toUpperCase();
+          if (!usedIds.contains(normalized)) {
+            candidateId = normalized;
+            break;
+          } else if (candidateId.isEmpty) {
+            candidateId = normalized;
+          }
+        }
+      }
+
+      if (candidateId.isEmpty) {
+        final nameVal = properties['name']?.toString().trim() ?? '';
+        if (nameVal.isNotEmpty) {
+          candidateId = nameVal.replaceAll('.', '-').toUpperCase();
+        }
+      }
+
+      if (candidateId.isEmpty || candidateId == '-99') {
+        candidateId = 'REGION_${parsed.length + 1}';
+      }
+
+      var finalId = candidateId;
+      var counter = 1;
+      while (usedIds.contains(finalId)) {
+        finalId = '${candidateId}_$counter';
+        counter++;
+      }
+      usedIds.add(finalId);
+
+      final String name =
+          (properties['name'] ??
+                  properties['name_en'] ??
+                  properties['title'] ??
+                  finalId)
+              .toString();
+
+      if (coordinates == null) continue;
+
+      final polygons = <List<List<List<double>>>>[];
+
+      if (geometryType == 'Polygon') {
+        // GeoJSON Polygon: coordinates is an array of linear rings.
+        // The first ring is the exterior boundary; subsequent rings are interior holes.
+        final rings = <List<List<double>>>[];
+        for (final ring in coordinates) {
+          final ringPoints =
+              (ring as List)
+                  .map<List<double>>(
+                    (point) => [
+                      (point[0] as num).toDouble(),
+                      (point[1] as num).toDouble(),
+                    ],
+                  )
+                  .toList();
+          if (ringPoints.isNotEmpty) {
+            rings.add(ringPoints);
+          }
+        }
+        if (rings.isNotEmpty) {
+          polygons.add(rings);
+        }
+      } else if (geometryType == 'MultiPolygon') {
+        // GeoJSON MultiPolygon: coordinates is an array of polygons,
+        // each having an array of rings: [exterior, hole1, hole2, ...]
+        for (final polygon in coordinates) {
+          final rings = <List<List<double>>>[];
+          for (final ring in polygon) {
+            final ringPoints =
+                (ring as List)
+                    .map<List<double>>(
+                      (point) => [
+                        (point[0] as num).toDouble(),
+                        (point[1] as num).toDouble(),
+                      ],
+                    )
+                    .toList();
+            if (ringPoints.isNotEmpty) {
+              rings.add(ringPoints);
+            }
+          }
+          if (rings.isNotEmpty) {
+            polygons.add(rings);
+          }
+        }
+      } else {
+        continue;
+      }
+
+      if (polygons.isNotEmpty) {
+        parsed.add(
+          GlobeRegion(
+            id: finalId,
+            name: name,
+            polygons: polygons,
+            borderColor: defaultBorderColor,
+            borderWidth: defaultBorderWidth,
+            fillColor: defaultFillColor,
+            highlightColor: defaultHighlightColor,
+            isVisible: defaultIsVisible,
+            clipAgainst: clipAgainstBuilder?.call(finalId) ?? const [],
+          ),
+        );
+      }
+    }
+
+    addRegions(parsed);
+  }
+
+  /// Show regions matching specified IDs
+  void showRegions(List<String> ids) {
+    _regionRevision++;
+    final upperIds = ids.map((e) => e.trim().toUpperCase()).toSet();
+    for (int i = 0; i < regions.length; i++) {
+      if (upperIds.contains(regions[i].id)) {
+        regions[i] = regions[i].copyWith(isVisible: true);
+      }
+    }
+    notifyListeners();
+  }
+
+  /// Hide regions matching specified IDs
+  void hideRegions(List<String> ids) {
+    _regionRevision++;
+    final upperIds = ids.map((e) => e.trim().toUpperCase()).toSet();
+    for (int i = 0; i < regions.length; i++) {
+      if (upperIds.contains(regions[i].id)) {
+        regions[i] = regions[i].copyWith(isVisible: false);
+      }
+    }
+    notifyListeners();
+  }
+
+  /// Show all regions
+  void showAllRegions() {
+    _regionRevision++;
+    for (int i = 0; i < regions.length; i++) {
+      regions[i] = regions[i].copyWith(isVisible: true);
+    }
+    notifyListeners();
+  }
+
+  /// Hide all regions
+  void hideAllRegions() {
+    _regionRevision++;
+    for (int i = 0; i < regions.length; i++) {
+      regions[i] = regions[i].copyWith(isVisible: false);
+    }
+    notifyListeners();
+  }
+
+  /// Dynamically update region styles
+  void updateRegionStyle(
+    String id, {
+    Color? borderColor,
+    double? borderWidth,
+    Color? fillColor,
+    Color? highlightColor,
+    bool? isVisible,
+    List<String>? clipAgainst,
+    bool clearFillColor = false,
+    bool clearHighlightColor = false,
+  }) {
+    _regionRevision++;
+    final upperId = id.trim().toUpperCase();
+    for (int i = 0; i < regions.length; i++) {
+      if (regions[i].id == upperId) {
+        regions[i] = regions[i].copyWith(
+          borderColor: borderColor,
+          borderWidth: borderWidth,
+          fillColor: fillColor,
+          highlightColor: highlightColor,
+          isVisible: isVisible,
+          clipAgainst: clipAgainst?.map((e) => e.trim().toUpperCase()).toList(),
+          clearFillColor: clearFillColor,
+          clearHighlightColor: clearHighlightColor,
+        );
+      }
+    }
+    notifyListeners();
+  }
+
   /// Updates the [point] on the globe.
   ///
   /// The [id] parameter represents the id of the point to be updated.
@@ -585,8 +876,12 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     String id, {
     String? label,
     Widget? Function(
-            BuildContext context, Point point, bool isHovering, bool isVisible)?
-        labelBuilder,
+      BuildContext context,
+      Point point,
+      bool isHovering,
+      bool isVisible,
+    )?
+    labelBuilder,
     bool? isLabelVisible,
     Offset? labelOffset,
     PointStyle? style,
@@ -597,14 +892,15 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     final index = points.indexWhere((element) => element.id == id);
     if (index == -1) return;
     points[index] = points[index].copyWith(
-        label: label,
-        labelBuilder: labelBuilder,
-        isLabelVisible: isLabelVisible,
-        labelOffset: labelOffset,
-        style: style,
-        labelTextStyle: labelTextStyle,
-        onTap: onTap,
-        onHover: onHover);
+      label: label,
+      labelBuilder: labelBuilder,
+      isLabelVisible: isLabelVisible,
+      labelOffset: labelOffset,
+      style: style,
+      labelTextStyle: labelTextStyle,
+      onTap: onTap,
+      onHover: onHover,
+    );
     notifyListeners();
   }
 
@@ -675,9 +971,13 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     GlobeCoordinates? coordinates,
     double? altitude,
     String? label,
-    Widget? Function(BuildContext context, Satellite satellite, bool isHovering,
-            bool isVisible)?
-        labelBuilder,
+    Widget? Function(
+      BuildContext context,
+      Satellite satellite,
+      bool isHovering,
+      bool isVisible,
+    )?
+    labelBuilder,
     bool? isLabelVisible,
     Offset? labelOffset,
     SatelliteStyle? style,
@@ -827,22 +1127,30 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   /// Resolves [provider] once, hands the first frame to [onImage] and removes
   /// the listener again. Load errors are reported instead of being thrown
   /// unhandled from the image stream.
-  void _resolveImage(ImageProvider provider, ImageConfiguration configuration,
-      Future<void> Function(ui.Image image) onImage) {
+  void _resolveImage(
+    ImageProvider provider,
+    ImageConfiguration configuration,
+    Future<void> Function(ui.Image image) onImage,
+  ) {
     final stream = provider.resolve(configuration);
     late final ImageStreamListener listener;
-    listener = ImageStreamListener((info, _) {
-      stream.removeListener(listener);
-      onImage(info.image);
-    }, onError: (Object error, StackTrace? stackTrace) {
-      stream.removeListener(listener);
-      FlutterError.reportError(FlutterErrorDetails(
-        exception: error,
-        stack: stackTrace,
-        library: 'flutter_earth_globe',
-        context: ErrorDescription('while loading a globe image'),
-      ));
-    });
+    listener = ImageStreamListener(
+      (info, _) {
+        stream.removeListener(listener);
+        onImage(info.image);
+      },
+      onError: (Object error, StackTrace? stackTrace) {
+        stream.removeListener(listener);
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: error,
+            stack: stackTrace,
+            library: 'flutter_earth_globe',
+            context: ErrorDescription('while loading a globe image'),
+          ),
+        );
+      },
+    );
     stream.addListener(listener);
   }
 
@@ -883,7 +1191,7 @@ class FlutterEarthGlobeController extends ChangeNotifier {
   void startRotation({double? rotationSpeed}) {
     _isRotating = true;
     this.rotationSpeed = rotationSpeed ?? this.rotationSpeed;
-    _rotationController?.forward();
+    _rotationController?.repeat();
     notifyListeners();
   }
 
@@ -1061,6 +1369,10 @@ class FlutterEarthGlobeController extends ChangeNotifier {
     onStopDayNightCycleAnimation = null;
 
     onLoaded = null;
+    onRegionTap = null;
+    onRegionHover = null;
+    regions.clear();
+    selectedRegionIds.clear();
     super.dispose();
   }
 }

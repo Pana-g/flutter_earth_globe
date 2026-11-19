@@ -324,16 +324,6 @@ _controller.clearPointConnections();
 
 Satellites are objects that orbit around the globe with customizable orbital parameters.
 
-Custom satellite images can be supplied as a Flutter `ui.Picture` and its intrinsic size. The caller owns the picture and must dispose it after removing all satellite styles that use it. For SVG input, load it in the app (for example with `flutter_svg`) and pass the resulting `PictureInfo.picture` and `PictureInfo.size`:
-
-```dart
-style: SatelliteStyle(
-  shape: SatelliteShape.customImage,
-  customImage: pictureInfo.picture,
-  customImageSize: pictureInfo.size,
-)
-```
-
 ```dart
 // Geostationary satellite
 _controller.addSatellite(Satellite(
@@ -368,6 +358,28 @@ _controller.addSatellite(Satellite(
 ));
 ```
 
+#### Custom satellite images
+
+Use `SatelliteShape.customImage` to draw your own picture (a `dart:ui` `Picture`) instead of a built-in shape. It is scaled to fit `size * 2` while keeping its aspect ratio, and falls back to a circle until a picture is set. To use an SVG, load it with [`flutter_svg`](https://pub.dev/packages/flutter_svg) in your app and pass the picture and its size:
+
+```dart
+final pictureInfo = await vg.loadPicture(SvgStringLoader(svgString), null);
+
+_controller.addSatellite(Satellite(
+  id: 'rocket',
+  coordinates: GlobeCoordinates(0, 0),
+  altitude: 0.2,
+  style: SatelliteStyle(
+    size: 8,
+    shape: SatelliteShape.customImage,
+    customImage: pictureInfo.picture,
+    customImageSize: pictureInfo.size,
+  ),
+));
+```
+
+Your app owns the picture: dispose it only after removing every satellite that uses it. The picture is not included in `SatelliteStyle.toJson()`.
+
 <details>
 <summary><strong>📖 Satellite API Reference</strong></summary>
 
@@ -390,7 +402,10 @@ _controller.addSatellite(Satellite(
 |----------|------|---------|-------------|
 | `size` | `double` | 4.0 | Size of the satellite |
 | `color` | `Color` | white | Color of the satellite |
-| `shape` | `SatelliteShape` | circle | Shape: `circle`, `square`, `triangle`, `star`, `satelliteIcon` |
+| `shape` | `SatelliteShape` | circle | Shape: `circle`, `square`, `triangle`, `star`, `satelliteIcon`, `customImage` |
+| `customImage` | `Picture?` | null | Picture drawn for `customImage` (owned by the caller) |
+| `customImageSize` | `Size?` | null | Intrinsic size of `customImage` |
+| `customImageRotated` | `bool` | false | Rotate `customImage` by 45° |
 | `hasGlow` | `bool` | false | Enable glow effect |
 | `glowColor` | `Color?` | null | Color of the glow (defaults to satellite color) |
 | `glowIntensity` | `double` | 0.5 | Intensity of the glow effect |
@@ -428,6 +443,79 @@ _controller.removeSatellite('satellite-id');
 // Clear all satellites
 _controller.clearSatellites();
 ```
+
+</details>
+
+---
+
+### Region Outlines and Highlights
+
+Region outlines allow you to draw, style, and highlight geographic country or state boundaries on the globe using standard GeoJSON polygon/multipolygon coordinate datasets.
+
+```dart
+// 1. Load GeoJSON coordinate maps (e.g., lightweight 110m countries dataset)
+final jsonString = await DefaultAssetBundle.of(context)
+    .loadString('assets/geo/countries.geojson');
+final Map<String, dynamic> geojson = jsonDecode(jsonString);
+
+// 2. Parse and load boundaries into the controller
+_controller.loadRegionDataset(
+  geojson,
+  defaultBorderColor: Colors.white70,
+  defaultBorderWidth: 0.5,
+  defaultFillColor: Colors.cyan.withOpacity(0.1),
+  defaultHighlightColor: Colors.cyanAccent.withOpacity(0.35),
+  defaultIsVisible: true,
+  clipAgainstBuilder: (id) {
+    // Prevent overlapping boundary lines (e.g. clip Pakistan/China boundaries against India)
+    if (id.startsWith('PAK') || id.startsWith('CHN')) {
+      return ['IND'];
+    }
+    return [];
+  },
+);
+
+// 3. Control visibility or style individual regions dynamically
+_controller.hideAllRegions();
+_controller.showRegions(['IND', 'USA', 'BRA']);
+
+_controller.updateRegionStyle(
+  'IND',
+  borderColor: Colors.orangeAccent,
+  borderWidth: 1.2,
+  fillColor: Colors.deepOrange.withOpacity(0.4),
+);
+```
+
+<details>
+<summary><strong>📖 Region API Reference</strong></summary>
+
+#### Region Controller Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `loadRegionDataset(geojson, {defaultBorderColor, defaultBorderWidth, defaultFillColor, defaultHighlightColor, defaultIsVisible, clipAgainstBuilder})` | `void` | Parses and caches GeoJSON coordinates into GlobeRegion objects. |
+| `showRegions(List<String> ids)` | `void` | Makes specified regions visible on the globe. |
+| `hideRegions(List<String> ids)` | `void` | Hides specified regions from rendering. |
+| `showAllRegions()` | `void` | Makes all loaded regions visible. |
+| `hideAllRegions()` | `void` | Hides all loaded regions. |
+| `updateRegionStyle(String id, {borderColor, borderWidth, fillColor, highlightColor})` | `void` | Dynamically updates the styling of a specific region. |
+| `selectRegions(List<String> ids)` | `void` | Programmatically selects a list of regions (applies highlightColor). |
+
+#### Region Interactions (Gestures)
+You can listen to taps or hover events on specific outlined boundaries:
+
+```dart
+_controller.onRegionTap = (GlobeRegion region) {
+  print('Tapped region: ${region.name} (${region.id})');
+};
+
+_controller.onRegionHover = (GlobeRegion region) {
+  print('Hovering over: ${region.name}');
+};
+```
+
+> **Note on GeoJSON Datasets:** The example app includes a lightweight 110m resolution world boundaries dataset (`countries.geojson`, ~689 KB) to keep package and repo sizes minimal. If your application requires high-resolution outlines (50m or 10m) or sub-national state/province boundaries, download the free datasets directly from [Natural Earth](https://www.naturalearthdata.com/downloads/).
 
 </details>
 

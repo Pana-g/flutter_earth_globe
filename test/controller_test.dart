@@ -1,5 +1,9 @@
 import 'dart:ui' as ui;
 
+// Tests mount the globe in MaterialApp/Scaffold, as apps do. Flutter 3.50
+// deprecates this import in favour of package:material_ui, which needs
+// Flutter >= 3.47 and would break `pub get` on our 3.29 minimum.
+// ignore: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:flutter_earth_globe/flutter_earth_globe.dart';
 import 'package:flutter_earth_globe/flutter_earth_globe_controller.dart';
@@ -10,10 +14,12 @@ import 'package:flutter_earth_globe/point_connection_style.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Future<void> pumpGlobe(
-    WidgetTester tester, FlutterEarthGlobeController controller) async {
-  await tester.pumpWidget(MaterialApp(
-    home: FlutterEarthGlobe(controller: controller, radius: 150),
-  ));
+  WidgetTester tester,
+  FlutterEarthGlobeController controller,
+) async {
+  await tester.pumpWidget(
+    MaterialApp(home: FlutterEarthGlobe(controller: controller, radius: 150)),
+  );
   // initState schedules controller.load() on a zero delay.
   await tester.pump(const Duration(milliseconds: 100));
 }
@@ -41,14 +47,19 @@ void main() {
   group('updates', () {
     test('updatePoint replaces the point', () {
       final controller = FlutterEarthGlobeController();
-      controller.addPoint(Point(
-        id: 'p',
-        coordinates: const GlobeCoordinates(10, 20),
-        label: 'old',
-      ));
+      controller.addPoint(
+        Point(
+          id: 'p',
+          coordinates: const GlobeCoordinates(10, 20),
+          label: 'old',
+        ),
+      );
 
-      controller.updatePoint('p',
-          label: 'new', style: const PointStyle(color: Colors.red));
+      controller.updatePoint(
+        'p',
+        label: 'new',
+        style: const PointStyle(color: Colors.red),
+      );
 
       expect(controller.points.single.label, 'new');
       expect(controller.points.single.style.color, Colors.red);
@@ -57,17 +68,21 @@ void main() {
 
     test('updatePointConnection replaces the connection', () {
       final controller = FlutterEarthGlobeController();
-      controller.addPointConnection(PointConnection(
-        id: 'c',
-        start: const GlobeCoordinates(0, 0),
-        end: const GlobeCoordinates(10, 10),
-        label: 'old',
-      ));
+      controller.addPointConnection(
+        PointConnection(
+          id: 'c',
+          start: const GlobeCoordinates(0, 0),
+          end: const GlobeCoordinates(10, 10),
+          label: 'old',
+        ),
+      );
 
-      controller.updatePointConnection('c',
-          label: 'new',
-          isMoving: true,
-          style: const PointConnectionStyle(color: Colors.red));
+      controller.updatePointConnection(
+        'c',
+        label: 'new',
+        isMoving: true,
+        style: const PointConnectionStyle(color: Colors.red),
+      );
 
       final connection = controller.connections.single;
       expect(connection, isA<AnimatedPointConnection>());
@@ -79,9 +94,13 @@ void main() {
     test('updating an unknown id is a no-op', () {
       final controller = FlutterEarthGlobeController();
       expect(
-          () => controller.updatePoint('missing', label: 'x'), returnsNormally);
-      expect(() => controller.updatePointConnection('missing', label: 'x'),
-          returnsNormally);
+        () => controller.updatePoint('missing', label: 'x'),
+        returnsNormally,
+      );
+      expect(
+        () => controller.updatePointConnection('missing', label: 'x'),
+        returnsNormally,
+      );
     });
 
     test('getSatellite returns null for an unknown id', () {
@@ -105,8 +124,9 @@ void main() {
   });
 
   group('rotation', () {
-    testWidgets('the isRotating setter starts and stops the rotation',
-        (tester) async {
+    testWidgets('the isRotating setter starts and stops the rotation', (
+      tester,
+    ) async {
       final controller = FlutterEarthGlobeController();
       await pumpGlobe(tester, controller);
       expect(controller.rotationController.isAnimating, isFalse);
@@ -146,8 +166,9 @@ void main() {
       expect(controller.isRotating, isTrue);
     });
 
-    testWidgets('rotation calls after the globe unmounts do not throw (#27)',
-        (tester) async {
+    testWidgets('rotation calls after the globe unmounts do not throw (#27)', (
+      tester,
+    ) async {
       final controller = FlutterEarthGlobeController(isRotating: true);
       await pumpGlobe(tester, controller);
       await tester.pumpWidget(const SizedBox());
@@ -172,8 +193,9 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
 
-    testWidgets('a globe built with another controller takes over rotation',
-        (tester) async {
+    testWidgets('a globe built with another controller takes over rotation', (
+      tester,
+    ) async {
       final first = FlutterEarthGlobeController();
       final second = FlutterEarthGlobeController(isRotating: true);
       await pumpGlobe(tester, first);
@@ -189,8 +211,9 @@ void main() {
   });
 
   group('connections', () {
-    testWidgets('unmounting during a draw animation does not leak a ticker',
-        (tester) async {
+    testWidgets('unmounting during a draw animation does not leak a ticker', (
+      tester,
+    ) async {
       final controller = FlutterEarthGlobeController();
       await pumpGlobe(tester, controller);
 
@@ -214,8 +237,9 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
 
-    testWidgets('updating a connection mid-draw keeps the animation going',
-        (tester) async {
+    testWidgets('updating a connection mid-draw keeps the animation going', (
+      tester,
+    ) async {
       final controller = FlutterEarthGlobeController();
       await pumpGlobe(tester, controller);
 
@@ -261,50 +285,59 @@ void main() {
   });
 
   group('sun', () {
-    testWidgets('real-time sun position is applied as soon as the globe mounts',
-        (tester) async {
-      final controller =
-          FlutterEarthGlobeController(useRealTimeSunPosition: true);
-      final expected = FlutterEarthGlobeController()
-        ..updateSunPositionFromRealTime();
-      await pumpGlobe(tester, controller);
+    testWidgets(
+      'real-time sun position is applied as soon as the globe mounts',
+      (tester) async {
+        final controller = FlutterEarthGlobeController(
+          useRealTimeSunPosition: true,
+        );
+        final expected =
+            FlutterEarthGlobeController()..updateSunPositionFromRealTime();
+        await pumpGlobe(tester, controller);
 
-      expect(controller.sunLatitude, closeTo(expected.sunLatitude, 0.5));
-      expect(controller.sunLongitude, closeTo(expected.sunLongitude, 0.5));
+        expect(controller.sunLatitude, closeTo(expected.sunLatitude, 0.5));
+        expect(controller.sunLongitude, closeTo(expected.sunLongitude, 0.5));
 
-      await tester.pumpWidget(const SizedBox());
-    });
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
   });
 
   group('images', () {
-    testWidgets('loadBackground stores isBackgroundFollowingSphereRotation',
-        (tester) async {
+    testWidgets('loadBackground stores isBackgroundFollowingSphereRotation', (
+      tester,
+    ) async {
       final controller = FlutterEarthGlobeController();
       final provider = await testImageProvider(tester);
 
-      controller.loadBackground(provider,
-          isBackgroundFollowingSphereRotation: true);
+      controller.loadBackground(
+        provider,
+        isBackgroundFollowingSphereRotation: true,
+      );
       await waitFor(tester, () => controller.background != null);
 
       expect(controller.background, isNotNull);
       expect(controller.isBackgroundFollowingSphereRotation, isTrue);
     });
 
-    testWidgets('removeBackground wins over a load that is still pending',
-        (tester) async {
+    testWidgets('removeBackground wins over a load that is still pending', (
+      tester,
+    ) async {
       final controller = FlutterEarthGlobeController();
       final provider = await testImageProvider(tester);
 
       controller.loadBackground(provider);
       controller.removeBackground();
       await tester.runAsync(
-          () => Future<void>.delayed(const Duration(milliseconds: 300)));
+        () => Future<void>.delayed(const Duration(milliseconds: 300)),
+      );
 
       expect(controller.background, isNull);
     });
 
-    testWidgets('a load that finishes after dispose is ignored',
-        (tester) async {
+    testWidgets('a load that finishes after dispose is ignored', (
+      tester,
+    ) async {
       final controller = FlutterEarthGlobeController();
       final provider = await testImageProvider(tester);
 
@@ -312,7 +345,8 @@ void main() {
       controller.dispose();
       // notifyListeners on a disposed ChangeNotifier would throw here.
       await tester.runAsync(
-          () => Future<void>.delayed(const Duration(milliseconds: 300)));
+        () => Future<void>.delayed(const Duration(milliseconds: 300)),
+      );
 
       expect(controller.surface, isNull);
     });

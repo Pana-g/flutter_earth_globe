@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 /// Represents the type of connection between points.
 enum PointConnectionType {
@@ -59,7 +59,7 @@ class PointConnectionStyle {
   ///
   /// The [type] parameter specifies the type of connection. The default value is [PointConnectionType.solid].
   ///
-  /// The [color] parameter specifies the color of the connection. The default value is [Colors.white].
+  /// The [color] parameter specifies the color of the connection. The default value is opaque white.
   ///
   /// The [dotSize] parameter specifies the size of the dots in the connection. The default value is 1.
   ///
@@ -92,7 +92,7 @@ class PointConnectionStyle {
   /// ```
   const PointConnectionStyle({
     this.type = PointConnectionType.solid,
-    this.color = Colors.white,
+    this.color = const Color(0xFFFFFFFF),
     this.dotSize = 1,
     this.lineWidth = 1,
     this.dashSize = 4,

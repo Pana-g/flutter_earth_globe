@@ -5,8 +5,8 @@ homepage: https://github.com/Pana-g/flutter_earth_globe
 repository: https://github.com/Pana-g/flutter_earth_globe
 
 environment:
-  sdk: ">=3.6.0 <4.0.0"
-  flutter: ">=3.27.0"
+  sdk: '>=3.7.0 <4.0.0'
+  flutter: ">=3.29.0"
 
 dependencies:
   vector_math: ^2.1.4
@@ -24,5 +24,5 @@ flutter:
     - shaders/background.frag
 
 screenshots:
-  - description: "Flutter Earth Globe Sphere Day view"
+  - description: 'Flutter Earth Globe Sphere Day view'
     path: screenshots/screenshotEarthDay.png

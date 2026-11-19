@@ -1,8 +1,9 @@
 import 'dart:math' as math;
-import 'dart:ui';
-
-import 'package:flutter/material.dart';
+import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:vector_math/vector_math_64.dart' show Vector3;
 
 import 'globe_coordinates.dart';
 import 'line_helper.dart';
@@ -11,6 +12,7 @@ import 'point.dart';
 import 'point_connection.dart';
 import 'point_connection_style.dart';
 import 'satellite.dart';
+import 'region.dart';
 
 /// Calculated position data for a point on the globe
 class PointRenderData {
@@ -25,7 +27,8 @@ class PointRenderData {
   final double normalX; // Surface normal x component (towards camera)
   final double normalY; // Surface normal y component (horizontal)
   final double normalZ; // Surface normal z component (vertical)
-  final double tiltAngle; // Angle from camera view (0 = facing camera, pi/2 = edge)
+  final double
+  tiltAngle; // Angle from camera view (0 = facing camera, pi/2 = edge)
 
   PointRenderData({
     required this.id,
@@ -46,7 +49,8 @@ class ArcRenderData {
   final String id;
   final Offset start2D;
   final Offset end2D;
-  final Offset control2D; // Bezier control point (legacy, kept for compatibility)
+  final Offset
+  control2D; // Bezier control point (legacy, kept for compatibility)
   final Offset midPoint2D;
   final List<Offset> arcPoints2D; // Points along the great circle arc
   final List<bool> arcPointsVisible; // Visibility of each arc point
@@ -84,7 +88,8 @@ class SatelliteRenderData {
   final bool isVisible;
   final Satellite satellite;
   final double transitionProgress; // 0-1 for fade in animation
-  final GlobeCoordinates currentPosition; // Current position (for orbiting satellites)
+  final GlobeCoordinates
+  currentPosition; // Current position (for orbiting satellites)
 
   // 3D surface normal for tilt effect
   final double normalX;
@@ -119,7 +124,11 @@ class TransitionState {
   double transitionProgress;
   double growthProgress;
 
-  TransitionState({required this.addedAt, this.transitionProgress = 0.0, this.growthProgress = 0.0});
+  TransitionState({
+    required this.addedAt,
+    this.transitionProgress = 0.0,
+    this.growthProgress = 0.0,
+  });
 }
 
 /// Cached orbit path data to avoid recalculation every frame
@@ -142,8 +151,68 @@ class CachedOrbitPath {
   bool isValidFor(double rotY, double rotZ, double r) {
     // Use small epsilon for floating point comparison
     const epsilon = 0.0001;
-    return (rotationY - rotY).abs() < epsilon && (rotationZ - rotZ).abs() < epsilon && (radius - r).abs() < epsilon;
+    return (rotationY - rotY).abs() < epsilon &&
+        (rotationZ - rotZ).abs() < epsilon &&
+        (radius - r).abs() < epsilon;
   }
+}
+
+class RegionRenderData {
+  final String id;
+  final String baseId;
+  final GlobeRegion region;
+  final List<Path> visiblePaths;
+  final Path? fillPath;
+  final Path? polygonPath;
+  final Color borderColor;
+  final double borderWidth;
+  final Color? fillColor;
+  final Color? highlightColor;
+  final bool isSelected;
+  final bool isVisible;
+  final List<String> clipAgainst;
+
+  const RegionRenderData({
+    required this.id,
+    required this.baseId,
+    required this.region,
+    required this.visiblePaths,
+    this.fillPath,
+    this.polygonPath,
+    required this.borderColor,
+    required this.borderWidth,
+    required this.fillColor,
+    required this.highlightColor,
+    required this.isSelected,
+    required this.isVisible,
+    required this.clipAgainst,
+  });
+}
+
+class CachedPolygonData {
+  /// All rings belonging to this polygon:
+  /// - `rings[0]`: exterior boundary
+  /// - `rings[1..n]`: interior holes
+  final List<List<Vector3>> rings;
+
+  /// Convenience getter for exterior ring vertices.
+  List<Vector3> get vertices => rings.isNotEmpty ? rings.first : const [];
+
+  final Vector3 center;
+  final double sinThetaMax;
+
+  CachedPolygonData({
+    required this.rings,
+    required this.center,
+    required this.sinThetaMax,
+  });
+}
+
+class _CachedRegionEntry {
+  final List<List<List<List<double>>>> polygons;
+  final List<CachedPolygonData> data;
+
+  _CachedRegionEntry({required this.polygons, required this.data});
 }
 
 /// Globe.GL-style foreground renderer for points and connections.
@@ -151,6 +220,19 @@ class CachedOrbitPath {
 /// This class calculates positions for all elements and renders them
 /// with proper animations, transitions, and GPU acceleration where possible.
 class GlobeForegroundRenderer {
+  final Map<String, _CachedRegionEntry> _regionCoordinateCache = {};
+
+  // Cache for region calculation to avoid recalculating when globe is stationary
+  List<RegionRenderData>? _cachedRegionRenderData;
+  double? _lastRegionRadius;
+  double? _lastRegionRotationY;
+  double? _lastRegionRotationZ;
+  Size? _lastRegionCanvasSize;
+  Set? _lastRegionSelectedIds;
+  List? _lastRegions;
+  int? _lastRegionLength;
+  int? _lastRegionRevision;
+
   // Transition states for animations
   final Map<String, TransitionState> _pointTransitions = {};
   final Map<String, TransitionState> _connectionTransitions = {};
@@ -188,13 +270,22 @@ class GlobeForegroundRenderer {
       final transition = _pointTransitions[point.id]!;
       final elapsed = now.difference(transition.addedAt).inMilliseconds;
       final duration = point.style.transitionDuration;
-      transition.transitionProgress = duration > 0 ? (elapsed / duration).clamp(0.0, 1.0) : 1.0;
+      transition.transitionProgress =
+          duration > 0 ? (elapsed / duration).clamp(0.0, 1.0) : 1.0;
 
       // Calculate 3D position
-      final cartesian3D = getSpherePosition3D(point.coordinates, radius, rotationY, rotationZ);
+      final cartesian3D = getSpherePosition3D(
+        point.coordinates,
+        radius,
+        rotationY,
+        rotationZ,
+      );
 
       // Project to 2D
-      final position2D = Offset(center.dx + cartesian3D.y, center.dy - cartesian3D.z);
+      final position2D = Offset(
+        center.dx + cartesian3D.y,
+        center.dy - cartesian3D.z,
+      );
 
       // Visibility check (front-facing)
       final isVisible = cartesian3D.x > 0;
@@ -234,6 +325,375 @@ class GlobeForegroundRenderer {
     return result;
   }
 
+  bool _isSameGeometry(
+    List<List<List<List<double>>>> a,
+    List<List<List<List<double>>>> b,
+  ) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (int p = 0; p < a.length; p++) {
+      final polyA = a[p];
+      final polyB = b[p];
+      if (identical(polyA, polyB)) continue;
+      if (polyA.length != polyB.length) return false;
+      for (int r = 0; r < polyA.length; r++) {
+        final ringA = polyA[r];
+        final ringB = polyB[r];
+        if (identical(ringA, ringB)) continue;
+        if (ringA.length != ringB.length) return false;
+        for (int pt = 0; pt < ringA.length; pt++) {
+          final ptA = ringA[pt];
+          final ptB = ringB[pt];
+          if (identical(ptA, ptB)) continue;
+          if (ptA.length != ptB.length ||
+              ptA[0] != ptB[0] ||
+              ptA[1] != ptB[1]) {
+            return false;
+          }
+        }
+      }
+    }
+    return true;
+  }
+
+  List<CachedPolygonData> _getCachedRegionCoordinates(GlobeRegion region) {
+    final cached = _regionCoordinateCache[region.id];
+
+    if (cached != null) {
+      if (identical(cached.polygons, region.polygons)) {
+        return cached.data;
+      }
+      if (_isSameGeometry(cached.polygons, region.polygons)) {
+        // Geometry is identical, but the list reference changed.
+        // Update the cached reference so future frames can hit identical() in O(1).
+        _regionCoordinateCache[region.id] = _CachedRegionEntry(
+          polygons: region.polygons,
+          data: cached.data,
+        );
+        return cached.data;
+      }
+    }
+
+    final result = <CachedPolygonData>[];
+
+    // TODO: Dynamic zoom-based simplification threshold. Currently fixed and computed
+    // once upon loading, which can cause outlines to appear coarse when heavily zoomed in.
+    // Pre-simplification threshold on the unit sphere (in radians squared)
+    // 0.004 radians corresponds to ~0.6 screen pixels at default zoom.
+    const simplifyThresholdSq = 0.000016; // 0.004 * 0.004
+
+    for (final polygon in region.polygons) {
+      final cachedRings = <List<Vector3>>[];
+
+      for (final ring in polygon) {
+        final rawCoordinates = <Vector3>[];
+
+        for (final coordinate in ring) {
+          final latitude = degreesToRadians(coordinate[1]);
+          final longitude = degreesToRadians(coordinate[0]);
+
+          final cosLatitude = math.cos(latitude);
+
+          rawCoordinates.add(
+            Vector3(
+              cosLatitude * math.cos(longitude),
+              cosLatitude * math.sin(longitude),
+              math.sin(latitude),
+            ),
+          );
+        }
+
+        // Simplify the unit vectors on the sphere
+        final ringCoordinates = <Vector3>[];
+        if (rawCoordinates.isNotEmpty) {
+          ringCoordinates.add(rawCoordinates.first);
+          for (int i = 1; i < rawCoordinates.length - 1; i++) {
+            final current = rawCoordinates[i];
+            final lastKept = ringCoordinates.last;
+            final dx = current.x - lastKept.x;
+            final dy = current.y - lastKept.y;
+            final dz = current.z - lastKept.z;
+            final distSq = dx * dx + dy * dy + dz * dz;
+            if (distSq >= simplifyThresholdSq) {
+              ringCoordinates.add(current);
+            }
+          }
+          if (rawCoordinates.length > 1) {
+            ringCoordinates.add(rawCoordinates.last);
+          }
+        }
+
+        if (ringCoordinates.isNotEmpty) {
+          cachedRings.add(ringCoordinates);
+        }
+      }
+
+      if (cachedRings.isEmpty) continue;
+
+      // Precompute polygon center & sinThetaMax using exterior ring
+      final exteriorRing = cachedRings.first;
+      var sumX = 0.0;
+      var sumY = 0.0;
+      var sumZ = 0.0;
+      for (final v in exteriorRing) {
+        sumX += v.x;
+        sumY += v.y;
+        sumZ += v.z;
+      }
+      final count = exteriorRing.length;
+      var centerVec = Vector3(sumX / count, sumY / count, sumZ / count);
+      final len = math.sqrt(
+        centerVec.x * centerVec.x +
+            centerVec.y * centerVec.y +
+            centerVec.z * centerVec.z,
+      );
+      if (len > 0.0001) {
+        centerVec = Vector3(
+          centerVec.x / len,
+          centerVec.y / len,
+          centerVec.z / len,
+        );
+      } else if (exteriorRing.isNotEmpty) {
+        centerVec = exteriorRing.first;
+      } else {
+        centerVec = Vector3(0.0, 0.0, 0.0);
+      }
+
+      // Precompute sinThetaMax
+      var minDot = 1.0;
+      for (final v in exteriorRing) {
+        final dot = v.x * centerVec.x + v.y * centerVec.y + v.z * centerVec.z;
+        if (dot < minDot) {
+          minDot = dot;
+        }
+      }
+      double sinThetaMax;
+      if (minDot < 0.0) {
+        sinThetaMax = 1.0;
+      } else {
+        sinThetaMax = math.sqrt((1.0 - minDot * minDot).clamp(0.0, 1.0));
+      }
+
+      result.add(
+        CachedPolygonData(
+          rings: cachedRings,
+          center: centerVec,
+          sinThetaMax: sinThetaMax,
+        ),
+      );
+    }
+
+    _regionCoordinateCache[region.id] = _CachedRegionEntry(
+      polygons: region.polygons,
+      data: result,
+    );
+
+    return result;
+  }
+
+  List<RegionRenderData> calculateRegionPositions({
+    required List<GlobeRegion> regions,
+    required double radius,
+    required double rotationY,
+    required double rotationZ,
+    required Size canvasSize,
+    Set<String> selectedRegionIds = const {},
+    int regionRevision = 0,
+  }) {
+    // Check if cache is still valid (stationary state)
+    final isCacheValid =
+        _cachedRegionRenderData != null &&
+        _lastRegionRadius == radius &&
+        _lastRegionRotationY == rotationY &&
+        _lastRegionRotationZ == rotationZ &&
+        _lastRegionCanvasSize == canvasSize &&
+        _lastRegionRevision == regionRevision &&
+        identical(_lastRegions, regions) &&
+        _lastRegionLength == regions.length &&
+        setEquals(_lastRegionSelectedIds, selectedRegionIds);
+
+    if (isCacheValid) {
+      return _cachedRegionRenderData!;
+    }
+
+    final center = Offset(canvasSize.width / 2, canvasSize.height / 2);
+
+    final List<RegionRenderData> result = [];
+    final Set<String> normalizedSelectedIds =
+        selectedRegionIds.isEmpty
+            ? const <String>{}
+            : selectedRegionIds.map((id) => id.trim().toUpperCase()).toSet();
+
+    // Precompute rotation matrix using the exact same transformation as getSpherePosition3D in math_helper.dart
+    final Matrix4 rotationMatrix =
+        Matrix4.identity()
+          ..rotateY(-rotationY)
+          ..rotateZ(-rotationZ);
+    final s = rotationMatrix.storage;
+
+    // Row 0 (X component after rotation - camera depth / front-facing check)
+    final r00 = s[0];
+    final r01 = s[4];
+    final r02 = s[8];
+
+    // Row 1 (Y component after rotation - horizontal screen offset: center.dx + radius * ry)
+    final r10 = s[1];
+    final r11 = s[5];
+    final r12 = s[9];
+
+    // Row 2 (Z component after rotation - vertical screen offset: center.dy - radius * rz)
+    final r20 = s[2];
+    final r21 = s[6];
+    final r22 = s[10];
+
+    // Combined rotation and projection factors
+    final m10 = radius * r10;
+    final m11 = radius * r11;
+    final m12 = radius * r12;
+    final m20 = -radius * r20;
+    final m21 = -radius * r21;
+    final m22 = -radius * r22;
+
+    for (final region in regions) {
+      if (!region.isVisible) continue;
+
+      final cachedPolygons = _getCachedRegionCoordinates(region);
+
+      for (
+        int polygonIndex = 0;
+        polygonIndex < cachedPolygons.length;
+        polygonIndex++
+      ) {
+        final polygon = cachedPolygons[polygonIndex];
+
+        // Bounding spherical cap check (filter out polygons entirely on the back side of the globe)
+        final polyCenter = polygon.center;
+        final centerRotatedX =
+            r00 * polyCenter.x + r01 * polyCenter.y + r02 * polyCenter.z;
+
+        // If the center is sufficiently on the back side, the entire polygon is invisible.
+        if (centerRotatedX <= -polygon.sinThetaMax) {
+          continue;
+        }
+
+        final isSelected =
+            selectedRegionIds.contains(region.id) ||
+            normalizedSelectedIds.contains(region.id.trim().toUpperCase());
+        final fillColor =
+            isSelected && region.highlightColor != null
+                ? region.highlightColor!
+                : region.fillColor;
+        final needsFill = fillColor != null;
+
+        final List<Path> borderPaths = [];
+        final polygonPath = Path();
+        polygonPath.fillType = PathFillType.evenOdd;
+
+        for (final ring in polygon.rings) {
+          Path? currentBorderPath;
+          bool isRingFirst = true;
+
+          for (final unitVector in ring) {
+            final x = unitVector.x;
+            final y = unitVector.y;
+            final z = unitVector.z;
+
+            // Perform rotation directly
+            final rotatedX = r00 * x + r01 * y + r02 * z;
+
+            // Project for borders (only front-facing)
+            if (rotatedX > 0) {
+              final px = center.dx + m10 * x + m11 * y + m12 * z;
+              final py = center.dy + m20 * x + m21 * y + m22 * z;
+
+              if (currentBorderPath == null) {
+                currentBorderPath = Path();
+                currentBorderPath.moveTo(px, py);
+              } else {
+                currentBorderPath.lineTo(px, py);
+              }
+            } else {
+              if (currentBorderPath != null) {
+                borderPaths.add(currentBorderPath);
+                currentBorderPath = null;
+              }
+            }
+
+            // Project for polygon (clamp back-facing to horizon circle for fill & hit-testing)
+            double fpx, fpy;
+            if (rotatedX > 0) {
+              fpx = center.dx + m10 * x + m11 * y + m12 * z;
+              fpy = center.dy + m20 * x + m21 * y + m22 * z;
+            } else {
+              final ry = r10 * x + r11 * y + r12 * z;
+              final rzVal = r20 * x + r21 * y + r22 * z;
+              final d = math.sqrt(ry * ry + rzVal * rzVal);
+              if (d > 0.0001) {
+                fpx = center.dx + (ry / d) * radius;
+                fpy = center.dy - (rzVal / d) * radius;
+              } else {
+                fpx = center.dx;
+                fpy = center.dy;
+              }
+            }
+
+            if (isRingFirst) {
+              polygonPath.moveTo(fpx, fpy);
+              isRingFirst = false;
+            } else {
+              polygonPath.lineTo(fpx, fpy);
+            }
+          }
+
+          if (currentBorderPath != null) {
+            borderPaths.add(currentBorderPath);
+          }
+          if (!isRingFirst) {
+            polygonPath.close();
+          }
+        }
+
+        // If no parts of the polygon are visible, skip adding it
+        if (borderPaths.isEmpty) {
+          continue;
+        }
+
+        final fillPath = needsFill ? polygonPath : null;
+
+        result.add(
+          RegionRenderData(
+            id: '${region.id}_$polygonIndex',
+            baseId: region.id,
+            region: region,
+            visiblePaths: borderPaths,
+            fillPath: fillPath,
+            polygonPath: polygonPath,
+            borderColor: region.borderColor,
+            borderWidth: region.borderWidth,
+            fillColor: region.fillColor,
+            highlightColor: region.highlightColor,
+            isSelected: isSelected,
+            isVisible: region.isVisible,
+            clipAgainst: region.clipAgainst,
+          ),
+        );
+      }
+    }
+
+    // Update stationary cache
+    _cachedRegionRenderData = result;
+    _lastRegionRadius = radius;
+    _lastRegionRotationY = rotationY;
+    _lastRegionRotationZ = rotationZ;
+    _lastRegionCanvasSize = canvasSize;
+    _lastRegions = regions;
+    _lastRegionLength = regions.length;
+    _lastRegionRevision = regionRevision;
+    _lastRegionSelectedIds = Set.from(selectedRegionIds);
+
+    return result;
+  }
+
   /// Calculate render data for all connections (Globe.GL style)
   List<ArcRenderData> calculateConnectionPositions({
     required List<AnimatedPointConnection> connections,
@@ -247,7 +707,10 @@ class GlobeForegroundRenderer {
     final List<ArcRenderData> result = [];
 
     // Calculate delta time for dash animation
-    final deltaMs = _lastFrameTime != null ? now.difference(_lastFrameTime!).inMilliseconds.toDouble() : 16.0;
+    final deltaMs =
+        _lastFrameTime != null
+            ? now.difference(_lastFrameTime!).inMilliseconds.toDouble()
+            : 16.0;
     _lastFrameTime = now;
 
     for (final connection in connections) {
@@ -262,12 +725,18 @@ class GlobeForegroundRenderer {
 
       // Update transition (fade in) progress
       final transitionDuration = connection.style.transitionDuration;
-      transition.transitionProgress = transitionDuration > 0 ? (elapsed / transitionDuration).clamp(0.0, 1.0) : 1.0;
+      transition.transitionProgress =
+          transitionDuration > 0
+              ? (elapsed / transitionDuration).clamp(0.0, 1.0)
+              : 1.0;
 
       // Update growth animation progress
       final growthDuration = connection.style.growthAnimationDuration;
       if (connection.style.animateOnAdd) {
-        transition.growthProgress = growthDuration > 0 ? (elapsed / growthDuration).clamp(0.0, 1.0) : 1.0;
+        transition.growthProgress =
+            growthDuration > 0
+                ? (elapsed / growthDuration).clamp(0.0, 1.0)
+                : 1.0;
       } else {
         transition.growthProgress = 1.0;
       }
@@ -277,16 +746,29 @@ class GlobeForegroundRenderer {
       // OR if isMoving is true (legacy behavior)
       if (connection.style.dashAnimateTime > 0 || connection.isMoving) {
         final animateTime =
-            connection.style.dashAnimateTime > 0 ? connection.style.dashAnimateTime : 1000.0; // Default 1 second if just isMoving
+            connection.style.dashAnimateTime > 0
+                ? connection.style.dashAnimateTime
+                : 1000.0; // Default 1 second if just isMoving
         final dashSpeed = 1.0 / animateTime;
         final dashIncrement = deltaMs * dashSpeed;
-        _dashOffsets[connection.id] = ((_dashOffsets[connection.id] ?? 0.0) + dashIncrement) % 1.0;
+        _dashOffsets[connection.id] =
+            ((_dashOffsets[connection.id] ?? 0.0) + dashIncrement) % 1.0;
       }
 
       // === Globe.GL Style Arc Calculation ===
       // Get 3D positions
-      final startVec = getSpherePosition3D(connection.start, radius, rotationY, rotationZ);
-      final endVec = getSpherePosition3D(connection.end, radius, rotationY, rotationZ);
+      final startVec = getSpherePosition3D(
+        connection.start,
+        radius,
+        rotationY,
+        rotationZ,
+      );
+      final endVec = getSpherePosition3D(
+        connection.end,
+        radius,
+        rotationY,
+        rotationZ,
+      );
 
       // Project to 2D
       final start2D = Offset(center.dx + startVec.y, center.dy - startVec.z);
@@ -294,7 +776,10 @@ class GlobeForegroundRenderer {
 
       // Calculate arc using Globe.GL's method:
       // altitude = geoDistance / 2 * altAutoScale (default 0.5)
-      final centralAngle = calculateCentralAngle(connection.start, connection.end);
+      final centralAngle = calculateCentralAngle(
+        connection.start,
+        connection.end,
+      );
       final geoDistance = centralAngle; // In radians, proportional to distance
 
       // Globe.GL default: altitude = distance/2 * 0.5 = distance/4
@@ -304,7 +789,8 @@ class GlobeForegroundRenderer {
 
       // Generate arc points - use more segments for smoother edge transitions
       // Higher resolution prevents visible "stepping" when arc disappears at sphere edge
-      const numSegments = 1000; // Higher than Globe.GL default for smoother clipping
+      const numSegments =
+          1000; // Higher than Globe.GL default for smoother clipping
       final List<Offset> arcPoints2D = [];
       final List<bool> arcPointsVisible = [];
 
@@ -332,7 +818,9 @@ class GlobeForegroundRenderer {
         }
 
         // Normalize base point
-        final baseLen = math.sqrt(baseX * baseX + baseY * baseY + baseZ * baseZ);
+        final baseLen = math.sqrt(
+          baseX * baseX + baseY * baseY + baseZ * baseZ,
+        );
         if (baseLen > 0) {
           baseX /= baseLen;
           baseY /= baseLen;
@@ -372,7 +860,8 @@ class GlobeForegroundRenderer {
         // The sphere silhouette is a circle of radius `radius` in the YZ plane
         // An elevated point appears "above" the silhouette if its 2D projection
         // is outside this circle
-        final isAboveSilhouette = projectedDistFromCenter > radius && currentAltitude > 0;
+        final isAboveSilhouette =
+            projectedDistFromCenter > radius && currentAltitude > 0;
 
         // For the front/back check, use a slightly lenient threshold
         // This prevents harsh cutting exactly at x=0
@@ -391,7 +880,10 @@ class GlobeForegroundRenderer {
       var midPoint3D = (startVec + endVec) / 2;
       midPoint3D.normalize();
       midPoint3D.scale(radius + arcAltitude);
-      final control2D = Offset(center.dx + midPoint3D.y, center.dy - midPoint3D.z);
+      final control2D = Offset(
+        center.dx + midPoint3D.y,
+        center.dy - midPoint3D.z,
+      );
 
       result.add(
         ArcRenderData(
@@ -438,7 +930,8 @@ class GlobeForegroundRenderer {
       final transition = _satelliteTransitions[satellite.id]!;
       final elapsed = now.difference(transition.addedAt).inMilliseconds;
       final duration = satellite.style.transitionDuration;
-      transition.transitionProgress = duration > 0 ? (elapsed / duration).clamp(0.0, 1.0) : 1.0;
+      transition.transitionProgress =
+          duration > 0 ? (elapsed / duration).clamp(0.0, 1.0) : 1.0;
 
       // Get current position (handles orbiting satellites)
       final currentPosition = satellite.getPositionAtTime(now);
@@ -447,21 +940,33 @@ class GlobeForegroundRenderer {
       final satelliteRadius = radius * (1.0 + satellite.altitude);
 
       // Calculate 3D position at the satellite's altitude
-      final cartesian3D = getSpherePosition3D(currentPosition, satelliteRadius, rotationY, rotationZ);
+      final cartesian3D = getSpherePosition3D(
+        currentPosition,
+        satelliteRadius,
+        rotationY,
+        rotationZ,
+      );
 
       // Project to 2D
-      final position2D = Offset(center.dx + cartesian3D.y, center.dy - cartesian3D.z);
+      final position2D = Offset(
+        center.dx + cartesian3D.y,
+        center.dy - cartesian3D.z,
+      );
 
       // Visibility check - satellites above the globe can be visible even when
       // coordinates are "behind" the globe
       // Use the same logic as arc points for elevated objects
-      final projectedDistFromCenter = math.sqrt(cartesian3D.y * cartesian3D.y + cartesian3D.z * cartesian3D.z);
-      final isAboveSilhouette = projectedDistFromCenter > radius && satellite.altitude > 0;
+      final projectedDistFromCenter = math.sqrt(
+        cartesian3D.y * cartesian3D.y + cartesian3D.z * cartesian3D.z,
+      );
+      final isAboveSilhouette =
+          projectedDistFromCenter > radius && satellite.altitude > 0;
       final horizonThreshold = -satellite.altitude * radius * 0.3;
       final isVisible = cartesian3D.x > horizonThreshold || isAboveSilhouette;
 
       // Depth calculation for scaling (normalized 0-1)
-      final depth = isVisible ? (cartesian3D.x / satelliteRadius).clamp(0.0, 1.0) : 0.0;
+      final depth =
+          isVisible ? (cartesian3D.x / satelliteRadius).clamp(0.0, 1.0) : 0.0;
 
       // Calculate surface normal
       final normalX = cartesian3D.x / satelliteRadius;
@@ -476,7 +981,8 @@ class GlobeForegroundRenderer {
       if (satellite.style.showOrbitPath && satellite.orbit != null) {
         // Check if we have a valid cached orbit path
         final cachedPath = _orbitPathCache[satellite.id];
-        if (cachedPath != null && cachedPath.isValidFor(rotationY, rotationZ, satelliteRadius)) {
+        if (cachedPath != null &&
+            cachedPath.isValidFor(rotationY, rotationZ, satelliteRadius)) {
           // Use cached path - huge performance win!
           orbitPath2D = cachedPath.path2D;
           orbitPathVisible = cachedPath.pathVisible;
@@ -491,19 +997,38 @@ class GlobeForegroundRenderer {
 
           for (int i = 0; i <= numOrbitPoints; i++) {
             final t = i / numOrbitPoints;
-            final orbitTime = satellite.referenceTime.add(Duration(milliseconds: (orbitPeriod.inMilliseconds * t).round()));
+            final orbitTime = satellite.referenceTime.add(
+              Duration(milliseconds: (orbitPeriod.inMilliseconds * t).round()),
+            );
 
-            final orbitPos = satellite.orbit!.getPositionAtTime(orbitTime, satellite.referenceTime);
-            final orbitCartesian = getSpherePosition3D(orbitPos, satelliteRadius, rotationY, rotationZ);
+            final orbitPos = satellite.orbit!.getPositionAtTime(
+              orbitTime,
+              satellite.referenceTime,
+            );
+            final orbitCartesian = getSpherePosition3D(
+              orbitPos,
+              satelliteRadius,
+              rotationY,
+              rotationZ,
+            );
 
-            final orbitPoint2D = Offset(center.dx + orbitCartesian.y, center.dy - orbitCartesian.z);
+            final orbitPoint2D = Offset(
+              center.dx + orbitCartesian.y,
+              center.dy - orbitCartesian.z,
+            );
             orbitPath2D.add(orbitPoint2D);
 
             // Visibility check for orbit path
-            final orbitProjDist = math.sqrt(orbitCartesian.y * orbitCartesian.y + orbitCartesian.z * orbitCartesian.z);
-            final orbitAboveSilhouette = orbitProjDist > radius && satellite.altitude > 0;
+            final orbitProjDist = math.sqrt(
+              orbitCartesian.y * orbitCartesian.y +
+                  orbitCartesian.z * orbitCartesian.z,
+            );
+            final orbitAboveSilhouette =
+                orbitProjDist > radius && satellite.altitude > 0;
             final orbitHorizonThreshold = -satellite.altitude * radius * 0.3;
-            orbitPathVisible.add(orbitCartesian.x > orbitHorizonThreshold || orbitAboveSilhouette);
+            orbitPathVisible.add(
+              orbitCartesian.x > orbitHorizonThreshold || orbitAboveSilhouette,
+            );
           }
 
           // Cache the computed path
@@ -542,21 +1067,45 @@ class GlobeForegroundRenderer {
     return result;
   }
 
-  /// Clean up transitions for removed elements
-  void cleanupRemovedElements(List<Point> points, List<AnimatedPointConnection> connections, [List<Satellite>? satellites]) {
+  /// Clean up transitions and cached geometry for removed elements
+  void cleanupRemovedElements(
+    List<Point> points,
+    List<AnimatedPointConnection> connections, [
+    List<Satellite>? satellites,
+    List<GlobeRegion>? regions,
+  ]) {
     final pointIds = points.map((p) => p.id).toSet();
     final connectionIds = connections.map((c) => c.id).toSet();
 
     _pointTransitions.removeWhere((key, _) => !pointIds.contains(key));
-    _connectionTransitions.removeWhere((key, _) => !connectionIds.contains(key));
+    _connectionTransitions.removeWhere(
+      (key, _) => !connectionIds.contains(key),
+    );
     _dashOffsets.removeWhere((key, _) => !connectionIds.contains(key));
 
     if (satellites != null) {
       final satelliteIds = satellites.map((s) => s.id).toSet();
-      _satelliteTransitions.removeWhere((key, _) => !satelliteIds.contains(key));
+      _satelliteTransitions.removeWhere(
+        (key, _) => !satelliteIds.contains(key),
+      );
       // Also cleanup orbit path cache
       _orbitPathCache.removeWhere((key, _) => !satelliteIds.contains(key));
     }
+
+    if (regions != null) {
+      final regionIds = regions.map((r) => r.id).toSet();
+      _regionCoordinateCache.removeWhere((key, _) => !regionIds.contains(key));
+    }
+  }
+
+  /// Explicitly clear all cached region coordinates
+  void clearRegionCoordinateCache() {
+    _regionCoordinateCache.clear();
+  }
+
+  /// Explicitly remove cached coordinates for a specific region ID
+  void removeRegionCoordinate(String id) {
+    _regionCoordinateCache.remove(id);
   }
 }
 
@@ -565,6 +1114,7 @@ class GpuForegroundPainter extends CustomPainter {
   final List<PointRenderData> points;
   final List<ArcRenderData> arcs;
   final List<SatelliteRenderData> satellites;
+  final List<RegionRenderData> regions;
   final double radius;
   final Offset center;
   final Offset? hoverPoint;
@@ -575,20 +1125,42 @@ class GpuForegroundPainter extends CustomPainter {
   final bool skipSatelliteShapes;
 
   // Callbacks
-  final void Function(String pointId, Offset? position, bool isHovering, bool isVisible)? onPointHover;
-  final void Function(String connectionId, Offset? position, bool isHovering, bool isVisible)? onConnectionHover;
-  final void Function(String satelliteId, Offset? position, bool isHovering, bool isVisible)? onSatelliteHover;
+  final void Function(
+    String pointId,
+    Offset? position,
+    bool isHovering,
+    bool isVisible,
+  )?
+  onPointHover;
+  final void Function(
+    String connectionId,
+    Offset? position,
+    bool isHovering,
+    bool isVisible,
+  )?
+  onConnectionHover;
+  final void Function(
+    String satelliteId,
+    Offset? position,
+    bool isHovering,
+    bool isVisible,
+  )?
+  onSatelliteHover;
   final VoidCallback? onPointClicked;
+  final void Function(GlobeRegion region)? onRegionTap;
+  final void Function(GlobeRegion? region)? onRegionHover;
 
   // Previous state for change detection
   final String? previousHoveredPointId;
   final String? previousHoveredConnectionId;
   final String? previousHoveredSatelliteId;
+  final String? previousHoveredRegionId;
 
   GpuForegroundPainter({
     required this.points,
     required this.arcs,
     required this.satellites,
+    required this.regions,
     required this.radius,
     required this.center,
     this.hoverPoint,
@@ -598,9 +1170,12 @@ class GpuForegroundPainter extends CustomPainter {
     this.onConnectionHover,
     this.onSatelliteHover,
     this.onPointClicked,
+    this.onRegionTap,
+    this.onRegionHover,
     this.previousHoveredPointId,
     this.previousHoveredConnectionId,
     this.previousHoveredSatelliteId,
+    this.previousHoveredRegionId,
   });
 
   @override
@@ -608,6 +1183,67 @@ class GpuForegroundPainter extends CustomPainter {
     String? currentHoveredPointId;
     String? currentHoveredConnectionId;
     bool clickHandled = false;
+
+    // Cache to avoid rebuilding the combined clip paths repeatedly on the same frame
+    final Map<String, Path?> frameClipPathCache = {};
+
+    Path? getInverseClipPath(List<String> clipAgainst, String baseId) {
+      if (clipAgainst.isEmpty) return null;
+      final clipKey =
+          '$baseId:${(List<String>.from(clipAgainst)..sort()).join(',')}';
+      if (frameClipPathCache.containsKey(clipKey)) {
+        return frameClipPathCache[clipKey];
+      }
+
+      final clipIds = clipAgainst.toSet();
+      final combinedClipPath = Path();
+      bool hasClips = false;
+
+      for (final otherRegion in regions) {
+        final otherBaseId = otherRegion.baseId;
+        if (clipIds.contains(otherBaseId) && otherBaseId != baseId) {
+          if (otherRegion.polygonPath != null) {
+            combinedClipPath.addPath(otherRegion.polygonPath!, Offset.zero);
+            hasClips = true;
+          } else {
+            for (final path in otherRegion.visiblePaths) {
+              combinedClipPath.addPath(path, Offset.zero);
+              hasClips = true;
+            }
+          }
+        }
+      }
+
+      Path? inverseClipPath;
+      if (hasClips) {
+        inverseClipPath =
+            Path()
+              ..addRect(const Rect.fromLTRB(-100000, -100000, 100000, 100000))
+              ..addPath(combinedClipPath, Offset.zero);
+        inverseClipPath.fillType = PathFillType.evenOdd;
+      }
+      frameClipPathCache[clipKey] = inverseClipPath;
+      return inverseClipPath;
+    }
+
+    // Draw all visible regions with generic clipping
+    for (final region in regions) {
+      if (!region.isVisible) continue;
+
+      final inverseClipPath = getInverseClipPath(
+        region.clipAgainst,
+        region.baseId,
+      );
+
+      if (inverseClipPath != null) {
+        canvas.save();
+        canvas.clipPath(inverseClipPath);
+        _drawRegion(canvas, region);
+        canvas.restore();
+      } else {
+        _drawRegion(canvas, region);
+      }
+    }
 
     // Draw points first (behind arcs)
     for (final point in points) {
@@ -619,8 +1255,17 @@ class GpuForegroundPainter extends CustomPainter {
       _drawPoint(canvas, point);
 
       // Draw label (non-builder labels)
-      if (point.point.isLabelVisible && point.point.label != null && point.point.label!.isNotEmpty && point.point.labelBuilder == null) {
-        _drawLabel(canvas, point.point.label!, point.point.labelTextStyle, point.position2D, size);
+      if (point.point.isLabelVisible &&
+          point.point.label != null &&
+          point.point.label!.isNotEmpty &&
+          point.point.labelBuilder == null) {
+        _drawLabel(
+          canvas,
+          point.point.label!,
+          point.point.labelTextStyle,
+          point.position2D,
+          size,
+        );
       }
     }
 
@@ -638,7 +1283,9 @@ class GpuForegroundPainter extends CustomPainter {
       if (path != null) {
         // Check hover on arc (arcs have priority over points since they're on top)
         final isHovering =
-            currentHoveredConnectionId == null && hoverPoint != null && _isPointOnPath(hoverPoint!, path, arc.connection.strokeWidth + 4);
+            currentHoveredConnectionId == null &&
+            hoverPoint != null &&
+            _isPointOnPath(hoverPoint!, path, arc.connection.strokeWidth + 4);
 
         if (isHovering) {
           currentHoveredConnectionId = arc.id;
@@ -650,7 +1297,9 @@ class GpuForegroundPainter extends CustomPainter {
         onConnectionHover?.call(arc.id, arc.midPoint2D, isHovering, true);
 
         // Handle click on arc first (since arcs are on top)
-        if (!clickHandled && clickPoint != null && _isPointOnPath(clickPoint!, path, arc.connection.strokeWidth + 4)) {
+        if (!clickHandled &&
+            clickPoint != null &&
+            _isPointOnPath(clickPoint!, path, arc.connection.strokeWidth + 4)) {
           // Defer callback to after paint to avoid triggering widget builds during paint
           final callback = arc.connection.onTap;
           if (callback != null) {
@@ -676,7 +1325,8 @@ class GpuForegroundPainter extends CustomPainter {
         height: scaledSize * 2 + 8,
       );
 
-      final isHovering = currentHoveredPointId == null &&
+      final isHovering =
+          currentHoveredPointId == null &&
           currentHoveredConnectionId == null && // Arc hover takes priority
           hoverPoint != null &&
           hitRect.contains(hoverPoint!);
@@ -688,10 +1338,17 @@ class GpuForegroundPainter extends CustomPainter {
         }
       }
 
-      onPointHover?.call(point.id, point.position2D, isHovering, point.isVisible);
+      onPointHover?.call(
+        point.id,
+        point.position2D,
+        isHovering,
+        point.isVisible,
+      );
 
       // Handle click (arcs already handled, so only if not already clicked)
-      if (!clickHandled && clickPoint != null && hitRect.contains(clickPoint!)) {
+      if (!clickHandled &&
+          clickPoint != null &&
+          hitRect.contains(clickPoint!)) {
         // Defer callback to after paint to avoid triggering widget builds during paint
         final callback = point.point.onTap;
         if (callback != null) {
@@ -706,7 +1363,12 @@ class GpuForegroundPainter extends CustomPainter {
     String? currentHoveredSatelliteId;
     for (final satellite in satellites) {
       if (!satellite.isVisible) {
-        onSatelliteHover?.call(satellite.id, satellite.position2D, false, false);
+        onSatelliteHover?.call(
+          satellite.id,
+          satellite.position2D,
+          false,
+          false,
+        );
         continue;
       }
 
@@ -735,10 +1397,16 @@ class GpuForegroundPainter extends CustomPainter {
       }
 
       // Calculate hit rect for hover/click
-      final scaledSize = satellite.satellite.style.size * (0.7 + 0.6 * satellite.depth);
-      final hitRect = Rect.fromCenter(center: satellite.position2D, width: scaledSize * 2 + 8, height: scaledSize * 2 + 8);
+      final scaledSize =
+          satellite.satellite.style.size * (0.7 + 0.6 * satellite.depth);
+      final hitRect = Rect.fromCenter(
+        center: satellite.position2D,
+        width: scaledSize * 2 + 8,
+        height: scaledSize * 2 + 8,
+      );
 
-      final isHovering = currentHoveredSatelliteId == null &&
+      final isHovering =
+          currentHoveredSatelliteId == null &&
           currentHoveredConnectionId == null &&
           currentHoveredPointId == null &&
           hoverPoint != null &&
@@ -751,10 +1419,17 @@ class GpuForegroundPainter extends CustomPainter {
         }
       }
 
-      onSatelliteHover?.call(satellite.id, satellite.position2D, isHovering, true);
+      onSatelliteHover?.call(
+        satellite.id,
+        satellite.position2D,
+        isHovering,
+        true,
+      );
 
       // Handle click
-      if (!clickHandled && clickPoint != null && hitRect.contains(clickPoint!)) {
+      if (!clickHandled &&
+          clickPoint != null &&
+          hitRect.contains(clickPoint!)) {
         // Defer callback to after paint to avoid triggering widget builds during paint
         final callback = satellite.satellite.onTap;
         if (callback != null) {
@@ -762,6 +1437,73 @@ class GpuForegroundPainter extends CustomPainter {
         }
         onPointClicked?.call();
         clickHandled = true;
+      }
+    }
+
+    // Handle click on regions (only if not already handled by arcs, points, or satellites)
+    if (!clickHandled && clickPoint != null && onRegionTap != null) {
+      for (int i = regions.length - 1; i >= 0; i--) {
+        final regionData = regions[i];
+        if (!regionData.isVisible || regionData.polygonPath == null) continue;
+
+        if (regionData.polygonPath!.contains(clickPoint!)) {
+          final clipPath = getInverseClipPath(
+            regionData.clipAgainst,
+            regionData.baseId,
+          );
+          if (clipPath != null && !clipPath.contains(clickPoint!)) {
+            continue;
+          }
+
+          final callback = onRegionTap;
+          final regionObj = regionData.region;
+          SchedulerBinding.instance.addPostFrameCallback((_) {
+            callback?.call(regionObj);
+          });
+          onPointClicked?.call();
+          clickHandled = true;
+          break;
+        }
+      }
+    }
+
+    // Handle hover on regions (only if no arc, point, or satellite is hovered)
+    if (hoverPoint != null &&
+        currentHoveredConnectionId == null &&
+        currentHoveredPointId == null &&
+        currentHoveredSatelliteId == null &&
+        onRegionHover != null) {
+      String? currentHoveredRegionId;
+      for (int i = regions.length - 1; i >= 0; i--) {
+        final regionData = regions[i];
+        if (!regionData.isVisible || regionData.polygonPath == null) continue;
+
+        if (regionData.polygonPath!.contains(hoverPoint!)) {
+          final clipPath = getInverseClipPath(
+            regionData.clipAgainst,
+            regionData.baseId,
+          );
+          if (clipPath != null && !clipPath.contains(hoverPoint!)) {
+            continue;
+          }
+
+          currentHoveredRegionId = regionData.baseId;
+          if (currentHoveredRegionId != previousHoveredRegionId) {
+            final callback = onRegionHover;
+            final regionObj = regionData.region;
+            SchedulerBinding.instance.addPostFrameCallback((_) {
+              callback?.call(regionObj);
+            });
+          }
+          break;
+        }
+      }
+
+      if (currentHoveredRegionId == null && previousHoveredRegionId != null) {
+        final callback = onRegionHover;
+        SchedulerBinding.instance.addPostFrameCallback((_) {
+          callback?.call(null);
+        });
       }
     }
   }
@@ -778,7 +1520,10 @@ class GpuForegroundPainter extends CustomPainter {
     if (effectiveProgress <= 0) return null;
 
     // Check for invalid/NaN coordinates
-    if (arc.start2D.dx.isNaN || arc.start2D.dy.isNaN || arc.end2D.dx.isNaN || arc.end2D.dy.isNaN) {
+    if (arc.start2D.dx.isNaN ||
+        arc.start2D.dy.isNaN ||
+        arc.end2D.dx.isNaN ||
+        arc.end2D.dy.isNaN) {
       return null;
     }
 
@@ -787,17 +1532,21 @@ class GpuForegroundPainter extends CustomPainter {
       return null;
     }
 
-    final paint = Paint()
-      ..color = connection.style.color.withAlpha((connection.style.color.a * arc.transitionProgress * 255).round())
-      ..strokeWidth = connection.style.lineWidth * globeScale
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
+    final paint =
+        Paint()
+          ..color = connection.style.color.withAlpha(
+            (connection.style.color.a * arc.transitionProgress * 255).round(),
+          )
+          ..strokeWidth = connection.style.lineWidth * globeScale
+          ..strokeCap = StrokeCap.round
+          ..style = PaintingStyle.stroke;
 
     // Build path from pre-calculated arc points (follows great circle on sphere)
     if (arc.arcPoints2D.length < 2) return null;
 
     // Apply growth animation - limit how far along the arc we draw
-    final progressIdx = ((arc.arcPoints2D.length - 1) * effectiveProgress).round();
+    final progressIdx =
+        ((arc.arcPoints2D.length - 1) * effectiveProgress).round();
     if (progressIdx < 1) return null;
 
     // Globe.GL style: draw only the visible segments
@@ -866,7 +1615,11 @@ class GpuForegroundPainter extends CustomPainter {
               final endTangent = metric.getTangentForOffset(endDash);
 
               if (startTangent != null && endTangent != null) {
-                canvas.drawLine(startTangent.position, endTangent.position, paint);
+                canvas.drawLine(
+                  startTangent.position,
+                  endTangent.position,
+                  paint,
+                );
               }
             }
             distance += patternLength;
@@ -894,8 +1647,17 @@ class GpuForegroundPainter extends CustomPainter {
     }
 
     // Draw label
-    if (connection.isLabelVisible && connection.label != null && connection.label!.isNotEmpty && connection.labelBuilder == null) {
-      _drawLabel(canvas, connection.label!, connection.labelTextStyle, arc.midPoint2D, size);
+    if (connection.isLabelVisible &&
+        connection.label != null &&
+        connection.label!.isNotEmpty &&
+        connection.labelBuilder == null) {
+      _drawLabel(
+        canvas,
+        connection.label!,
+        connection.labelTextStyle,
+        arc.midPoint2D,
+        size,
+      );
     }
 
     return path;
@@ -918,7 +1680,10 @@ class GpuForegroundPainter extends CustomPainter {
 
     // Draw point with altitude effect
     final altitudeOffset = style.altitude * point.depth * 2.0 * globeScale;
-    final drawPos = Offset(point.position2D.dx, point.position2D.dy - altitudeOffset);
+    final drawPos = Offset(
+      point.position2D.dx,
+      point.position2D.dy - altitudeOffset,
+    );
 
     // === Globe.GL Style 3D Tilted Point ===
     // The point should appear as if it's a disc lying flat on the sphere surface
@@ -946,12 +1711,17 @@ class GpuForegroundPainter extends CustomPainter {
     canvas.rotate(angleToCenter + math.pi / 2);
 
     // Draw the main colored disc
-    final paint = Paint()
-      ..color = style.color.withValues(alpha: alpha)
-      ..style = PaintingStyle.fill;
+    final paint =
+        Paint()
+          ..color = style.color.withValues(alpha: alpha)
+          ..style = PaintingStyle.fill;
 
     // Width = major axis (full), Height = minor axis (foreshortened)
-    final rect = Rect.fromCenter(center: Offset.zero, width: majorAxis, height: minorAxis);
+    final rect = Rect.fromCenter(
+      center: Offset.zero,
+      width: majorAxis,
+      height: minorAxis,
+    );
     canvas.drawOval(rect, paint);
 
     canvas.restore();
@@ -965,7 +1735,8 @@ class GpuForegroundPainter extends CustomPainter {
     final globeScale = radius / baseRadius;
 
     // Scale based on depth and size attenuation
-    final depthScale = style.sizeAttenuation ? (0.7 + 0.6 * satellite.depth) : 1.0;
+    final depthScale =
+        style.sizeAttenuation ? (0.7 + 0.6 * satellite.depth) : 1.0;
     final scaledSize = style.size * depthScale * globeScale;
 
     // Apply transition animation
@@ -974,16 +1745,20 @@ class GpuForegroundPainter extends CustomPainter {
     // Draw glow effect first (behind the satellite)
     if (style.hasGlow) {
       final glowColor = style.glowColor ?? style.color;
-      final glowPaint = Paint()
-        ..color = glowColor.withAlpha((alpha * style.glowIntensity * 0.5 * 255).round())
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, scaledSize * 1.5);
+      final glowPaint =
+          Paint()
+            ..color = glowColor.withAlpha(
+              (alpha * style.glowIntensity * 0.5 * 255).round(),
+            )
+            ..maskFilter = MaskFilter.blur(BlurStyle.normal, scaledSize * 1.5);
       canvas.drawCircle(satellite.position2D, scaledSize * 1.5, glowPaint);
     }
 
     // Draw the satellite based on shape
-    final paint = Paint()
-      ..color = style.color.withAlpha((alpha * 255).round())
-      ..style = PaintingStyle.fill;
+    final paint =
+        Paint()
+          ..color = style.color.withAlpha((alpha * 255).round())
+          ..style = PaintingStyle.fill;
 
     switch (style.shape) {
       case SatelliteShape.circle:
@@ -991,7 +1766,11 @@ class GpuForegroundPainter extends CustomPainter {
         break;
 
       case SatelliteShape.square:
-        final rect = Rect.fromCenter(center: satellite.position2D, width: scaledSize * 2, height: scaledSize * 2);
+        final rect = Rect.fromCenter(
+          center: satellite.position2D,
+          width: scaledSize * 2,
+          height: scaledSize * 2,
+        );
         canvas.save();
         canvas.translate(satellite.position2D.dx, satellite.position2D.dy);
         canvas.rotate(math.pi / 4); // Rotate 45 degrees for diamond shape
@@ -1002,9 +1781,18 @@ class GpuForegroundPainter extends CustomPainter {
 
       case SatelliteShape.triangle:
         final path = Path();
-        path.moveTo(satellite.position2D.dx, satellite.position2D.dy - scaledSize);
-        path.lineTo(satellite.position2D.dx - scaledSize * 0.866, satellite.position2D.dy + scaledSize * 0.5);
-        path.lineTo(satellite.position2D.dx + scaledSize * 0.866, satellite.position2D.dy + scaledSize * 0.5);
+        path.moveTo(
+          satellite.position2D.dx,
+          satellite.position2D.dy - scaledSize,
+        );
+        path.lineTo(
+          satellite.position2D.dx - scaledSize * 0.866,
+          satellite.position2D.dy + scaledSize * 0.5,
+        );
+        path.lineTo(
+          satellite.position2D.dx + scaledSize * 0.866,
+          satellite.position2D.dy + scaledSize * 0.5,
+        );
         path.close();
         canvas.drawPath(path, paint);
         break;
@@ -1018,28 +1806,48 @@ class GpuForegroundPainter extends CustomPainter {
         break;
 
       case SatelliteShape.customImage:
-        _drawCustomImage(canvas, satellite.position2D, scaledSize, satellite.satellite.style.customImage,
-            satellite.satellite.style.customImageSize, satellite.satellite.style.customImageRotated, paint);
+        final image = style.customImage;
+        final imageSize = style.customImageSize;
+        if (image == null || imageSize == null || imageSize.isEmpty) {
+          // Nothing to draw yet: fall back to the default circle marker.
+          canvas.drawCircle(satellite.position2D, scaledSize, paint);
+        } else {
+          _drawCustomImage(
+            canvas,
+            satellite.position2D,
+            scaledSize,
+            image,
+            imageSize,
+            style.customImageRotated,
+            alpha,
+          );
+        }
         break;
     }
   }
 
-  // Draw a custom image, which must be preloaded before calling this method.
-  void _drawCustomImage(Canvas canvas, Offset center, double size, Picture? customImage, Size? customImageSize, bool rotated, Paint paint) {
-    if (customImage == null || customImageSize == null || customImageSize.isEmpty) return;
+  /// Draws [image] centred on [center], scaled uniformly to fit a
+  /// `size * 2` square and faded by [alpha] (0-1).
+  void _drawCustomImage(
+    Canvas canvas,
+    Offset center,
+    double size,
+    ui.Picture image,
+    Size imageSize,
+    bool rotated,
+    double alpha,
+  ) {
+    final scale = (size * 2) / math.max(imageSize.width, imageSize.height);
     canvas.save();
     canvas.translate(center.dx, center.dy);
-
     if (rotated) canvas.rotate(math.pi / 4);
-
-    final double scaleX = (size * 2) / customImageSize.width;
-    final double scaleY = (size * 2) / customImageSize.height;
-    canvas.scale(scaleX, scaleY);
-    canvas.translate(-customImageSize.width / 2, -customImageSize.height / 2);
-
-    final bounds = Rect.fromLTWH(0, 0, customImageSize.width, customImageSize.height);
-    canvas.saveLayer(bounds, Paint()..color = Color.fromRGBO(0, 0, 0, paint.color.a));
-    canvas.drawPicture(customImage);
+    canvas.scale(scale);
+    canvas.translate(-imageSize.width / 2, -imageSize.height / 2);
+    canvas.saveLayer(
+      Offset.zero & imageSize,
+      Paint()..color = Color.fromARGB((alpha * 255).round(), 0, 0, 0),
+    );
+    canvas.drawPicture(image);
     canvas.restore();
     canvas.restore();
   }
@@ -1065,14 +1873,23 @@ class GpuForegroundPainter extends CustomPainter {
     canvas.drawPath(path, paint);
   }
 
-  void _drawSatelliteIcon(Canvas canvas, Offset center, double size, Paint paint) {
+  void _drawSatelliteIcon(
+    Canvas canvas,
+    Offset center,
+    double size,
+    Paint paint,
+  ) {
     // Draw a simple satellite shape: body with two solar panels
     final bodySize = size * 0.6;
     final panelWidth = size * 0.8;
     final panelHeight = size * 0.3;
 
     // Body (rectangle)
-    final bodyRect = Rect.fromCenter(center: center, width: bodySize, height: bodySize);
+    final bodyRect = Rect.fromCenter(
+      center: center,
+      width: bodySize,
+      height: bodySize,
+    );
     canvas.drawRect(bodyRect, paint);
 
     // Left solar panel
@@ -1100,11 +1917,12 @@ class GpuForegroundPainter extends CustomPainter {
     final style = satellite.satellite.style;
     final alpha = style.orbitPathColor.a * satellite.transitionProgress * 255;
 
-    final paint = Paint()
-      ..color = style.orbitPathColor.withAlpha(alpha.round())
-      ..strokeWidth = style.orbitPathWidth
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+    final paint =
+        Paint()
+          ..color = style.orbitPathColor.withAlpha(alpha.round())
+          ..strokeWidth = style.orbitPathWidth
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round;
 
     // Build path with gaps where segments are hidden
     final path = Path();
@@ -1143,7 +1961,11 @@ class GpuForegroundPainter extends CustomPainter {
             final endTangent = metric.getTangentForOffset(endDash);
 
             if (startTangent != null && endTangent != null) {
-              canvas.drawLine(startTangent.position, endTangent.position, paint);
+              canvas.drawLine(
+                startTangent.position,
+                endTangent.position,
+                paint,
+              );
             }
           }
           distance += dashLength + gapLength;
@@ -1154,16 +1976,32 @@ class GpuForegroundPainter extends CustomPainter {
     }
   }
 
-  void _drawLabel(Canvas canvas, String text, TextStyle? style, Offset position, Size size) {
-    final textStyle = style ?? const TextStyle(color: Colors.white, fontSize: 12);
+  void _drawLabel(
+    Canvas canvas,
+    String text,
+    TextStyle? style,
+    Offset position,
+    Size size,
+  ) {
+    final textStyle =
+        style ?? const TextStyle(color: Color(0xFFFFFFFF), fontSize: 12);
     final textSpan = TextSpan(text: text, style: textStyle);
-    final textPainter = TextPainter(text: textSpan, textDirection: TextDirection.ltr);
+    final textPainter = TextPainter(
+      text: textSpan,
+      textDirection: TextDirection.ltr,
+    );
     textPainter.layout();
 
-    final offset = Offset(position.dx - textPainter.width / 2, position.dy - textPainter.height - 8);
+    final offset = Offset(
+      position.dx - textPainter.width / 2,
+      position.dy - textPainter.height - 8,
+    );
 
     // Ensure label stays within bounds
-    final clampedOffset = Offset(offset.dx.clamp(0, size.width - textPainter.width), offset.dy.clamp(0, size.height - textPainter.height));
+    final clampedOffset = Offset(
+      offset.dx.clamp(0, size.width - textPainter.width),
+      offset.dy.clamp(0, size.height - textPainter.height),
+    );
 
     textPainter.paint(canvas, clampedOffset);
   }
@@ -1196,9 +2034,42 @@ class GpuForegroundPainter extends CustomPainter {
     return points != oldDelegate.points ||
         arcs != oldDelegate.arcs ||
         satellites != oldDelegate.satellites ||
+        regions != oldDelegate.regions ||
         hoverPoint != oldDelegate.hoverPoint ||
         clickPoint != oldDelegate.clickPoint ||
         radius != oldDelegate.radius ||
         center != oldDelegate.center;
+  }
+
+  void _drawRegion(Canvas canvas, RegionRenderData region) {
+    // Draw the fill first so the border remains visible on top.
+    final fillColor =
+        region.isSelected && region.highlightColor != null
+            ? region.highlightColor!
+            : region.fillColor;
+
+    if (fillColor != null && region.fillPath != null) {
+      final fillPaint =
+          Paint()
+            ..style = PaintingStyle.fill
+            ..color = fillColor;
+
+      canvas.drawPath(region.fillPath!, fillPaint);
+    }
+
+    if (region.visiblePaths.isNotEmpty) {
+      // Draw the border on top.
+      final borderPaint =
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = region.borderWidth
+            ..color = region.borderColor
+            ..strokeCap = StrokeCap.round
+            ..strokeJoin = StrokeJoin.round;
+
+      for (final path in region.visiblePaths) {
+        canvas.drawPath(path, borderPaint);
+      }
+    }
   }
 }

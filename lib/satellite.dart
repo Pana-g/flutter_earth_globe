@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 import 'globe_coordinates.dart';
 
@@ -24,7 +24,9 @@ enum SatelliteShape {
   /// A satellite icon shape.
   satelliteIcon,
 
-  /// A custom image.
+  /// A caller-supplied picture, set with [SatelliteStyle.customImage] and
+  /// [SatelliteStyle.customImageSize]. Falls back to [circle] when either is
+  /// missing.
   customImage,
 }
 
@@ -42,16 +44,29 @@ class SatelliteStyle {
   final Color orbitPathColor;
   final double orbitPathWidth;
   final bool orbitPathDashed;
-  /// A preloaded custom image picture. The caller owns this picture and must
-  /// dispose it after it is no longer used by any satellite style.
+
+  /// The picture drawn for [SatelliteShape.customImage].
+  ///
+  /// The caller owns the picture and must dispose it once no satellite style
+  /// uses it any more. To use an SVG, load it in the app (for example with
+  /// `flutter_svg`'s `vg.loadPicture`) and pass `pictureInfo.picture` here and
+  /// `pictureInfo.size` as [customImageSize].
+  ///
+  /// Not included in [toMap]/[toJson], so it must be set again after
+  /// deserializing.
   final ui.Picture? customImage;
-  /// Intrinsic dimensions of [customImage], in logical drawing units.
+
+  /// The intrinsic size of [customImage]. The picture is scaled uniformly to
+  /// fit a `size * 2` square, keeping its aspect ratio.
   final Size? customImageSize;
+
+  /// Whether [customImage] is drawn rotated by 45 degrees, like the diamond
+  /// orientation of [SatelliteShape.square].
   final bool customImageRotated;
 
   const SatelliteStyle({
     this.size = 4.0,
-    this.color = Colors.white,
+    this.color = const Color(0xFFFFFFFF),
     this.hasGlow = false,
     this.glowColor,
     this.glowIntensity = 0.5,
@@ -109,6 +124,9 @@ class SatelliteStyle {
   factory SatelliteStyle.fromJson(String source) =>
       SatelliteStyle.fromMap(json.decode(source) as Map<String, dynamic>);
 
+  /// Returns a copy with the given fields replaced. Passing `null` keeps the
+  /// current value, so [customImage] cannot be cleared through [copyWith];
+  /// create a new [SatelliteStyle] instead.
   SatelliteStyle copyWith({
     double? size,
     Color? color,
@@ -127,21 +145,22 @@ class SatelliteStyle {
     bool? customImageRotated,
   }) {
     return SatelliteStyle(
-        size: size ?? this.size,
-        color: color ?? this.color,
-        hasGlow: hasGlow ?? this.hasGlow,
-        glowColor: glowColor ?? this.glowColor,
-        glowIntensity: glowIntensity ?? this.glowIntensity,
-        sizeAttenuation: sizeAttenuation ?? this.sizeAttenuation,
-        transitionDuration: transitionDuration ?? this.transitionDuration,
-        shape: shape ?? this.shape,
-        showOrbitPath: showOrbitPath ?? this.showOrbitPath,
-        orbitPathColor: orbitPathColor ?? this.orbitPathColor,
-        orbitPathWidth: orbitPathWidth ?? this.orbitPathWidth,
-        orbitPathDashed: orbitPathDashed ?? this.orbitPathDashed,
-        customImage: customImage ?? this.customImage,
-        customImageSize: customImageSize ?? this.customImageSize,
-        customImageRotated: customImageRotated ?? this.customImageRotated);
+      size: size ?? this.size,
+      color: color ?? this.color,
+      hasGlow: hasGlow ?? this.hasGlow,
+      glowColor: glowColor ?? this.glowColor,
+      glowIntensity: glowIntensity ?? this.glowIntensity,
+      sizeAttenuation: sizeAttenuation ?? this.sizeAttenuation,
+      transitionDuration: transitionDuration ?? this.transitionDuration,
+      shape: shape ?? this.shape,
+      showOrbitPath: showOrbitPath ?? this.showOrbitPath,
+      orbitPathColor: orbitPathColor ?? this.orbitPathColor,
+      orbitPathWidth: orbitPathWidth ?? this.orbitPathWidth,
+      orbitPathDashed: orbitPathDashed ?? this.orbitPathDashed,
+      customImage: customImage ?? this.customImage,
+      customImageSize: customImageSize ?? this.customImageSize,
+      customImageRotated: customImageRotated ?? this.customImageRotated,
+    );
   }
 }
 
@@ -184,8 +203,8 @@ class SatelliteOrbit {
     final latitude = math.asin(math.sin(incRad) * math.sin(u)) * 180 / math.pi;
     final longitude =
         (raanRad + math.atan2(math.cos(incRad) * math.sin(u), math.cos(u))) *
-            180 /
-            math.pi;
+        180 /
+        math.pi;
 
     var normalizedLon = longitude % 360;
     if (normalizedLon > 180) normalizedLon -= 360;
@@ -226,8 +245,13 @@ class SatelliteOrbit {
 class Satellite {
   final String id;
   final String? label;
-  final Widget? Function(BuildContext context, Satellite satellite,
-      bool isHovering, bool isVisible)? labelBuilder;
+  final Widget? Function(
+    BuildContext context,
+    Satellite satellite,
+    bool isHovering,
+    bool isVisible,
+  )?
+  labelBuilder;
   final bool isLabelVisible;
   final Offset labelOffset;
   final TextStyle? labelTextStyle;
@@ -267,9 +291,13 @@ class Satellite {
     GlobeCoordinates? coordinates,
     double? altitude,
     String? label,
-    Widget? Function(BuildContext context, Satellite satellite, bool isHovering,
-            bool isVisible)?
-        labelBuilder,
+    Widget? Function(
+      BuildContext context,
+      Satellite satellite,
+      bool isHovering,
+      bool isVisible,
+    )?
+    labelBuilder,
     bool? isLabelVisible,
     Offset? labelOffset,
     SatelliteStyle? style,
