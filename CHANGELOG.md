@@ -20,6 +20,7 @@
 - Grabbing the globe mid-fling no longer snaps it back for a frame (#41, part of #33).
 - Point labels are placed for the current frame's rotation instead of trailing one frame behind (#42).
 - A globe without a background now receives gestures under loose constraints (#44).
+- On web (CanvasKit), the globe texture no longer disappears once the globe rotates or is dragged, leaving only the atmosphere. The background texture had the same problem. The textures are now bound to the shader on every paint.
 
 ### ⚡ Performance
 

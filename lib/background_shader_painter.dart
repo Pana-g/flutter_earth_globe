@@ -7,6 +7,9 @@ import 'package:flutter/material.dart';
 /// when the background is following sphere rotation.
 class BackgroundShaderPainter extends CustomPainter {
   final ui.FragmentShader shader;
+
+  /// Texture bound to sampler 0. Rebound on every paint, see [paint].
+  final ui.Image starTexture;
   final double offsetX;
   final double offsetY;
   final double texWidth;
@@ -16,6 +19,7 @@ class BackgroundShaderPainter extends CustomPainter {
 
   BackgroundShaderPainter({
     required this.shader,
+    required this.starTexture,
     required this.offsetX,
     required this.offsetY,
     required this.texWidth,
@@ -40,6 +44,11 @@ class BackgroundShaderPainter extends CustomPainter {
         onPaintError?.call();
         return;
       }
+
+      // Rebind the texture on every paint: with the CanvasKit web renderer
+      // a sampler bound once is deleted when its owning ImageShader is
+      // garbage-collected (see SphereShaderPainter.paint).
+      shader.setImageSampler(0, starTexture);
 
       // Set shader uniforms - must match the order in the shader
       int idx = 0;
@@ -73,7 +82,8 @@ class BackgroundShaderPainter extends CustomPainter {
   bool shouldRepaint(BackgroundShaderPainter oldDelegate) {
     // Always repaint if any values changed - don't compare shader instances
     // as they may be recreated frequently on web
-    return oldDelegate.offsetX != offsetX ||
+    return oldDelegate.starTexture != starTexture ||
+        oldDelegate.offsetX != offsetX ||
         oldDelegate.offsetY != offsetY ||
         oldDelegate.texWidth != texWidth ||
         oldDelegate.texHeight != texHeight ||
