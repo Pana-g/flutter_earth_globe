@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'flutter_earth_globe_controller.dart';
 
 // Export the DayNightCycleDirection enum for external use
-export 'misc.dart' show DayNightCycleDirection;
+export 'misc.dart' show DayNightCycleDirection, DayNightMode;
 
 // Export satellite classes for external use
 export 'satellite.dart'
