@@ -124,9 +124,8 @@ class GlobeRegion {
       borderColor: borderColor ?? this.borderColor,
       borderWidth: borderWidth ?? this.borderWidth,
       fillColor: clearFillColor ? null : (fillColor ?? this.fillColor),
-      highlightColor: clearHighlightColor
-          ? null
-          : (highlightColor ?? this.highlightColor),
+      highlightColor:
+          clearHighlightColor ? null : (highlightColor ?? this.highlightColor),
       isVisible: isVisible ?? this.isVisible,
       clipAgainst: clipAgainst ?? this.clipAgainst,
     );

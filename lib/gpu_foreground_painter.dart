@@ -1135,7 +1135,8 @@ class GpuForegroundPainter extends CustomPainter {
 
     Path? getInverseClipPath(List<String> clipAgainst, String baseId) {
       if (clipAgainst.isEmpty) return null;
-      final clipKey = '$baseId:${(List<String>.from(clipAgainst)..sort()).join(',')}';
+      final clipKey =
+          '$baseId:${(List<String>.from(clipAgainst)..sort()).join(',')}';
       if (frameClipPathCache.containsKey(clipKey)) {
         return frameClipPathCache[clipKey];
       }

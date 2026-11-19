@@ -204,12 +204,15 @@ void main() {
       final initialRevision = controller.regionRevision;
 
       controller.hideRegions(['FRA']);
-      expect(controller.regions.firstWhere((r) => r.id == 'FRA').isVisible, isFalse);
-      expect(controller.regions.firstWhere((r) => r.id == 'DEU').isVisible, isTrue);
+      expect(controller.regions.firstWhere((r) => r.id == 'FRA').isVisible,
+          isFalse);
+      expect(controller.regions.firstWhere((r) => r.id == 'DEU').isVisible,
+          isTrue);
       expect(controller.regionRevision, greaterThan(initialRevision));
 
       controller.showRegions(['FRA']);
-      expect(controller.regions.firstWhere((r) => r.id == 'FRA').isVisible, isTrue);
+      expect(controller.regions.firstWhere((r) => r.id == 'FRA').isVisible,
+          isTrue);
 
       controller.hideAllRegions();
       expect(controller.regions.every((r) => !r.isVisible), isTrue);
@@ -218,7 +221,8 @@ void main() {
       expect(controller.regions.every((r) => r.isVisible), isTrue);
     });
 
-    test('updateRegionStyle modifies styles dynamically and bumps revision', () {
+    test('updateRegionStyle modifies styles dynamically and bumps revision',
+        () {
       controller.addRegion(const GlobeRegion(
         id: 'IND',
         name: 'India',
@@ -266,7 +270,9 @@ void main() {
       expect(controller.regionRevision, greaterThan(rev2));
     });
 
-    testWidgets('GpuForegroundPainter hit-testing triggers onRegionTap on click inside polygon', (tester) async {
+    testWidgets(
+        'GpuForegroundPainter hit-testing triggers onRegionTap on click inside polygon',
+        (tester) async {
       GlobeRegion? tappedRegion;
 
       const testRegion = GlobeRegion(
@@ -320,7 +326,9 @@ void main() {
       expect(tappedRegion!.id, 'TEST_ID');
     });
 
-    testWidgets('GpuForegroundPainter hit-testing triggers onRegionHover when hovering over polygon', (tester) async {
+    testWidgets(
+        'GpuForegroundPainter hit-testing triggers onRegionHover when hovering over polygon',
+        (tester) async {
       GlobeRegion? hoveredRegion;
 
       const testRegion = GlobeRegion(
@@ -399,7 +407,8 @@ void main() {
       expect(hoveredRegion, isNull);
     });
 
-    testWidgets('GpuForegroundPainter hit-testing respects clipAgainst masks', (tester) async {
+    testWidgets('GpuForegroundPainter hit-testing respects clipAgainst masks',
+        (tester) async {
       GlobeRegion? tappedRegion;
 
       const baseRegion = GlobeRegion(
@@ -482,7 +491,9 @@ void main() {
       expect(tappedRegion!.id, 'IND');
     });
 
-    testWidgets('GeoJSON inner rings (holes) are preserved in one polygon and taps inside hole are ignored', (tester) async {
+    testWidgets(
+        'GeoJSON inner rings (holes) are preserved in one polygon and taps inside hole are ignored',
+        (tester) async {
       GlobeRegion? tappedRegion;
 
       final sampleGeoJsonWithHole = {
@@ -558,7 +569,8 @@ void main() {
         ),
       );
       await tester.pump();
-      expect(tappedRegion, isNull, reason: 'Click inside hole must NOT trigger onRegionTap');
+      expect(tappedRegion, isNull,
+          reason: 'Click inside hole must NOT trigger onRegionTap');
 
       // Click in filled area outside hole (e.g. at Offset(115, 115))
       await tester.pumpWidget(
@@ -581,7 +593,9 @@ void main() {
       expect(tappedRegion!.id, 'DONUT_COUNTRY');
     });
 
-    testWidgets('reloading region under the same ID with modified geometry invalidates cache', (tester) async {
+    testWidgets(
+        'reloading region under the same ID with modified geometry invalidates cache',
+        (tester) async {
       GlobeRegion? tappedRegion;
       final renderer = GlobeForegroundRenderer();
 
@@ -681,10 +695,14 @@ void main() {
         ),
       );
       await tester.pump();
-      expect(tappedRegion, isNull, reason: 'Old vertices must not persist after reloading geometry under same ID');
+      expect(tappedRegion, isNull,
+          reason:
+              'Old vertices must not persist after reloading geometry under same ID');
     });
 
-    test('GlobeRegion.normalizePolygons correctly handles 3-level and 4-level lists', () {
+    test(
+        'GlobeRegion.normalizePolygons correctly handles 3-level and 4-level lists',
+        () {
       final threeLevel = [
         [
           [0.0, 0.0],
@@ -716,7 +734,8 @@ void main() {
       expect(normalizedFrom4.first.length, 2);
     });
 
-    test('selectRegions works case-insensitively when calculating render data', () {
+    test('selectRegions works case-insensitively when calculating render data',
+        () {
       final renderer = GlobeForegroundRenderer();
       final region = GlobeRegion(
         id: 'TEST_ID',
@@ -749,7 +768,9 @@ void main() {
       expect(renderData.first.highlightColor, Colors.amber);
     });
 
-    test('clipping safeguard prevents region from clipping against itself if self ID is in clipAgainst', () {
+    test(
+        'clipping safeguard prevents region from clipping against itself if self ID is in clipAgainst',
+        () {
       final renderer = GlobeForegroundRenderer();
       final region = GlobeRegion(
         id: 'SELF',
@@ -779,7 +800,9 @@ void main() {
       expect(renderData.first.visiblePaths, isNotEmpty);
     });
 
-    test('region vertex projection matches getSpherePosition3D for non-zero rotations', () {
+    test(
+        'region vertex projection matches getSpherePosition3D for non-zero rotations',
+        () {
       final renderer = GlobeForegroundRenderer();
       const rotY = 0.7;
       const rotZ = 1.3;
@@ -789,7 +812,8 @@ void main() {
       // Lat 10, Lon 20 (lon first in GeoJSON: [20.0, 10.0])
       final coords = const GlobeCoordinates(10, 20);
       final expected3D = getSpherePosition3D(coords, radius, rotY, rotZ);
-      final expectedScreenPos = Offset(center.dx + expected3D.y, center.dy - expected3D.z);
+      final expectedScreenPos =
+          Offset(center.dx + expected3D.y, center.dy - expected3D.z);
 
       // Region centered around (10, 20)
       final region = GlobeRegion(
@@ -826,7 +850,9 @@ void main() {
       expect(pathBounds.top, closeTo(expectedScreenPos.dy, 1.0));
     });
 
-    test('getInverseClipPath caches by baseId and clipAgainst so mutual clipAgainst does not hide regions', () {
+    test(
+        'getInverseClipPath caches by baseId and clipAgainst so mutual clipAgainst does not hide regions',
+        () {
       final renderer = GlobeForegroundRenderer();
 
       // IN and PK both clip against each other: clipAgainst: ['IN', 'PK']
@@ -880,7 +906,9 @@ void main() {
       expect(renderData[1].visiblePaths, isNotEmpty);
     });
 
-    test('deep equality hit updates cache reference so subsequent identical() checks succeed in O(1)', () {
+    test(
+        'deep equality hit updates cache reference so subsequent identical() checks succeed in O(1)',
+        () {
       final renderer = GlobeForegroundRenderer();
       final initialPolygons = [
         [
@@ -1052,7 +1080,8 @@ void main() {
       expect(controller.regions[3].id, 'US_1');
     });
 
-    test('region ID normalization and case-insensitivity across operations', () {
+    test('region ID normalization and case-insensitivity across operations',
+        () {
       controller.addRegion(
         GlobeRegion(
           id: 'fra',
@@ -1084,7 +1113,9 @@ void main() {
       expect(controller.regions, isEmpty);
     });
 
-    test('clearFillColor and clearHighlightColor in copyWith and updateRegionStyle', () {
+    test(
+        'clearFillColor and clearHighlightColor in copyWith and updateRegionStyle',
+        () {
       final region = GlobeRegion(
         id: 'COLOR_TEST',
         name: 'Color Test',
